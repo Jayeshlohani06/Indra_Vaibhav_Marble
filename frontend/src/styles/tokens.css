@@ -1,0 +1,15 @@
+
+:root {
+  --color-primary: #1f4e79;
+  --color-primary-hover: #173a5c;
+  --color-background: #f7f8fa;
+  --color-surface: #ffffff;
+  --color-text: #1f2937;
+  --color-text-muted: #6b7280;
+  --color-border: #e5e7eb;
+  --color-success: #15803d;
+  --color-danger: #dc2626;
+  --radius-md: 10px;
+  --sidebar-width: 240px;
+  --topbar-height: 64px;
+}

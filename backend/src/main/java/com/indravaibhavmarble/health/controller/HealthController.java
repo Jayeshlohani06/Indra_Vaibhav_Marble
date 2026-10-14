@@ -1,5 +1,6 @@
 package com.indravaibhavmarble.health.controller;
 
+import com.indravaibhavmarble.common.response.ApiResponse;
 import com.indravaibhavmarble.health.dto.HealthResponse;
 import com.indravaibhavmarble.health.service.HealthService;
 import org.springframework.http.ResponseEntity;
@@ -18,7 +19,15 @@ public class HealthController {
     }
 
     @GetMapping
-    public ResponseEntity<HealthResponse> getHealth() {
-        return ResponseEntity.ok(healthService.getHealthStatus());
+    public ResponseEntity<ApiResponse<HealthResponse>> getHealth() {
+
+        HealthResponse healthResponse = healthService.getHealthStatus();
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Application health retrieved successfully",
+                        healthResponse
+                )
+        );
     }
 }

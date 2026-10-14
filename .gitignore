@@ -1,0 +1,49 @@
+# Operating-system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Environment and local secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+**/application-local-secrets.properties
+**/application-*-secrets.properties
+
+# Logs and runtime output
+*.log
+logs/
+
+# Java/Maven build output
+**/target/
+**/build/
+
+# Java/IDE metadata
+*.class
+*.jar
+*.iml
+*.ipr
+*.iws
+.classpath
+.factorypath
+.project
+.settings/
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Node.js/frontend dependencies and build output
+**/node_modules/
+**/dist/
+**/dist-ssr/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Temporary archives and local reports
+*.tmp
+*.temp

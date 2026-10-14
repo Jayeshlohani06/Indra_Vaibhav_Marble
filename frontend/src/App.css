@@ -1,0 +1,275 @@
+
+/* ===== Main ERP layout ===== */
+
+.erp-layout {
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+  background: #f6f7fb;
+  color: #172033;
+  text-align: left;
+}
+
+/* ===== Sidebar ===== */
+
+.erp-sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  width: 250px;
+  height: 100vh;
+  padding: 24px 16px;
+  overflow-y: auto;
+  background: #292820;
+  color: #fff;
+}
+
+.erp-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 8px 30px;
+  color: #fff;
+}
+
+.erp-brand-icon {
+  display: grid;
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border-radius: 12px;
+  background: #8c785b;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.erp-brand h2 {
+  margin: 0 0 3px;
+  color: #fff;
+  font-size: 15px;
+}
+
+.erp-brand p {
+  margin: 0;
+  color: #c9bda9;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+}
+
+.erp-nav-label {
+  margin: 12px 10px;
+  color: #a8a49a;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.erp-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.erp-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 11px 12px;
+  border-radius: 9px;
+  color: #e7e5df;
+  font-size: 13px;
+  transition: background 0.2s ease;
+}
+
+.erp-nav-item:hover,
+.erp-nav-item.active {
+  background: #454035;
+  color: #fff;
+}
+
+.erp-nav-item.active {
+  box-shadow: inset 3px 0 #c4a77a;
+}
+
+.erp-nav-icon {
+  width: 20px;
+  text-align: center;
+}
+
+.erp-sidebar-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+  padding: 20px 8px 0;
+  color: #d4d1c8;
+  font-size: 12px;
+}
+
+.erp-sidebar-footer small {
+  width: 100%;
+  padding-left: 16px;
+  color: #a8a49a;
+}
+
+.erp-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4ade80;
+}
+
+/* ===== Workspace and header ===== */
+
+.erp-workspace {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 100vh;
+  margin-left: 250px;
+}
+
+.erp-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 88px;
+  padding: 18px 32px;
+  border-bottom: 1px solid #e8ebf1;
+  background: #fff;
+}
+
+.erp-breadcrumb {
+  margin: 0 0 5px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.erp-topbar h1 {
+  margin: 0;
+  color: #172033;
+  font-size: 24px;
+  font-weight: 750;
+}
+
+.erp-admin {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.erp-avatar {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 50%;
+  background: #eee8dd;
+  color: #6f5737;
+  font-weight: 750;
+}
+
+.erp-admin strong,
+.erp-admin span {
+  display: block;
+}
+
+.erp-admin strong {
+  color: #172033;
+  font-size: 13px;
+}
+
+.erp-admin span {
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 11px;
+}
+
+.erp-content {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  padding: 28px 32px 36px;
+}
+
+/* ===== Responsive layout ===== */
+
+@media (max-width: 1000px) {
+  .erp-sidebar {
+    width: 215px;
+  }
+
+  .erp-workspace {
+    margin-left: 215px;
+  }
+
+  .erp-content {
+    padding: 24px 20px;
+  }
+
+  .erp-topbar {
+    padding: 18px 20px;
+  }
+}
+
+@media (max-width: 700px) {
+  .erp-sidebar {
+    width: 76px;
+    padding: 20px 10px;
+  }
+
+  .erp-brand {
+    justify-content: center;
+    padding: 0 0 28px;
+  }
+
+  .erp-brand > div:last-child,
+  .erp-nav-label,
+  .erp-nav-item > span:not(.erp-nav-icon),
+  .erp-sidebar-footer {
+    display: none;
+  }
+
+  .erp-nav-item {
+    justify-content: center;
+    padding: 12px 4px;
+  }
+
+  .erp-nav-icon {
+    width: auto;
+  }
+
+  .erp-workspace {
+    margin-left: 76px;
+  }
+
+  .erp-topbar {
+    align-items: flex-start;
+    padding: 16px;
+  }
+
+  .erp-topbar h1 {
+    font-size: 19px;
+  }
+
+  .erp-admin {
+    gap: 6px;
+  }
+
+  .erp-admin > div:last-child {
+    display: none;
+  }
+
+  .erp-content {
+    padding: 18px 12px;
+  }
+}
