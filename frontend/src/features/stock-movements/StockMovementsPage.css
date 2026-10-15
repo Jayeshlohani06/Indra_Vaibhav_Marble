@@ -1,0 +1,236 @@
+.stock-movements-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+  color: var(--text-primary, #172033);
+}
+
+.stock-movements-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.stock-movements-eyebrow {
+  margin: 0 0 6px;
+  color: var(--text-secondary, #64748b);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+}
+
+.stock-movements-header h2 {
+  margin: 0;
+  font-size: clamp(22px, 3vw, 30px);
+}
+
+.stock-movements-description {
+  margin: 8px 0 0;
+  color: var(--text-secondary, #64748b);
+}
+
+.stock-movements-refresh,
+.stock-movements-error button {
+  padding: 10px 16px;
+  border: 1px solid var(--border-color, #dbe2ea);
+  border-radius: 8px;
+  background: var(--card-background, #ffffff);
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.stock-movements-refresh:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.stock-movements-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.stock-movement-stat {
+  padding: 20px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 12px;
+  background: var(--card-background, #ffffff);
+}
+
+.stock-movement-stat span {
+  display: block;
+  color: var(--text-secondary, #64748b);
+  font-size: 14px;
+}
+
+.stock-movement-stat strong {
+  display: block;
+  margin-top: 10px;
+  font-size: 28px;
+}
+
+.stock-movements-toolbar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.stock-movements-toolbar input,
+.stock-movements-toolbar select {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--border-color, #dbe2ea);
+  border-radius: 8px;
+  background: var(--card-background, #ffffff);
+  color: inherit;
+  font: inherit;
+}
+
+.stock-movements-toolbar input {
+  flex: 1 1 280px;
+}
+
+.stock-movements-toolbar select {
+  flex: 0 1 220px;
+}
+
+.stock-movements-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 12px;
+  background: var(--card-background, #ffffff);
+}
+
+.stock-movements-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+}
+
+.stock-movements-table th,
+.stock-movements-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  white-space: nowrap;
+}
+
+.stock-movements-table th {
+  background: var(--table-header-background, #f8fafc);
+  color: var(--text-secondary, #64748b);
+  font-weight: 700;
+}
+
+.stock-movements-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.stock-movements-table tbody tr:hover {
+  background: var(--hover-background, #f8fafc);
+}
+
+.stock-movements-table td small {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-secondary, #64748b);
+}
+
+.stock-movement-badge {
+  display: inline-block;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.stock-movement-sale {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.stock-movement-purchase {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.stock-movement-adjustment {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.stock-movement-reversal {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.stock-quantity-negative {
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.stock-quantity-positive {
+  color: #15803d;
+  font-weight: 700;
+}
+
+.stock-movements-message {
+  padding: 32px 20px;
+  border: 1px dashed var(--border-color, #cbd5e1);
+  border-radius: 12px;
+  color: var(--text-secondary, #64748b);
+  text-align: center;
+}
+
+.stock-movements-error {
+  padding: 16px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.stock-movements-result-count {
+  margin: -12px 0 0;
+  color: var(--text-secondary, #64748b);
+  font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  .stock-movements-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .stock-movements-toolbar input,
+  .stock-movements-toolbar select {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+}
+.stock-movement-product-name {
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.stock-movement-product-id {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-secondary, #64748b);
+  font-size: 12px;
+}
+
+.stock-movements-table td small {
+  display: block;
+  margin-top: 5px;
+  color: var(--text-secondary, #64748b);
+  font-size: 12px;
+  line-height: 1.4;
+}

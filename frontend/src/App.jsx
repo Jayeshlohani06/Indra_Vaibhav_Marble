@@ -6,29 +6,33 @@ import DashboardPage from "./features/dashboard/DashboardPage";
 import InventoryPage from "./features/inventory/InventoryPage";
 import CustomersPage from "./features/customers/CustomersPage";
 import SalesOrdersPage from "./features/sales-orders/SalesOrdersPage";
+import StockMovementsPage from "./features/stock-movements/StockMovementsPage";
+import SuppliersPage from "./features/suppliers/SuppliersPage";
 
 import "./App.css";
 
+const VALID_PAGES = [
+  "dashboard",
+  "inventory",
+  "customers",
+  "billing",
+  "stock-movements",
+  "suppliers",
+];
+
+function getCurrentPage() {
+  const page = window.location.hash.replace("#", "");
+
+  return VALID_PAGES.includes(page) ? page : "dashboard";
+}
+
 function App() {
   const [session, setSession] = useState(null);
-
-  const [currentPage, setCurrentPage] = useState(() => {
-    const page = window.location.hash.replace("#", "");
-
-    return ["inventory", "customers", "billing"].includes(page)
-      ? page
-      : "dashboard";
-  });
+  const [currentPage, setCurrentPage] = useState(getCurrentPage);
 
   useEffect(() => {
     function handleHashChange() {
-      const page = window.location.hash.replace("#", "");
-
-      setCurrentPage(
-        ["inventory", "customers", "billing"].includes(page)
-          ? page
-          : "dashboard"
-      );
+      setCurrentPage(getCurrentPage());
     }
 
     window.addEventListener("hashchange", handleHashChange);
@@ -45,6 +49,35 @@ function App() {
   if (!session) {
     return <LoginPage onLoginSuccess={handleLoginSuccess} />;
   }
+
+  const pageTitles = {
+    dashboard: {
+      breadcrumb: "Dashboard",
+      title: "Business Overview",
+    },
+    inventory: {
+      breadcrumb: "Inventory",
+      title: "Inventory Management",
+    },
+    customers: {
+      breadcrumb: "Customers",
+      title: "Customer Management",
+    },
+    billing: {
+      breadcrumb: "Sales & Billing",
+      title: "Sales & Billing",
+    },
+    "stock-movements": {
+      breadcrumb: "Stock Movement History",
+      title: "Stock Movement History",
+    },
+    suppliers: {
+      breadcrumb: "Suppliers",
+      title: "Supplier Management",
+    },
+  };
+
+  const currentTitle = pageTitles[currentPage] || pageTitles.dashboard;
 
   return (
     <div className="erp-layout">
@@ -84,6 +117,17 @@ function App() {
             <span>Inventory</span>
           </a>
 
+          {/* Stock Movement History */}
+          <a
+            className={`erp-nav-item ${
+              currentPage === "stock-movements" ? "active" : ""
+            }`}
+            href="#stock-movements"
+          >
+            <span className="erp-nav-icon">↕</span>
+            <span>Stock Movements</span>
+          </a>
+
           {/* Customers */}
           <a
             className={`erp-nav-item ${
@@ -112,8 +156,13 @@ function App() {
             <span>Purchases</span>
           </a>
 
-          {/* Suppliers — coming later */}
-          <a className="erp-nav-item" href="#suppliers">
+          {/* Suppliers */}
+          <a
+            className={`erp-nav-item ${
+              currentPage === "suppliers" ? "active" : ""
+            }`}
+            href="#suppliers"
+          >
             <span className="erp-nav-icon">♧</span>
             <span>Suppliers</span>
           </a>
@@ -145,25 +194,10 @@ function App() {
         <header className="erp-topbar">
           <div>
             <p className="erp-breadcrumb">
-              Workspace /{" "}
-              {currentPage === "inventory"
-                ? "Inventory"
-                : currentPage === "customers"
-                  ? "Customers"
-                  : currentPage === "billing"
-                    ? "Sales & Billing"
-                    : "Dashboard"}
+              Workspace / {currentTitle.breadcrumb}
             </p>
 
-            <h1>
-              {currentPage === "inventory"
-                ? "Inventory Management"
-                : currentPage === "customers"
-                  ? "Customer Management"
-                  : currentPage === "billing"
-                    ? "Sales & Billing"
-                    : "Business Overview"}
-            </h1>
+            <h1>{currentTitle.title}</h1>
           </div>
 
           {/* Logged-in Administrator */}
@@ -189,6 +223,10 @@ function App() {
             <CustomersPage />
           ) : currentPage === "billing" ? (
             <SalesOrdersPage />
+          ) : currentPage === "stock-movements" ? (
+            <StockMovementsPage />
+          ) : currentPage === "suppliers" ? (
+            <SuppliersPage />
           ) : (
             <DashboardPage />
           )}

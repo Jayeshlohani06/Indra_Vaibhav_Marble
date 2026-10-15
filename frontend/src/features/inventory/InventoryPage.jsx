@@ -1,10 +1,16 @@
+
 import { useEffect, useState } from "react";
+import InventorySettingsPanel from "./InventorySettingsPanel";
+import StockOperationsPanel from "./StockOperationsPanel";
 
 import {
   getProducts,
   getCategories,
   getMeasurementUnits,
   createProduct,
+  getProductById,
+  updateProduct,
+  deactivateProduct,
 } from "../../services/api/inventoryApi";
 
 import "./InventoryPage.css";
@@ -32,13 +38,18 @@ function InventoryPage() {
   const [success, setSuccess] = useState("");
 
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState(initialForm);
+  const [form, setForm] = useState({ ...initialForm });
   const [saving, setSaving] = useState(false);
+  const [editingProductId, setEditingProductId] = useState(null);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [deactivatingProductId, setDeactivatingProductId] =
+    useState(null);
 
-  // Search and filter state
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("ALL");
   const [stockFilter, setStockFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("ACTIVE");
 
   async function loadInventory() {
     try {
@@ -75,26 +86,77 @@ function InventoryPage() {
   }
 
   function openCreateForm() {
+    setEditingProductId(null);
     setForm({ ...initialForm });
-    setSuccess("");
+    setSelectedProduct(null);
     setError("");
+    setSuccess("");
     setShowForm(true);
   }
 
-  function cancelCreateForm() {
+  function cancelForm() {
     setShowForm(false);
+    setEditingProductId(null);
     setForm({ ...initialForm });
     setError("");
+  }
+
+  async function openEditForm(productId) {
+    try {
+      setError("");
+      setSuccess("");
+      setSelectedProduct(null);
+
+      const product = await getProductById(productId);
+
+      if (!(product.active ?? product.isActive ?? true)) {
+        setError("Inactive products cannot be edited.");
+        return;
+      }
+
+      setEditingProductId(productId);
+      setForm({
+        productCode: product.productCode ?? "",
+        name: product.name ?? "",
+        description: product.description ?? "",
+        categoryId: String(product.categoryId ?? ""),
+        unitId: String(product.unitId ?? ""),
+        purchasePrice: String(product.purchasePrice ?? 0),
+        sellingPrice: String(product.sellingPrice ?? 0),
+        gstRate: String(product.gstRate ?? 0),
+        stockQuantity: String(product.stockQuantity ?? 0),
+        lowStockThreshold: String(product.lowStockThreshold ?? 0),
+      });
+
+      setShowForm(true);
+    } catch (err) {
+      setError(err.message || "Unable to load product for editing.");
+    }
+  }
+
+  async function openProductDetails(productId) {
+    try {
+      setError("");
+      setSuccess("");
+      setDetailsLoading(true);
+
+      const product = await getProductById(productId);
+      setSelectedProduct(product);
+    } catch (err) {
+      setError(err.message || "Unable to load product details.");
+    } finally {
+      setDetailsLoading(false);
+    }
   }
 
   async function handleSubmit(event) {
     event.preventDefault();
-
     setError("");
     setSuccess("");
 
+    const isEditing = editingProductId !== null;
+
     const product = {
-      ...form,
       productCode: form.productCode.trim(),
       name: form.name.trim(),
       description: form.description.trim(),
@@ -103,7 +165,6 @@ function InventoryPage() {
       purchasePrice: Number(form.purchasePrice),
       sellingPrice: Number(form.sellingPrice),
       gstRate: Number(form.gstRate),
-      stockQuantity: Number(form.stockQuantity),
       lowStockThreshold: Number(form.lowStockThreshold),
     };
 
@@ -122,18 +183,18 @@ function InventoryPage() {
       return;
     }
 
+    const numericValues = [
+      product.purchasePrice,
+      product.sellingPrice,
+      product.gstRate,
+      product.lowStockThreshold,
+    ];
+
     if (
-      !Number.isFinite(product.purchasePrice) ||
-      !Number.isFinite(product.sellingPrice) ||
-      !Number.isFinite(product.gstRate) ||
-      !Number.isFinite(product.stockQuantity) ||
-      !Number.isFinite(product.lowStockThreshold) ||
-      product.purchasePrice < 0 ||
-      product.sellingPrice < 0 ||
-      product.gstRate < 0 ||
-      product.gstRate > 100 ||
-      product.stockQuantity < 0 ||
-      product.lowStockThreshold < 0
+      numericValues.some(
+        (value) => !Number.isFinite(value) || value < 0
+      ) ||
+      product.gstRate > 100
     ) {
       setError(
         "Enter valid non-negative numbers. GST must be between 0 and 100."
@@ -141,24 +202,74 @@ function InventoryPage() {
       return;
     }
 
+    if (!isEditing) {
+      product.stockQuantity = Number(form.stockQuantity);
+
+      if (
+        !Number.isFinite(product.stockQuantity) ||
+        product.stockQuantity < 0
+      ) {
+        setError("Opening stock must be a valid non-negative number.");
+        return;
+      }
+    }
+
     try {
       setSaving(true);
 
-      await createProduct(product);
+      if (isEditing) {
+        // Stock is intentionally excluded from product updates.
+        await updateProduct(editingProductId, product);
+        setSuccess("Product updated successfully.");
+      } else {
+        await createProduct(product);
+        setSuccess("Product created successfully.");
+      }
 
       setShowForm(false);
+      setEditingProductId(null);
       setForm({ ...initialForm });
-      setSuccess("Product created successfully.");
 
       await loadInventory();
     } catch (err) {
-      setError(err.message || "Unable to create product.");
+      setError(
+        err.message ||
+          (isEditing
+            ? "Unable to update product."
+            : "Unable to create product.")
+      );
     } finally {
       setSaving(false);
     }
   }
 
-  // Resolve category IDs into readable names.
+  async function handleDeactivate(product) {
+    const confirmed = window.confirm(
+      `Deactivate "${product.name}" (${product.productCode})?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setError("");
+      setSuccess("");
+      setDeactivatingProductId(product.id);
+
+      await deactivateProduct(product.id);
+
+      if (selectedProduct?.id === product.id) {
+        setSelectedProduct(null);
+      }
+
+      setSuccess(`Product "${product.name}" deactivated successfully.`);
+      await loadInventory();
+    } catch (err) {
+      setError(err.message || "Unable to deactivate product.");
+    } finally {
+      setDeactivatingProductId(null);
+    }
+  }
+
   function getCategoryName(categoryId) {
     const category = categories.find(
       (item) => String(item.id) === String(categoryId)
@@ -167,7 +278,6 @@ function InventoryPage() {
     return category?.name || "Unknown";
   }
 
-  // Resolve unit IDs into readable unit codes.
   function getUnitCode(unitId) {
     const unit = units.find(
       (item) => String(item.id) === String(unitId)
@@ -176,7 +286,10 @@ function InventoryPage() {
     return unit?.code || "—";
   }
 
-  // A product is low on stock when stock is at or below its threshold.
+  function isActive(product) {
+    return product.active ?? product.isActive ?? true;
+  }
+
   function isLowStock(product) {
     return (
       Number(product.stockQuantity ?? 0) <=
@@ -184,7 +297,6 @@ function InventoryPage() {
     );
   }
 
-  // Apply search, category and stock filters together.
   const filteredProducts = products.filter((product) => {
     const search = searchTerm.trim().toLowerCase();
 
@@ -196,21 +308,34 @@ function InventoryPage() {
       selectedCategory === "ALL" ||
       String(product.categoryId) === selectedCategory;
 
-    const lowStock = isLowStock(product);
-
     const matchesStock =
       stockFilter === "ALL" ||
-      (stockFilter === "LOW" && lowStock) ||
-      (stockFilter === "IN_STOCK" && !lowStock);
+      (stockFilter === "LOW" && isLowStock(product)) ||
+      (stockFilter === "IN_STOCK" && !isLowStock(product));
 
-    return matchesSearch && matchesCategory && matchesStock;
+    const active = isActive(product);
+
+    const matchesStatus =
+      statusFilter === "ALL" ||
+      (statusFilter === "ACTIVE" && active) ||
+      (statusFilter === "INACTIVE" && !active);
+
+    return (
+      matchesSearch &&
+      matchesCategory &&
+      matchesStock &&
+      matchesStatus
+    );
   });
 
-  const lowStockCount = products.filter(isLowStock).length;
+  const lowStockCount = products.filter(
+    (product) => isActive(product) && isLowStock(product)
+  ).length;
+
+  const activeProductCount = products.filter(isActive).length;
 
   return (
     <main className="inventory-page">
-      {/* Page header */}
       <header className="inventory-header">
         <div>
           <p className="inventory-eyebrow">WORKSPACE / INVENTORY</p>
@@ -228,7 +353,6 @@ function InventoryPage() {
         </button>
       </header>
 
-      {/* Inventory summary cards */}
       <section
         className="inventory-stats"
         aria-label="Inventory summaries"
@@ -236,6 +360,11 @@ function InventoryPage() {
         <article className="inventory-stat-card">
           <span>Total Products</span>
           <strong>{products.length}</strong>
+        </article>
+
+        <article className="inventory-stat-card">
+          <span>Active Products</span>
+          <strong>{activeProductCount}</strong>
         </article>
 
         <article className="inventory-stat-card">
@@ -254,7 +383,6 @@ function InventoryPage() {
         </article>
       </section>
 
-      {/* Success message */}
       {success && (
         <div className="inventory-success" role="status">
           <p>{success}</p>
@@ -268,7 +396,6 @@ function InventoryPage() {
         </div>
       )}
 
-      {/* Error message */}
       {error && (
         <div className="inventory-error" role="alert">
           <p>{error}</p>
@@ -282,13 +409,27 @@ function InventoryPage() {
         </div>
       )}
 
-      {/* Create product form */}
+      <StockOperationsPanel
+        products={products}
+        onStockUpdated={loadInventory}
+      />
+
+      <InventorySettingsPanel products={products} />
+
       {showForm && (
         <section className="inventory-panel inventory-form-panel">
           <div className="inventory-panel-heading">
             <div>
-              <h2>Create Product</h2>
-              <p>Enter the product details below.</p>
+              <h2>
+                {editingProductId !== null
+                  ? "Edit Product"
+                  : "Create Product"}
+              </h2>
+              <p>
+                {editingProductId !== null
+                  ? "Update product details. Stock is managed separately."
+                  : "Enter product details and the verified opening stock."}
+              </p>
             </div>
           </div>
 
@@ -327,7 +468,6 @@ function InventoryPage() {
                   required
                 >
                   <option value="">Select category</option>
-
                   {categories.map((category) => (
                     <option key={category.id} value={category.id}>
                       {category.name}
@@ -345,7 +485,6 @@ function InventoryPage() {
                   required
                 >
                   <option value="">Select unit</option>
-
                   {units.map((unit) => (
                     <option key={unit.id} value={unit.id}>
                       {unit.name} ({unit.code})
@@ -395,7 +534,7 @@ function InventoryPage() {
               </label>
 
               <label>
-                Opening Stock *
+                Opening Stock {editingProductId === null ? "*" : ""}
                 <input
                   name="stockQuantity"
                   type="number"
@@ -403,8 +542,12 @@ function InventoryPage() {
                   step="0.001"
                   value={form.stockQuantity}
                   onChange={handleChange}
-                  required
+                  disabled={editingProductId !== null || saving}
+                  required={editingProductId === null}
                 />
+                {editingProductId !== null && (
+                  <small>Stock cannot be changed through product editing.</small>
+                )}
               </label>
 
               <label>
@@ -436,7 +579,7 @@ function InventoryPage() {
               <button
                 className="inventory-secondary-button"
                 type="button"
-                onClick={cancelCreateForm}
+                onClick={cancelForm}
                 disabled={saving}
               >
                 Cancel
@@ -447,32 +590,113 @@ function InventoryPage() {
                 type="submit"
                 disabled={saving}
               >
-                {saving ? "Saving..." : "Save Product"}
+                {saving
+                  ? "Saving..."
+                  : editingProductId !== null
+                    ? "Update Product"
+                    : "Save Product"}
               </button>
             </div>
           </form>
         </section>
       )}
 
-      {/* Loading state */}
-      {loading && (
+      {detailsLoading && (
         <p className="inventory-message" role="status">
-          Loading inventory data...
+          Loading product details...
         </p>
       )}
 
-      {/* Inventory products */}
-      {!loading && (
+      {selectedProduct && (
+        <section
+          className="inventory-panel"
+          aria-labelledby="inventory-product-details-heading"
+        >
+          <div className="inventory-panel-heading">
+            <div>
+              <h2 id="inventory-product-details-heading">
+                Product Details
+              </h2>
+              <p>
+                {selectedProduct.productCode} — {selectedProduct.name}
+              </p>
+            </div>
+
+            <button
+              className="inventory-secondary-button"
+              type="button"
+              onClick={() => setSelectedProduct(null)}
+            >
+              Close Details
+            </button>
+          </div>
+
+          <div className="inventory-form-grid">
+            <p><strong>Product ID:</strong> {selectedProduct.id}</p>
+            <p><strong>Code:</strong> {selectedProduct.productCode}</p>
+            <p><strong>Name:</strong> {selectedProduct.name}</p>
+            <p>
+              <strong>Category:</strong>{" "}
+              {getCategoryName(selectedProduct.categoryId)}
+            </p>
+            <p>
+              <strong>Unit:</strong> {getUnitCode(selectedProduct.unitId)}
+            </p>
+            <p>
+              <strong>Purchase Price:</strong>{" "}
+              ₹{Number(selectedProduct.purchasePrice ?? 0).toFixed(2)}
+            </p>
+            <p>
+              <strong>Selling Price:</strong>{" "}
+              ₹{Number(selectedProduct.sellingPrice ?? 0).toFixed(2)}
+            </p>
+            <p><strong>GST:</strong> {selectedProduct.gstRate}%</p>
+            <p>
+              <strong>Available Stock:</strong>{" "}
+              {selectedProduct.stockQuantity ?? 0}
+            </p>
+            <p>
+              <strong>Low-Stock Threshold:</strong>{" "}
+              {selectedProduct.lowStockThreshold ?? 0}
+            </p>
+            <p>
+              <strong>Status:</strong>{" "}
+              {isActive(selectedProduct) ? "Active" : "Inactive"}
+            </p>
+            <p>
+              <strong>Description:</strong>{" "}
+              {selectedProduct.description || "No description"}
+            </p>
+          </div>
+
+          {isActive(selectedProduct) && (
+            <div className="inventory-form-actions">
+              <button
+                className="inventory-primary-button"
+                type="button"
+                onClick={() => openEditForm(selectedProduct.id)}
+              >
+                Edit Product
+              </button>
+            </div>
+          )}
+        </section>
+      )}
+
+      {loading ? (
+        <p className="inventory-message" role="status">
+          Loading inventory data...
+        </p>
+      ) : (
         <>
           <section className="inventory-panel">
             <div className="inventory-panel-heading">
               <div>
                 <h2>Products</h2>
-                <p>Search, filter and review your current inventory.</p>
+                <p>Search, filter and manage your current inventory.</p>
               </div>
             </div>
 
-            {/* Search and filters */}
             <div className="inventory-toolbar">
               <input
                 type="search"
@@ -490,12 +714,8 @@ function InventoryPage() {
                 aria-label="Filter by category"
               >
                 <option value="ALL">All categories</option>
-
                 {categories.map((category) => (
-                  <option
-                    key={category.id}
-                    value={String(category.id)}
-                  >
+                  <option key={category.id} value={String(category.id)}>
                     {category.name}
                   </option>
                 ))}
@@ -511,6 +731,16 @@ function InventoryPage() {
                 <option value="IN_STOCK">Above threshold</option>
               </select>
 
+              <select
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+                aria-label="Filter by product status"
+              >
+                <option value="ACTIVE">Active products</option>
+                <option value="INACTIVE">Inactive products</option>
+                <option value="ALL">All product statuses</option>
+              </select>
+
               <button
                 className="inventory-secondary-button"
                 type="button"
@@ -518,6 +748,7 @@ function InventoryPage() {
                   setSearchTerm("");
                   setSelectedCategory("ALL");
                   setStockFilter("ALL");
+                  setStatusFilter("ACTIVE");
                 }}
               >
                 Clear Filters
@@ -528,31 +759,18 @@ function InventoryPage() {
               Showing {filteredProducts.length} of {products.length} products
             </p>
 
-            {products.length === 0 ? (
+            {filteredProducts.length === 0 ? (
               <div className="inventory-empty">
-                <h3>No products yet</h3>
+                <h3>
+                  {products.length === 0
+                    ? "No products yet"
+                    : "No matching products"}
+                </h3>
                 <p>
-                  Create your first product to start tracking inventory.
+                  {products.length === 0
+                    ? "Create your first product to start tracking inventory."
+                    : "Try another search term or change your filters."}
                 </p>
-              </div>
-            ) : filteredProducts.length === 0 ? (
-              <div className="inventory-empty">
-                <h3>No matching products</h3>
-                <p>
-                  Try a different search term or change your filters.
-                </p>
-
-                <button
-                  className="inventory-secondary-button"
-                  type="button"
-                  onClick={() => {
-                    setSearchTerm("");
-                    setSelectedCategory("ALL");
-                    setStockFilter("ALL");
-                  }}
-                >
-                  Reset Search and Filters
-                </button>
               </div>
             ) : (
               <div className="inventory-table-wrapper">
@@ -567,48 +785,88 @@ function InventoryPage() {
                       <th>Available Stock</th>
                       <th>GST</th>
                       <th>Status</th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
 
                   <tbody>
                     {filteredProducts.map((product) => {
                       const lowStock = isLowStock(product);
+                      const active = isActive(product);
+                      const deactivating =
+                        deactivatingProductId === product.id;
 
                       return (
                         <tr
                           key={product.id}
                           className={
-                            lowStock ? "inventory-low-stock-row" : ""
+                            active && lowStock
+                              ? "inventory-low-stock-row"
+                              : ""
                           }
                         >
                           <td>{product.productCode}</td>
                           <td>{product.name}</td>
-                          <td>
-                            {getCategoryName(product.categoryId)}
-                          </td>
+                          <td>{getCategoryName(product.categoryId)}</td>
                           <td>{getUnitCode(product.unitId)}</td>
                           <td>
                             ₹
-                            {Number(
-                              product.sellingPrice ?? 0
-                            ).toFixed(2)}
+                            {Number(product.sellingPrice ?? 0).toFixed(2)}
                           </td>
                           <td>
-                            <strong>
-                              {product.stockQuantity ?? 0}
-                            </strong>
+                            <strong>{product.stockQuantity ?? 0}</strong>
                           </td>
                           <td>{product.gstRate}%</td>
                           <td>
                             <span
                               className={
-                                lowStock
+                                !active
                                   ? "inventory-stock-badge inventory-stock-badge-low"
-                                  : "inventory-stock-badge inventory-stock-badge-ok"
+                                  : lowStock
+                                    ? "inventory-stock-badge inventory-stock-badge-low"
+                                    : "inventory-stock-badge inventory-stock-badge-ok"
                               }
                             >
-                              {lowStock ? "Low Stock" : "In Stock"}
+                              {!active
+                                ? "Inactive"
+                                : lowStock
+                                  ? "Low Stock"
+                                  : "In Stock"}
                             </span>
+                          </td>
+                          <td>
+                            <div className="inventory-form-actions">
+                              <button
+                                className="inventory-secondary-button"
+                                type="button"
+                                onClick={() => openProductDetails(product.id)}
+                              >
+                                View
+                              </button>
+
+                              {active && (
+                                <>
+                                  <button
+                                    className="inventory-secondary-button"
+                                    type="button"
+                                    onClick={() => openEditForm(product.id)}
+                                  >
+                                    Edit
+                                  </button>
+
+                                  <button
+                                    className="inventory-secondary-button"
+                                    type="button"
+                                    disabled={deactivating}
+                                    onClick={() => handleDeactivate(product)}
+                                  >
+                                    {deactivating
+                                      ? "Deactivating..."
+                                      : "Deactivate"}
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -619,11 +877,9 @@ function InventoryPage() {
             )}
           </section>
 
-          {/* Categories and measurement units */}
           <div className="inventory-reference-grid">
             <section className="inventory-panel">
               <h2>Product Categories</h2>
-
               <ul className="inventory-reference-list">
                 {categories.map((category) => (
                   <li key={category.id}>
@@ -640,14 +896,11 @@ function InventoryPage() {
 
             <section className="inventory-panel">
               <h2>Measurement Units</h2>
-
               <ul className="inventory-reference-list">
                 {units.map((unit) => (
                   <li key={unit.id}>
                     <span>{unit.name}</span>
-                    <span className="inventory-unit-code">
-                      {unit.code}
-                    </span>
+                    <span className="inventory-unit-code">{unit.code}</span>
                   </li>
                 ))}
               </ul>

@@ -504,3 +504,77 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Inventory tracking configuration */
+
+.inventory-settings-panel {
+  margin-top: 24px;
+}
+
+.inventory-settings-panel .inventory-panel-heading {
+  margin-bottom: 20px;
+}
+
+.inventory-settings-panel .inventory-panel-heading h2 {
+  margin: 0 0 8px;
+  color: #172033;
+  font-size: 20px;
+}
+
+.inventory-settings-panel .inventory-panel-heading p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.inventory-coverage-preview {
+  margin-top: 22px;
+  padding: 18px;
+  border: 1px solid #c7d2fe;
+  border-radius: 10px;
+  background: #eef2ff;
+}
+
+.inventory-coverage-preview span {
+  display: block;
+  color: #4338ca;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.inventory-coverage-preview strong {
+  display: block;
+  margin-top: 8px;
+  color: #312e81;
+  font-size: 25px;
+}
+
+.inventory-coverage-preview p,
+.inventory-settings-stock-note p {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.inventory-settings-stock-note {
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 14px;
+}
+
+@media (max-width: 640px) {
+  .inventory-coverage-preview strong {
+    font-size: 21px;
+  }
+
+  .inventory-settings-panel .inventory-form-actions {
+    flex-direction: column;
+  }
+
+  .inventory-settings-panel .inventory-form-actions button {
+    width: 100%;
+  }
+}

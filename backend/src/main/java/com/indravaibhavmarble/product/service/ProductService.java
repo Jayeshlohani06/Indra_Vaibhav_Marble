@@ -1,11 +1,13 @@
 
 package com.indravaibhavmarble.product.service;
+
 import com.indravaibhavmarble.category.entity.ProductCategory;
 import com.indravaibhavmarble.category.repository.ProductCategoryRepository;
-import com.indravaibhavmarble.unit.entity.MeasurementUnit;
-import com.indravaibhavmarble.unit.repository.MeasurementUnitRepository;
 import com.indravaibhavmarble.product.entity.Product;
 import com.indravaibhavmarble.product.repository.ProductRepository;
+import com.indravaibhavmarble.unit.entity.MeasurementUnit;
+import com.indravaibhavmarble.unit.repository.MeasurementUnitRepository;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,17 +19,18 @@ import java.util.List;
 public class ProductService {
 
     private final ProductRepository productRepository;
-private final ProductCategoryRepository categoryRepository;
-private final MeasurementUnitRepository unitRepository;
+    private final ProductCategoryRepository categoryRepository;
+    private final MeasurementUnitRepository unitRepository;
 
-public ProductService(
-        ProductRepository productRepository,
-        ProductCategoryRepository categoryRepository,
-        MeasurementUnitRepository unitRepository) {
-    this.productRepository = productRepository;
-    this.categoryRepository = categoryRepository;
-    this.unitRepository = unitRepository;
-}
+    public ProductService(
+            ProductRepository productRepository,
+            ProductCategoryRepository categoryRepository,
+            MeasurementUnitRepository unitRepository) {
+
+        this.productRepository = productRepository;
+        this.categoryRepository = categoryRepository;
+        this.unitRepository = unitRepository;
+    }
 
     @Transactional(readOnly = true)
     public List<Product> getAllProducts() {
@@ -43,7 +46,7 @@ public ProductService(
     }
 
     public Product createProduct(Product product) {
-        validateProduct(product);
+        validateProduct(product, true);
 
         if (productRepository.existsByProductCode(
                 product.getProductCode())) {
@@ -58,7 +61,8 @@ public ProductService(
     public Product updateProduct(Long id, Product updatedProduct) {
         Product existing = getProductById(id);
 
-        validateProduct(updatedProduct);
+        // Validate product details without changing existing stock.
+        validateProduct(updatedProduct, false);
 
         productRepository.findByProductCode(
                 updatedProduct.getProductCode()
@@ -78,9 +82,11 @@ public ProductService(
         existing.setSellingPrice(updatedProduct.getSellingPrice());
         existing.setPurchasePrice(updatedProduct.getPurchasePrice());
         existing.setGstRate(updatedProduct.getGstRate());
-        existing.setStockQuantity(updatedProduct.getStockQuantity());
         existing.setLowStockThreshold(
                 updatedProduct.getLowStockThreshold());
+
+        // Intentionally do not update stockQuantity here.
+        // Stock changes must use the stock movement workflow.
 
         return productRepository.save(existing);
     }
@@ -91,48 +97,67 @@ public ProductService(
         productRepository.save(product);
     }
 
-    private void validateProduct(Product product) {
+    private void validateProduct(
+            Product product,
+            boolean validateStockQuantity) {
+
+        if (product == null) {
+            throw new IllegalArgumentException(
+                    "Product details are required");
+        }
+
         if (product.getProductCode() == null
                 || product.getProductCode().isBlank()) {
             throw new IllegalArgumentException(
                     "Product code is required");
         }
 
-        if (product.getName() == null || product.getName().isBlank()) {
+        if (product.getName() == null
+                || product.getName().isBlank()) {
             throw new IllegalArgumentException(
                     "Product name is required");
         }
 
         if (product.getCategoryId() == null
-        || product.getUnitId() == null) {
-    throw new IllegalArgumentException(
-            "Category and measurement unit are required");
-}
+                || product.getUnitId() == null) {
+            throw new IllegalArgumentException(
+                    "Category and measurement unit are required");
+        }
 
-ProductCategory category = categoryRepository
-        .findById(product.getCategoryId())
-        .orElseThrow(() -> new IllegalArgumentException(
-                "Category not found: " + product.getCategoryId()));
+        ProductCategory category = categoryRepository
+                .findById(product.getCategoryId())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Category not found: "
+                                + product.getCategoryId()));
 
-if (!category.isActive()) {
-    throw new IllegalArgumentException(
-            "Selected category is inactive");
-}
+        if (!category.isActive()) {
+            throw new IllegalArgumentException(
+                    "Selected category is inactive");
+        }
 
-MeasurementUnit unit = unitRepository
-        .findById(product.getUnitId())
-        .orElseThrow(() -> new IllegalArgumentException(
-                "Measurement unit not found: " + product.getUnitId()));
+        MeasurementUnit unit = unitRepository
+                .findById(product.getUnitId())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Measurement unit not found: "
+                                + product.getUnitId()));
 
-if (!unit.isActive()) {
-    throw new IllegalArgumentException(
-            "Selected measurement unit is inactive");
-}
+        if (!unit.isActive()) {
+            throw new IllegalArgumentException(
+                    "Selected measurement unit is inactive");
+        }
 
-        validateNonNegative(product.getSellingPrice(), "Selling price");
-        validateNonNegative(product.getPurchasePrice(), "Purchase price");
-        validateNonNegative(product.getGstRate(), "GST rate");
-        validateNonNegative(product.getStockQuantity(), "Stock quantity");
+        validateNonNegative(
+                product.getSellingPrice(), "Selling price");
+        validateNonNegative(
+                product.getPurchasePrice(), "Purchase price");
+        validateNonNegative(
+                product.getGstRate(), "GST rate");
+
+        if (validateStockQuantity) {
+            validateNonNegative(
+                    product.getStockQuantity(), "Stock quantity");
+        }
+
         validateNonNegative(
                 product.getLowStockThreshold(), "Low-stock threshold");
 
@@ -143,7 +168,10 @@ if (!unit.isActive()) {
         }
     }
 
-    private void validateNonNegative(BigDecimal value, String field) {
+    private void validateNonNegative(
+            BigDecimal value,
+            String field) {
+
         if (value == null || value.signum() < 0) {
             throw new IllegalArgumentException(
                     field + " must be zero or greater");

@@ -8,13 +8,14 @@ import com.indravaibhavmarble.customer.repository.CustomerRepository;
 import com.indravaibhavmarble.product.entity.Product;
 import com.indravaibhavmarble.product.repository.ProductRepository;
 import com.indravaibhavmarble.salesorder.dto.SalesOrderItemRequest;
+import com.indravaibhavmarble.salesorder.dto.SalesOrderItemResponse;
 import com.indravaibhavmarble.salesorder.dto.SalesOrderRequest;
 import com.indravaibhavmarble.salesorder.dto.SalesOrderResponse;
-import com.indravaibhavmarble.salesorder.dto.SalesOrderItemResponse;
 import com.indravaibhavmarble.salesorder.entity.SalesOrder;
 import com.indravaibhavmarble.salesorder.entity.SalesOrderItem;
 import com.indravaibhavmarble.salesorder.repository.SalesOrderItemRepository;
 import com.indravaibhavmarble.salesorder.repository.SalesOrderRepository;
+import com.indravaibhavmarble.stockmovement.service.StockMovementService;
 import com.indravaibhavmarble.unit.entity.MeasurementUnit;
 import com.indravaibhavmarble.unit.repository.MeasurementUnitRepository;
 
@@ -24,7 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,6 +43,7 @@ public class SalesOrderService {
     private final ProductRepository productRepository;
     private final MeasurementUnitRepository unitRepository;
     private final ProductCategoryRepository categoryRepository;
+    private final StockMovementService stockMovementService;
 
     public SalesOrderService(
             SalesOrderRepository orderRepository,
@@ -50,24 +51,36 @@ public class SalesOrderService {
             CustomerRepository customerRepository,
             ProductRepository productRepository,
             MeasurementUnitRepository unitRepository,
-            ProductCategoryRepository categoryRepository) {
+            ProductCategoryRepository categoryRepository,
+            StockMovementService stockMovementService) {
+
         this.orderRepository = orderRepository;
         this.itemRepository = itemRepository;
         this.customerRepository = customerRepository;
         this.productRepository = productRepository;
         this.unitRepository = unitRepository;
         this.categoryRepository = categoryRepository;
+        this.stockMovementService = stockMovementService;
+    }
+
+    private record StockChange(
+            Long productId,
+            BigDecimal quantityChange,
+            BigDecimal stockBefore,
+            BigDecimal stockAfter) {
     }
 
     @Transactional
     public SalesOrderResponse createOrder(SalesOrderRequest request) {
+
         validateRequest(request);
 
         Customer customer = customerRepository.findById(request.customerId())
                 .filter(Customer::isActive)
                 .orElseThrow(() ->
                         new IllegalArgumentException(
-                                "Active customer not found: " + request.customerId()));
+                                "Active customer not found: "
+                                        + request.customerId()));
 
         String taxType = request.taxType() == null
                 ? "INTRA"
@@ -94,8 +107,10 @@ public class SalesOrderService {
         BigDecimal totalIgst = ZERO;
 
         List<SalesOrderItem> items = new ArrayList<>();
+        List<StockChange> stockChanges = new ArrayList<>();
 
         for (SalesOrderItemRequest itemRequest : request.items()) {
+
             Product product = productRepository
                     .findByIdForUpdate(itemRequest.productId())
                     .filter(Product::isActive)
@@ -115,7 +130,6 @@ public class SalesOrderService {
                         "Quantity cannot have more than 3 decimal places");
             }
 
-            // Validate that sufficient stock is available.
             BigDecimal availableStock = product.getStockQuantity();
 
             if (availableStock == null
@@ -127,14 +141,7 @@ public class SalesOrderService {
                                 + ", requested: " + itemRequest.quantity());
             }
 
-            // Deduct the sold quantity.
-            // The enclosing transaction will roll this back if the sale fails.
-            BigDecimal remainingStock = availableStock
-                    .subtract(itemRequest.quantity());
-
-            product.setStockQuantity(remainingStock);
-            productRepository.save(product);
-
+            // Validate the submitted price before changing stock.
             if (itemRequest.unitPrice() != null
                     && itemRequest.unitPrice().compareTo(
                             product.getSellingPrice()) != 0) {
@@ -155,6 +162,19 @@ public class SalesOrderService {
                     .orElseThrow(() ->
                             new IllegalArgumentException(
                                     "Active product category not found"));
+
+            // Deduct stock once. The movement service will only record it.
+            BigDecimal remainingStock = availableStock
+                    .subtract(itemRequest.quantity());
+
+            product.setStockQuantity(remainingStock);
+            productRepository.save(product);
+
+            stockChanges.add(new StockChange(
+                    product.getId(),
+                    itemRequest.quantity().negate(),
+                    availableStock,
+                    remainingStock));
 
             BigDecimal unitPrice = product.getSellingPrice()
                     .setScale(2, RoundingMode.HALF_UP);
@@ -226,6 +246,20 @@ public class SalesOrderService {
 
         List<SalesOrderItem> savedItems = itemRepository.saveAll(items);
 
+        // Record the already-applied stock changes against the saved order.
+        for (StockChange change : stockChanges) {
+            stockMovementService.recordMovementForExistingStockChange(
+                    change.productId(),
+                    change.quantityChange(),
+                    change.stockBefore(),
+                    change.stockAfter(),
+                    "SALES_ORDER",
+                    savedOrder.getId(),
+                    savedOrder.getOrderNumber(),
+                    "Stock deducted for sales order "
+                            + savedOrder.getOrderNumber());
+        }
+
         return toResponse(savedOrder, customer, savedItems);
     }
 
@@ -262,6 +296,7 @@ public class SalesOrderService {
     }
 
     private void validateRequest(SalesOrderRequest request) {
+
         if (request == null) {
             throw new IllegalArgumentException(
                     "Sales order request is required");
@@ -302,7 +337,7 @@ public class SalesOrderService {
 
         return "SO-" + date + "-"
                 + UUID.randomUUID().toString()
-                    .substring(0, 8).toUpperCase(Locale.ROOT);
+                        .substring(0, 8).toUpperCase(Locale.ROOT);
     }
 
     private SalesOrderResponse toResponse(
