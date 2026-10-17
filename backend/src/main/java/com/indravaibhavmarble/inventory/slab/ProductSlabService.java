@@ -2,12 +2,12 @@
 package com.indravaibhavmarble.inventory.slab;
 
 import com.indravaibhavmarble.inventory.entity.InventoryTrackingType;
+import com.indravaibhavmarble.inventory.entity.ProductInventorySetting;
 import com.indravaibhavmarble.inventory.repository.ProductInventorySettingRepository;
 import com.indravaibhavmarble.inventory.slab.dto.ProductSlabRequest;
 import com.indravaibhavmarble.inventory.slab.dto.ProductSlabResponse;
 import com.indravaibhavmarble.product.entity.Product;
 import com.indravaibhavmarble.product.repository.ProductRepository;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,15 +43,17 @@ public class ProductSlabService {
             throw new IllegalArgumentException("Product ID is required");
         }
 
-        if (request.slabCode() == null || request.slabCode().isBlank()) {
+        String slabCode = request.slabCode() == null
+                ? ""
+                : request.slabCode().trim();
+
+        if (slabCode.isBlank()) {
             throw new IllegalArgumentException("Slab code is required");
         }
 
-        String slabCode = request.slabCode().trim();
-
         if (slabCode.length() > 80) {
             throw new IllegalArgumentException(
-                    "Slab code cannot exceed 80 characters");
+                    "Slab code must not exceed 80 characters");
         }
 
         if (request.lengthFt() == null
@@ -66,16 +68,19 @@ public class ProductSlabService {
                     "Slab width must be greater than zero");
         }
 
-        Product product = productRepository.findById(request.productId())
+        Product product = productRepository
+                .findByIdForUpdate(request.productId())
                 .orElseThrow(() -> new IllegalArgumentException(
-                        "Product not found with ID: " + request.productId()));
+                        "Product not found with ID: "
+                                + request.productId()));
 
         if (!product.isActive()) {
             throw new IllegalArgumentException(
                     "Cannot register a slab for an inactive product");
         }
 
-        var setting = settingRepository.findByProductId(request.productId())
+        ProductInventorySetting setting = settingRepository
+                .findByProductId(request.productId())
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Configure inventory tracking before registering slabs"));
 
@@ -86,47 +91,68 @@ public class ProductSlabService {
 
         if (slabRepository.existsBySlabCodeIgnoreCase(slabCode)) {
             throw new IllegalArgumentException(
-                    "A slab with this code already exists");
+                    "Slab code already exists: " + slabCode);
         }
 
-        BigDecimal length = request.lengthFt()
-                .setScale(3, RoundingMode.HALF_UP);
-        BigDecimal width = request.widthFt()
-                .setScale(3, RoundingMode.HALF_UP);
-
-        BigDecimal area = length.multiply(width)
+        BigDecimal area = request.lengthFt()
+                .multiply(request.widthFt())
                 .setScale(AREA_SCALE, RoundingMode.HALF_UP);
 
         ProductSlab slab = new ProductSlab();
         slab.setProductId(request.productId());
         slab.setSlabCode(slabCode);
-        slab.setLengthFt(length);
-        slab.setWidthFt(width);
+        slab.setLengthFt(request.lengthFt());
+        slab.setWidthFt(request.widthFt());
         slab.setOriginalAreaSqft(area);
         slab.setRemainingAreaSqft(area);
         slab.setStatus("AVAILABLE");
 
-        return ProductSlabResponse.from(slabRepository.save(slab));
+        return toResponse(slabRepository.saveAndFlush(slab));
     }
 
     @Transactional(readOnly = true)
-    public List<ProductSlabResponse> getSlabs(Long productId) {
-        if (productId == null || !productRepository.existsById(productId)) {
-            throw new IllegalArgumentException("Valid product ID is required");
+    public List<ProductSlabResponse> getSlabsByProduct(Long productId) {
+        if (productId == null) {
+            throw new IllegalArgumentException("Product ID is required");
+        }
+
+        if (!productRepository.existsById(productId)) {
+            throw new IllegalArgumentException(
+                    "Product not found with ID: " + productId);
         }
 
         return slabRepository
                 .findByProductIdOrderByCreatedAtDesc(productId)
                 .stream()
-                .map(ProductSlabResponse::from)
+                .map(this::toResponse)
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public ProductSlabResponse getSlab(Long slabId) {
-        return ProductSlabResponse.from(
-                slabRepository.findById(slabId)
-                        .orElseThrow(() -> new IllegalArgumentException(
-                                "Slab not found with ID: " + slabId)));
+    public ProductSlabResponse getSlabById(Long slabId) {
+        if (slabId == null) {
+            throw new IllegalArgumentException("Slab ID is required");
+        }
+
+        ProductSlab slab = slabRepository.findById(slabId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Slab not found with ID: " + slabId));
+
+        return toResponse(slab);
+    }
+
+    private ProductSlabResponse toResponse(ProductSlab slab) {
+        return new ProductSlabResponse(
+                slab.getId(),
+                slab.getProductId(),
+                slab.getSlabCode(),
+                slab.getLengthFt(),
+                slab.getWidthFt(),
+                slab.getOriginalAreaSqft(),
+                slab.getRemainingAreaSqft(),
+                slab.getStatus(),
+                slab.getCreatedAt(),
+                slab.getUpdatedAt()
+        );
     }
 }

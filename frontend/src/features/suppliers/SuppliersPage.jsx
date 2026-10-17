@@ -29,12 +29,43 @@ const fields = [
   { name: "contactPerson", label: "Contact Person", maxLength: 120 },
   { name: "phone", label: "Phone", maxLength: 20 },
   { name: "alternatePhone", label: "Alternate Phone", maxLength: 20 },
-  { name: "email", label: "Email", type: "email", maxLength: 150 },
-  { name: "gstin", label: "GSTIN", maxLength: 15 },
+  {
+  name: "email",
+  label: "Email",
+  type: "email",
+  maxLength: 150,
+},
+{
+  name: "gstin",
+  label: "GSTIN",
+  maxLength: 15,
+},
   { name: "city", label: "City", maxLength: 100 },
   { name: "state", label: "State", maxLength: 100 },
   { name: "postalCode", label: "Postal Code", maxLength: 10 },
 ];
+
+
+function validateSupplier(form) {
+  if (!form.name.trim()) {
+    return "Supplier name is required.";
+  }
+
+  if (form.email.trim()) {
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailPattern.test(form.email.trim())) {
+      return "Please enter a valid email address.";
+    }
+  }
+
+  if (form.gstin.trim() && form.gstin.trim().length !== 15) {
+    return "GSTIN must contain exactly 15 characters.";
+  }
+
+  return "";
+}
+
 
 function SuppliersPage() {
   const [suppliers, setSuppliers] = useState([]);
@@ -65,6 +96,7 @@ function SuppliersPage() {
     loadSuppliers();
   }, [loadSuppliers]);
 
+  
   const filteredSuppliers = suppliers.filter((supplier) => {
     const term = search.trim().toLowerCase();
 
@@ -75,10 +107,16 @@ function SuppliersPage() {
       supplier.name,
       supplier.contactPerson,
       supplier.phone,
+      supplier.alternatePhone,
       supplier.email,
       supplier.gstin,
+      supplier.addressLine,
       supplier.city,
-    ].some((value) => value?.toLowerCase().includes(term));
+      supplier.state,
+      supplier.postalCode,
+    ].some((value) =>
+      String(value ?? "").toLowerCase().includes(term)
+    );
   });
 
   function openAddForm() {
@@ -119,47 +157,63 @@ function SuppliersPage() {
     setForm((previous) => ({ ...previous, [name]: value }));
   }
 
-  async function handleSubmit(event) {
-    event.preventDefault();
-    setSaving(true);
-    setError("");
+  
+async function handleSubmit(event) {
+  event.preventDefault();
+
+  const validationError = validateSupplier(form);
+
+  if (validationError) {
+    setError(validationError);
     setSuccess("");
-
-    const payload = {
-      ...form,
-      supplierCode: form.supplierCode.trim() || null,
-      name: form.name.trim(),
-      contactPerson: form.contactPerson.trim() || null,
-      phone: form.phone.trim() || null,
-      alternatePhone: form.alternatePhone.trim() || null,
-      email: form.email.trim() || null,
-      gstin: form.gstin.trim().toUpperCase() || null,
-      addressLine: form.addressLine.trim() || null,
-      city: form.city.trim() || null,
-      state: form.state.trim() || null,
-      postalCode: form.postalCode.trim() || null,
-      notes: form.notes.trim() || null,
-    };
-
-    try {
-      if (editingId !== null) {
-        await updateSupplier(editingId, payload);
-        setSuccess("Supplier updated successfully.");
-      } else {
-        await createSupplier(payload);
-        setSuccess("Supplier created successfully.");
-      }
-
-      setShowForm(false);
-      setForm({ ...emptyForm });
-      setEditingId(null);
-      await loadSuppliers();
-    } catch (err) {
-      setError(err.message || "Unable to save supplier.");
-    } finally {
-      setSaving(false);
-    }
+    return;
   }
+
+  setSaving(true);
+  setError("");
+  setSuccess("");
+
+  const payload = {
+    ...form,
+    supplierCode: form.supplierCode.trim() || null,
+    name: form.name.trim(),
+    contactPerson: form.contactPerson.trim() || null,
+    phone: form.phone.trim() || null,
+    alternatePhone: form.alternatePhone.trim() || null,
+    email: form.email.trim() || null,
+    gstin: form.gstin.trim().toUpperCase() || null,
+    addressLine: form.addressLine.trim() || null,
+    city: form.city.trim() || null,
+    state: form.state.trim() || null,
+    postalCode: form.postalCode.trim() || null,
+    notes: form.notes.trim() || null,
+  };
+
+  try {
+    if (editingId !== null) {
+      await updateSupplier(editingId, payload);
+    } else {
+      await createSupplier(payload);
+    }
+
+    setShowForm(false);
+    setForm({ ...emptyForm });
+    setEditingId(null);
+
+    setSuccess(
+      editingId !== null
+        ? "Supplier updated successfully."
+        : "Supplier created successfully."
+    );
+
+    await loadSuppliers();
+  } catch (err) {
+    setError(err.message || "Unable to save supplier.");
+  } finally {
+    setSaving(false);
+  }
+}
+
 
   async function handleDeactivate(supplier) {
     const confirmed = window.confirm(

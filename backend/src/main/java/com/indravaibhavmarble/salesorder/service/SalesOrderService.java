@@ -142,13 +142,13 @@ public class SalesOrderService {
             }
 
             // Validate the submitted price before changing stock.
-            if (itemRequest.unitPrice() != null
-                    && itemRequest.unitPrice().compareTo(
-                            product.getSellingPrice()) != 0) {
-                throw new IllegalArgumentException(
-                        "Submitted price does not match current selling price "
-                                + "for product " + product.getProductCode());
-            }
+            // Validate the custom selling price before changing stock.
+if (itemRequest.unitPrice() != null
+        && itemRequest.unitPrice().signum() < 0) {
+    throw new IllegalArgumentException(
+            "Unit selling price cannot be negative for product "
+                    + product.getProductCode());
+}
 
             MeasurementUnit unit = unitRepository.findById(product.getUnitId())
                     .filter(MeasurementUnit::isActive)
@@ -176,8 +176,11 @@ public class SalesOrderService {
                     availableStock,
                     remainingStock));
 
-            BigDecimal unitPrice = product.getSellingPrice()
-                    .setScale(2, RoundingMode.HALF_UP);
+           BigDecimal unitPrice = (
+        itemRequest.unitPrice() != null
+                ? itemRequest.unitPrice()
+                : product.getSellingPrice()
+).setScale(2, RoundingMode.HALF_UP);
 
             BigDecimal gstRate = product.getGstRate();
 

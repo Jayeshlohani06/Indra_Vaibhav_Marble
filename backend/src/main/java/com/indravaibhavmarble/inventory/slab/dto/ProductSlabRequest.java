@@ -7,5 +7,6 @@ public record ProductSlabRequest(
         Long productId,
         String slabCode,
         BigDecimal lengthFt,
-        BigDecimal widthFt) {
+        BigDecimal widthFt
+) {
 }

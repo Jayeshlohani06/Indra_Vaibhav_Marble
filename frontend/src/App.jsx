@@ -8,6 +8,7 @@ import CustomersPage from "./features/customers/CustomersPage";
 import SalesOrdersPage from "./features/sales-orders/SalesOrdersPage";
 import StockMovementsPage from "./features/stock-movements/StockMovementsPage";
 import SuppliersPage from "./features/suppliers/SuppliersPage";
+import PurchasesPage from "./features/purchases/PurchasesPage";
 
 import "./App.css";
 
@@ -18,6 +19,7 @@ const VALID_PAGES = [
   "billing",
   "stock-movements",
   "suppliers",
+  "purchases",
 ];
 
 function getCurrentPage() {
@@ -74,6 +76,10 @@ function App() {
     suppliers: {
       breadcrumb: "Suppliers",
       title: "Supplier Management",
+    },
+    purchases: {
+      breadcrumb: "Purchases",
+      title: "Purchase Management",
     },
   };
 
@@ -150,8 +156,13 @@ function App() {
             <span>Sales &amp; Billing</span>
           </a>
 
-          {/* Purchases — coming later */}
-          <a className="erp-nav-item" href="#purchases">
+          {/* Purchases */}
+          <a
+            className={`erp-nav-item ${
+              currentPage === "purchases" ? "active" : ""
+            }`}
+            href="#purchases"
+          >
             <span className="erp-nav-icon">⇄</span>
             <span>Purchases</span>
           </a>
@@ -227,6 +238,8 @@ function App() {
             <StockMovementsPage />
           ) : currentPage === "suppliers" ? (
             <SuppliersPage />
+          ) : currentPage === "purchases" ? (
+            <PurchasesPage />
           ) : (
             <DashboardPage />
           )}

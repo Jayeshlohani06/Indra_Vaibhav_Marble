@@ -3,6 +3,9 @@ $env:DB_PASSWORD="yourpassword"
 code C:\Users\jayes\Desktop\indra-vaibhav-marble\backend\src\main\resources\db\migration
 
 mvn clean compile
+
+mvn clean spring-boot:run
+
 psql -U postgres -d postgres
 
 Step 1: Enter your email
