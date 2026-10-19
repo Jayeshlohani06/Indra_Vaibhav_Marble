@@ -11,6 +11,11 @@ import {
   getPurchases,
   receivePurchase,
 } from "../../services/api/purchaseApi";
+import {
+  getPurchasePayments,
+  recordPurchasePayment,
+  getPurchaseBalance,
+} from "../../services/api/paymentApi";
 import CreateProductForm from "./CreateProductForm";
 import "./PurchasesPage.css";
 
@@ -57,6 +62,17 @@ function PurchasesPage() {
   const [receivingId, setReceivingId] = useState(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [paymentPurchase, setPaymentPurchase] = useState(null);
+  const [paymentBalance, setPaymentBalance] = useState(null);
+  const [paymentHistory, setPaymentHistory] = useState([]);
+  const [paymentDate, setPaymentDate] = useState(today());
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("UPI");
+  const [paymentReference, setPaymentReference] = useState("");
+  const [paymentNotes, setPaymentNotes] = useState("");
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentSaving, setPaymentSaving] = useState(false);
+  const [paymentError, setPaymentError] = useState("");
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -371,6 +387,85 @@ function PurchasesPage() {
       setError(err.message || "Unable to receive purchase.");
     } finally {
       setReceivingId(null);
+    }
+  }
+
+  async function openPaymentPanel(purchase) {
+    setPaymentPurchase(purchase);
+    setPaymentBalance(null);
+    setPaymentHistory([]);
+    setPaymentError("");
+    setPaymentAmount("");
+    setPaymentDate(today());
+    setPaymentMethod("UPI");
+    setPaymentReference("");
+    setPaymentNotes("");
+    setPaymentLoading(true);
+
+    try {
+      const [balance, history] = await Promise.all([
+        getPurchaseBalance(purchase.id),
+        getPurchasePayments(purchase.id),
+      ]);
+
+      setPaymentBalance(balance);
+      setPaymentHistory(Array.isArray(history) ? history : []);
+    } catch (err) {
+      setPaymentError(err.message || "Unable to load payment details.");
+    } finally {
+      setPaymentLoading(false);
+    }
+  }
+
+  async function handleRecordPayment(event) {
+    event.preventDefault();
+    if (!paymentPurchase) return;
+
+    setPaymentError("");
+
+    const amount = Number(paymentAmount);
+
+    if (!paymentDate || paymentDate > today()) {
+      setPaymentError("Select a valid payment date.");
+      return;
+    }
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setPaymentError("Enter a payment amount greater than zero.");
+      return;
+    }
+
+    if (!paymentMethod) {
+      setPaymentError("Select a payment method.");
+      return;
+    }
+
+    setPaymentSaving(true);
+
+    try {
+      await recordPurchasePayment(paymentPurchase.id, {
+        paymentDate,
+        amount,
+        paymentMethod,
+        referenceNumber: paymentReference.trim() || null,
+        notes: paymentNotes.trim() || null,
+      });
+
+      const [balance, history] = await Promise.all([
+        getPurchaseBalance(paymentPurchase.id),
+        getPurchasePayments(paymentPurchase.id),
+      ]);
+
+      setPaymentBalance(balance);
+      setPaymentHistory(Array.isArray(history) ? history : []);
+      setPaymentAmount("");
+      setPaymentReference("");
+      setPaymentNotes("");
+      setSuccess("Supplier payment recorded successfully.");
+    } catch (err) {
+      setPaymentError(err.message || "Unable to record supplier payment.");
+    } finally {
+      setPaymentSaving(false);
     }
   }
 
@@ -764,7 +859,16 @@ function PurchasesPage() {
                                 : "Receive Purchase"}
                             </button>
                           ) : (
-                            <span>Received</span>
+                            <div className="purchase-action-group">
+                              <span>Received</span>
+                              <button
+                                type="button"
+                                className="purchase-secondary-button"
+                                onClick={() => openPaymentPanel(purchase)}
+                              >
+                                Payments
+                              </button>
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -774,6 +878,190 @@ function PurchasesPage() {
               </div>
             )}
           </div>
+
+          {paymentPurchase && (
+            <div className="purchase-card payment-panel">
+              <div className="purchase-section-heading">
+                <div>
+                  <h3>Supplier Payments</h3>
+                  <p>
+                    {paymentPurchase.purchaseNumber} ·{" "}
+                    {paymentPurchase.supplierName ||
+                      `Supplier #${paymentPurchase.supplierId}`}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  className="purchase-secondary-button"
+                  onClick={() => {
+                    setPaymentPurchase(null);
+                    setPaymentBalance(null);
+                    setPaymentHistory([]);
+                    setPaymentError("");
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+
+              {paymentLoading ? (
+                <p>Loading payment details...</p>
+              ) : (
+                <>
+                  {paymentError && (
+                    <div
+                      className="purchase-alert purchase-error"
+                      role="alert"
+                    >
+                      {paymentError}
+                    </div>
+                  )}
+
+                  {paymentBalance && (
+                    <div className="payment-balance-grid">
+                      <div>
+                        <span>Purchase total</span>
+                        <strong>{money(paymentBalance.purchaseTotal)}</strong>
+                      </div>
+                      <div>
+                        <span>Total paid</span>
+                        <strong>{money(paymentBalance.totalPaid)}</strong>
+                      </div>
+                      <div>
+                        <span>Outstanding</span>
+                        <strong>
+                          {money(paymentBalance.outstandingBalance)}
+                        </strong>
+                      </div>
+                    </div>
+                  )}
+
+                  <form
+                    className="payment-form"
+                    onSubmit={handleRecordPayment}
+                  >
+                    <h4>Record Supplier Payment</h4>
+
+                    <div className="purchase-form-grid">
+                      <label>
+                        Payment date *
+                        <input
+                          type="date"
+                          value={paymentDate}
+                          max={today()}
+                          onChange={(event) =>
+                            setPaymentDate(event.target.value)
+                          }
+                          required
+                        />
+                      </label>
+
+                      <label>
+                        Amount (₹) *
+                        <input
+                          type="number"
+                          min="0.01"
+                          max={paymentBalance?.outstandingBalance ?? undefined}
+                          step="0.01"
+                          value={paymentAmount}
+                          onChange={(event) =>
+                            setPaymentAmount(event.target.value)
+                          }
+                          required
+                        />
+                      </label>
+
+                      <label>
+                        Payment method *
+                        <select
+                          value={paymentMethod}
+                          onChange={(event) =>
+                            setPaymentMethod(event.target.value)
+                          }
+                          required
+                        >
+                          <option value="CASH">Cash</option>
+                          <option value="UPI">UPI</option>
+                          <option value="BANK_TRANSFER">Bank transfer</option>
+                          <option value="CHEQUE">Cheque</option>
+                          <option value="CARD">Card</option>
+                          <option value="OTHER">Other</option>
+                        </select>
+                      </label>
+
+                      <label>
+                        Reference number
+                        <input
+                          value={paymentReference}
+                          onChange={(event) =>
+                            setPaymentReference(event.target.value)
+                          }
+                          maxLength={100}
+                          placeholder="Transaction or cheque number"
+                        />
+                      </label>
+
+                      <label className="purchase-wide-field">
+                        Notes
+                        <textarea
+                          rows={2}
+                          value={paymentNotes}
+                          onChange={(event) =>
+                            setPaymentNotes(event.target.value)
+                          }
+                          placeholder="Optional payment notes"
+                        />
+                      </label>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="purchase-primary-button"
+                      disabled={
+                        paymentSaving ||
+                        !paymentBalance ||
+                        Number(paymentBalance.outstandingBalance) <= 0
+                      }
+                    >
+                      {paymentSaving ? "Recording payment..." : "Record Payment"}
+                    </button>
+                  </form>
+
+                  <div className="payment-history">
+                    <h4>Payment History</h4>
+
+                    {paymentHistory.length === 0 ? (
+                      <p>No payments recorded for this purchase yet.</p>
+                    ) : (
+                      <div className="purchase-table-scroll">
+                        <table className="purchase-table">
+                          <thead>
+                            <tr>
+                              <th>Date</th>
+                              <th>Amount</th>
+                              <th>Method</th>
+                              <th>Reference</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {paymentHistory.map((payment) => (
+                              <tr key={payment.id}>
+                                <td>{payment.paymentDate}</td>
+                                <td>{money(payment.amount)}</td>
+                                <td>{payment.paymentMethod}</td>
+                                <td>{payment.referenceNumber || "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </>
       )}
 

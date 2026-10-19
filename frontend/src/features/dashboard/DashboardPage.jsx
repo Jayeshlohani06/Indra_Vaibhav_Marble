@@ -1,98 +1,431 @@
 
+import { useCallback, useEffect, useState } from "react";
+
+import { getProducts } from "../../services/api/inventoryApi";
+import { getCustomers } from "../../services/api/customerApi";
+import { getFinancialSummary, getSupplierOutstanding } from "../../services/api/reportApi";
+
 import "./DashboardPage.css";
 
-const summaryCards = [
-  {
-    title: "Total Sales",
-    value: "₹0.00",
-    note: "Sales summary",
-    icon: "₹",
-  },
-  {
-    title: "Outstanding",
-    value: "₹0.00",
-    note: "Customer dues",
-    icon: "↗",
-  },
-  {
-    title: "Inventory Items",
-    value: "0",
-    note: "Products tracked",
-    icon: "▦",
-  },
-  {
-    title: "Supplier Dues",
-    value: "₹0.00",
-    note: "Pending payments",
-    icon: "◷",
-  },
-];
+const currencyFormatter = new Intl.NumberFormat("en-IN", {
+  style: "currency",
+  currency: "INR",
+  maximumFractionDigits: 2,
+});
+
+function formatCurrency(value) {
+  return currencyFormatter.format(Number(value ?? 0));
+}
+
+function getArray(response) {
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.content)) return response.content;
+  if (Array.isArray(response?.data)) return response.data;
+  return [];
+}
+
+function getObject(response) {
+  return response?.data ?? response ?? {};
+}
+
+function formatLocalDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function getToday() {
+  return formatLocalDate(new Date());
+}
+
+function getWeekStart() {
+  const today = new Date();
+  const day = today.getDay();
+  const daysSinceMonday = (day + 6) % 7;
+
+  today.setDate(today.getDate() - daysSinceMonday);
+  return formatLocalDate(today);
+}
+
+function getMonthStart() {
+  const today = new Date();
+  today.setDate(1);
+  return formatLocalDate(today);
+}
+
+function formatLiveDateTime(date) {
+  return {
+    date: date.toLocaleDateString("en-IN", {
+      weekday: "long",
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    }),
+    time: date.toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    }),
+  };
+}
 
 const modules = [
   {
     icon: "▦",
     title: "Inventory",
-    description: "Manage marble, granite, tiles and sanitaryware",
+    description: "Manage marble, granite, tiles and sanitaryware.",
     href: "#inventory",
   },
   {
     icon: "♙",
     title: "Customers",
-    description: "Customer details and outstanding balances",
+    description: "View customer records and contact information.",
     href: "#customers",
   },
   {
-    icon: "▤",
+    icon: "₹",
     title: "Sales & Billing",
-    description: "Create invoices and record payments",
+    description: "Create sales orders and manage billing.",
     href: "#billing",
   },
   {
     icon: "⇄",
     title: "Purchases",
-    description: "Supplier purchases and purchase history",
+    description: "Manage supplier purchases and payment history.",
     href: "#purchases",
   },
   {
     icon: "₹",
     title: "Expenses",
-    description: "Track business expenses and payments",
+    description: "Track business expenses.",
     href: "#expenses",
   },
   {
-    icon: "▧",
+    icon: "▤",
     title: "Reports",
-    description: "Review sales, purchases and business activity",
+    description: "Review financial performance and supplier dues.",
     href: "#reports",
   },
 ];
 
 function DashboardPage() {
+  const [dashboard, setDashboard] = useState({
+    loading: true,
+    error: "",
+    todaySales: null,
+    weekSales: null,
+    financial: null,
+    supplierOutstanding: null,
+    products: [],
+    customers: [],
+  });
+  const [currentDateTime, setCurrentDateTime] = useState(() =>
+    formatLiveDateTime(new Date())
+  );
+
+  useEffect(() => {
+    const timerId = window.setInterval(() => {
+      setCurrentDateTime(formatLiveDateTime(new Date()));
+    }, 1000);
+
+    return () => window.clearInterval(timerId);
+  }, []);
+
+  const loadDashboard = useCallback(async () => {
+    setDashboard((previous) => ({
+      ...previous,
+      loading: true,
+      error: "",
+    }));
+
+    const results = await Promise.allSettled([
+      getFinancialSummary(getToday(), getToday()),
+      getFinancialSummary(getWeekStart(), getToday()),
+      getFinancialSummary(getMonthStart(), getToday()),
+      getSupplierOutstanding(),
+      getProducts(),
+      getCustomers(),
+    ]);
+
+    const [
+      todaySalesResult,
+      weekSalesResult,
+      financialResult,
+      supplierResult,
+      productsResult,
+      customersResult,
+    ] = results;
+
+    const errors = [];
+    const todaySales = todaySalesResult.status === "fulfilled"
+      ? getObject(todaySalesResult.value)
+      : null;
+
+    const weekSales = weekSalesResult.status === "fulfilled"
+      ? getObject(weekSalesResult.value)
+      : null;
+
+    const financial = financialResult.status === "fulfilled"
+      ? getObject(financialResult.value)
+      : null;
+
+    const supplierRows = supplierResult.status === "fulfilled"
+      ? getArray(supplierResult.value)
+      : null;
+
+    const products = productsResult.status === "fulfilled"
+      ? getArray(productsResult.value)
+      : null;
+
+    const customers = customersResult.status === "fulfilled"
+      ? getArray(customersResult.value)
+      : null;
+
+    if (!todaySales) errors.push("Today's sales");
+    if (!weekSales) errors.push("This week's sales");
+    if (!financial) errors.push("Monthly financial summary");
+    if (!supplierRows) errors.push("Supplier outstanding");
+    if (!products) errors.push("Inventory");
+    if (!customers) errors.push("Customers");
+
+    setDashboard({
+      loading: false,
+      error: errors.length
+        ? `Could not load: ${errors.join(", ")}. Check your connection or open the relevant module to retry.`
+        : "",
+      todaySales,
+      weekSales,
+      financial,
+      supplierOutstanding: supplierRows,
+      products: products ?? [],
+      customers: customers ?? [],
+    });
+  }, []);
+
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
+
+  const {
+    loading,
+    error,
+    todaySales,
+    weekSales,
+    financial,
+    supplierOutstanding,
+    products,
+    customers,
+  } = dashboard;
+
+  const activeProducts = products.filter(
+    (product) => product.active !== false && product.isActive !== false
+  );
+
+  const lowStockProducts = activeProducts.filter((product) => {
+    const quantity = Number(product.stockQuantity ?? 0);
+    const threshold = Number(product.lowStockThreshold ?? 0);
+    return threshold > 0 && quantity <= threshold;
+  });
+
+  const supplierDues = (supplierOutstanding ?? []).reduce(
+    (sum, supplier) => sum + Number(supplier.outstandingBalance ?? 0),
+    0
+  );
+
+  const todaySalesTotal = Number(todaySales?.salesOrderTotal ?? 0);
+  const weekSalesTotal = Number(weekSales?.salesOrderTotal ?? 0);
+  const salesTotal = Number(financial?.salesOrderTotal ?? 0);
+  const purchaseTotal = Number(financial?.receivedPurchaseTotal ?? 0);
+  const expenseTotal = Number(financial?.expenseTotal ?? 0);
+
+  const summaryCards = [
+    {
+      title: "Sales Today",
+      value: todaySales ? formatCurrency(todaySalesTotal) : "—",
+      note: `${todaySales?.salesOrderCount ?? "—"} sales orders`,
+      icon: "₹",
+      tone: "sales",
+    },
+    {
+      title: "Sales This Week",
+      value: weekSales ? formatCurrency(weekSalesTotal) : "—",
+      note: `${weekSales?.salesOrderCount ?? "—"} sales orders`,
+      icon: "₹",
+      tone: "sales",
+    },
+    {
+      title: "Sales This Month",
+      value: financial ? formatCurrency(salesTotal) : "—",
+      note: `${financial?.salesOrderCount ?? "—"} sales orders`,
+      icon: "₹",
+      tone: "sales",
+    },
+    {
+      title: "Supplier Dues",
+      value: supplierOutstanding ? formatCurrency(supplierDues) : "—",
+      note: "Outstanding on received purchases",
+      icon: "↗",
+      tone: "dues",
+    },
+    {
+      title: "Active Products",
+      value: products ? activeProducts.length.toLocaleString("en-IN") : "—",
+      note: products ? `${lowStockProducts.length} low-stock products` : "Inventory records",
+      icon: "▦",
+      tone: "inventory",
+    },
+    {
+      title: "Customers",
+      value: customers ? customers.length.toLocaleString("en-IN") : "—",
+      note: "Customer records returned by API",
+      icon: "♙",
+      tone: "customers",
+    },
+  ];
+
   return (
     <div className="dashboard-content">
-      <section className="erp-welcome">
-        <div>
-          <p className="erp-eyebrow">INDRA VAIBHAV MARBLE</p>
-          <h2>Your business, at a glance.</h2>
-          <p>
-            Manage your products, customers, billing and purchases from one
-            place.
-          </p>
+      <section className="erp-live-panel" aria-label="Current date and time">
+        <div className="erp-live-indicator">
+          <span className="erp-live-dot" />
+          <span>LIVE</span>
         </div>
 
-        <div className="erp-welcome-mark">IV</div>
+        <div className="erp-live-date">
+          <span className="erp-live-label">TODAY</span>
+          <strong>{currentDateTime.date}</strong>
+        </div>
+
+        <div className="erp-live-clock">
+          <span className="erp-live-label">CURRENT TIME</span>
+          <strong>{currentDateTime.time}</strong>
+        </div>
+      </section>
+
+      <section className="erp-welcome">
+        <div className="erp-welcome-copy">
+          <p className="erp-eyebrow">INDRA VAIBHAV MARBLE · BUSINESS OVERVIEW</p>
+          <h2>Your business, at a glance.</h2>
+          <p>
+            Monitor your sales, inventory, supplier dues and day-to-day business
+            activity from one place.
+          </p>
+          <div className="erp-welcome-actions">
+            <a href="#billing" className="erp-primary-action">
+              + Create a sales order
+            </a>
+            <a href="#reports" className="erp-secondary-action">
+              View reports <span aria-hidden="true">→</span>
+            </a>
+          </div>
+        </div>
+        <div className="erp-welcome-mark" aria-hidden="true">
+          <span>IV</span>
+          <small>MARBLE</small>
+        </div>
+      </section>
+
+      {error && (
+        <div className="erp-dashboard-alert" role="alert">
+          <div>
+            <strong>Some dashboard data is unavailable.</strong>
+            <p>{error}</p>
+          </div>
+          <button type="button" onClick={loadDashboard}>
+            Try again
+          </button>
+        </div>
+      )}
+
+      <section className="erp-section erp-sales-period-section">
+        <div className="erp-section-heading">
+          <div>
+            <p className="erp-eyebrow">SALES PERFORMANCE</p>
+            <h2>Sales at a glance</h2>
+            <p>Compare sales for today, this week and this month.</p>
+          </div>
+          <a className="erp-text-link" href="#reports">
+            View reports <span aria-hidden="true">→</span>
+          </a>
+        </div>
+
+        <div className="erp-sales-period-grid">
+          <article className="erp-sales-period-card today">
+            <div className="erp-sales-period-heading">
+              <span className="erp-sales-period-icon">☀</span>
+              <span className="erp-sales-period-tag">TODAY</span>
+            </div>
+            <p className="erp-sales-period-title">Today's sales</p>
+            <h3>
+              {loading
+                ? "Loading…"
+                : todaySales
+                  ? formatCurrency(todaySales.salesOrderTotal)
+                  : "Unavailable"}
+            </h3>
+            <p className="erp-sales-period-note">
+              {todaySales
+                ? `${todaySales.salesOrderCount ?? 0} sales orders`
+                : "Sales data unavailable"}
+            </p>
+          </article>
+
+          <article className="erp-sales-period-card week">
+            <div className="erp-sales-period-heading">
+              <span className="erp-sales-period-icon">▦</span>
+              <span className="erp-sales-period-tag">THIS WEEK</span>
+            </div>
+            <p className="erp-sales-period-title">Weekly sales</p>
+            <h3>
+              {loading
+                ? "Loading…"
+                : weekSales
+                  ? formatCurrency(weekSales.salesOrderTotal)
+                  : "Unavailable"}
+            </h3>
+            <p className="erp-sales-period-note">
+              {weekSales
+                ? `${weekSales.salesOrderCount ?? 0} sales orders · Monday to today`
+                : "Sales data unavailable"}
+            </p>
+          </article>
+
+          <article className="erp-sales-period-card month">
+            <div className="erp-sales-period-heading">
+              <span className="erp-sales-period-icon">₹</span>
+              <span className="erp-sales-period-tag">THIS MONTH</span>
+            </div>
+            <p className="erp-sales-period-title">Monthly sales</p>
+            <h3>
+              {loading
+                ? "Loading…"
+                : financial
+                  ? formatCurrency(financial.salesOrderTotal)
+                  : "Unavailable"}
+            </h3>
+            <p className="erp-sales-period-note">
+              {financial
+                ? `${financial.salesOrderCount ?? 0} sales orders`
+                : "Sales data unavailable"}
+            </p>
+          </article>
+        </div>
       </section>
 
       <section className="erp-summary-grid" aria-label="Business summaries">
         {summaryCards.map((card) => (
-          <article className="erp-summary-card" key={card.title}>
+          <article className={`erp-summary-card ${card.tone}`} key={card.title}>
             <div className="erp-summary-top">
               <span>{card.title}</span>
-              <span className="erp-summary-icon">{card.icon}</span>
+              <span className="erp-summary-icon" aria-hidden="true">
+                {card.icon}
+              </span>
             </div>
-
-            <h3>{card.value}</h3>
-            <p>{card.note}</p>
+            <h3>{loading ? "Loading…" : card.value}</h3>
+            <p>{loading ? "Fetching latest data" : card.note}</p>
           </article>
         ))}
       </section>
@@ -100,29 +433,142 @@ function DashboardPage() {
       <section className="erp-section">
         <div className="erp-section-heading">
           <div>
-            <h2>Business Modules</h2>
-            <p>Choose a module to manage your business.</p>
+            <p className="erp-eyebrow">QUICK ACCESS</p>
+            <h2>Business modules</h2>
+            <p>Jump directly to the area you want to manage.</p>
           </div>
         </div>
 
         <div className="erp-module-grid">
           {modules.map((module) => (
-            <a
-              className="erp-module-card"
-              key={module.title}
-              href={module.href}
-            >
-              <div className="erp-module-icon">{module.icon}</div>
+            <a className="erp-module-card" key={module.title} href={module.href}>
+              <div className="erp-module-icon" aria-hidden="true">
+                {module.icon}
+              </div>
               <h3>{module.title}</h3>
               <p>{module.description}</p>
-              <span className="erp-module-arrow">Explore module →</span>
+              <span className="erp-module-arrow">
+                Open module <span aria-hidden="true">→</span>
+              </span>
             </a>
           ))}
         </div>
       </section>
 
+      <section className="erp-section">
+        <div className="erp-section-heading">
+          <div>
+            <p className="erp-eyebrow">CURRENT MONTH</p>
+            <h2>Financial snapshot</h2>
+            <p>Based on transactions dated from the first day of this month through today.</p>
+          </div>
+          <a className="erp-text-link" href="#reports">
+            Full reports <span aria-hidden="true">→</span>
+          </a>
+        </div>
+
+        <div className="erp-financial-grid">
+          <article className="erp-financial-card">
+            <div className="erp-financial-label">
+              <span className="erp-financial-dot sales-dot" />
+              Sales total
+            </div>
+            <h3>{loading ? "Loading…" : financial ? formatCurrency(salesTotal) : "Unavailable"}</h3>
+            <p>{financial?.salesOrderCount ?? "—"} eligible sales orders</p>
+          </article>
+          <article className="erp-financial-card">
+            <div className="erp-financial-label">
+              <span className="erp-financial-dot purchase-dot" />
+              Received purchases
+            </div>
+            <h3>{loading ? "Loading…" : financial ? formatCurrency(purchaseTotal) : "Unavailable"}</h3>
+            <p>{financial?.receivedPurchaseCount ?? "—"} received purchases</p>
+          </article>
+          <article className="erp-financial-card">
+            <div className="erp-financial-label">
+              <span className="erp-financial-dot expense-dot" />
+              Expenses
+            </div>
+            <h3>{loading ? "Loading…" : financial ? formatCurrency(expenseTotal) : "Unavailable"}</h3>
+            <p>{financial?.expenseCount ?? "—"} recorded expenses</p>
+          </article>
+        </div>
+        <p className="erp-dashboard-footnote">
+          These figures represent transaction totals, not necessarily cash collected
+          or paid. Sales exclude draft and cancelled orders.
+        </p>
+      </section>
+
+      <section className="erp-section erp-stock-section">
+        <div className="erp-section-heading">
+          <div>
+            <p className="erp-eyebrow">INVENTORY HEALTH</p>
+            <h2>Stock overview</h2>
+            <p>Products at or below their configured low-stock threshold.</p>
+          </div>
+          <a className="erp-text-link" href="#inventory">
+            Manage inventory <span aria-hidden="true">→</span>
+          </a>
+        </div>
+
+        <div className="erp-stock-overview">
+          <div className="erp-stock-stat">
+            <span className="erp-stock-stat-icon">▦</span>
+            <div>
+              <p>Active products</p>
+              <strong>{loading ? "…" : products ? activeProducts.length : "Unavailable"}</strong>
+            </div>
+          </div>
+          <div className="erp-stock-stat">
+            <span className="erp-stock-stat-icon warning">!</span>
+            <div>
+              <p>Low-stock products</p>
+              <strong>{loading ? "…" : products ? lowStockProducts.length : "Unavailable"}</strong>
+            </div>
+          </div>
+          <div className="erp-stock-stat">
+            <span className="erp-stock-stat-icon">♙</span>
+            <div>
+              <p>Customer records</p>
+              <strong>{loading ? "…" : customers ? customers.length : "Unavailable"}</strong>
+            </div>
+          </div>
+        </div>
+
+        {products && lowStockProducts.length > 0 && (
+          <div className="erp-low-stock-list">
+            <div className="erp-low-stock-heading">
+              <strong>Low-stock items to review</strong>
+              <span>{lowStockProducts.length} items</span>
+            </div>
+            {lowStockProducts.slice(0, 5).map((product) => (
+              <div className="erp-low-stock-row" key={product.id ?? product.productCode}>
+                <div>
+                  <strong>{product.name ?? "Unnamed product"}</strong>
+                  <span>{product.productCode ?? "No product code"}</span>
+                </div>
+                <div className="erp-low-stock-quantity">
+                  <strong>{product.stockQuantity ?? 0}</strong>
+                  <span>Threshold: {product.lowStockThreshold ?? 0}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {products && lowStockProducts.length === 0 && (
+          <div className="erp-stock-clear">
+            <span aria-hidden="true">✓</span>
+            No active products are at or below a positive low-stock threshold.
+          </div>
+        )}
+      </section>
+
       <footer className="erp-footer">
-        Indra Vaibhav Marble ERP <span>•</span> Dashboard
+        Indra Vaibhav Marble ERP <span>·</span> Dashboard
+        <span className="erp-footer-date">
+          {currentDateTime.date} · {currentDateTime.time}
+        </span>
       </footer>
     </div>
   );

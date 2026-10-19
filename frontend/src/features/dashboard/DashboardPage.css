@@ -1,178 +1,704 @@
 
+/* =========================================================
+   INDRA VAIBHAV MARBLE ERP — DASHBOARD
+   ========================================================= */
+
 .dashboard-content {
   width: 100%;
   max-width: 1500px;
   min-width: 0;
   margin: 0 auto;
+  color: #202b3c;
 }
 
+.dashboard-content * {
+  box-sizing: border-box;
+}
+
+/* =========================================================
+   WELCOME BANNER
+   ========================================================= */
+
 .erp-welcome {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 24px;
-  padding: 28px 32px;
-  border: 1px solid #e8e0d4;
-  border-radius: 16px;
-  background: linear-gradient(135deg, #f7f2e9, #fff);
+  gap: 28px;
+  overflow: hidden;
+  margin-bottom: 26px;
+  padding: 34px 36px;
+  border: 1px solid #e7dfd2;
+  border-radius: 18px;
+  background:
+    radial-gradient(ellipse at 90% 15%, rgba(184, 155, 112, 0.15), transparent 38%),
+    linear-gradient(125deg, #f7f2e9 0%, #fffdf9 58%, #f3eee5 100%);
 }
 
-.erp-welcome h2 {
-  margin: 0 0 10px;
-  font-size: clamp(22px, 2vw, 30px);
-  font-weight: 750;
+.erp-welcome::after {
+  position: absolute;
+  right: 105px;
+  bottom: -100px;
+  width: 250px;
+  height: 250px;
+  border: 1px solid rgba(140, 108, 66, 0.11);
+  border-radius: 50%;
+  content: "";
+  pointer-events: none;
 }
 
-.erp-welcome p:last-child {
-  margin: 0;
+.erp-welcome-copy {
+  position: relative;
+  z-index: 1;
+  max-width: 720px;
 }
 
 .erp-eyebrow {
-  margin-bottom: 10px;
-  color: #8c6c42;
-  font-size: 11px;
-  font-weight: 750;
-  letter-spacing: 1.5px;
+  margin: 0 0 10px;
+  color: #927347;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.7px;
+  line-height: 1.6;
+}
+
+.erp-welcome h2 {
+  margin: 0 0 12px;
+  color: #263243;
+  font-size: clamp(25px, 2.3vw, 34px);
+  font-weight: 780;
+  letter-spacing: -1.1px;
+  line-height: 1.2;
+}
+
+.erp-welcome-copy > p:not(.erp-eyebrow) {
+  max-width: 600px;
+  margin: 0;
+  color: #667085;
+  font-size: 14px;
+  line-height: 1.8;
 }
 
 .erp-welcome-mark {
-  display: grid;
-  width: 76px;
-  height: 76px;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: 112px;
+  height: 112px;
   flex-shrink: 0;
-  place-items: center;
-  border-radius: 18px;
-  background: #8c785b;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 24px;
+  background: linear-gradient(145deg, #a38a68, #725b3f);
+  box-shadow: 0 12px 28px rgba(105, 79, 47, 0.2);
   color: #fff;
-  font-size: 25px;
-  font-weight: 800;
 }
+
+.erp-welcome-mark > span {
+  font-size: 34px;
+  font-weight: 850;
+  letter-spacing: -2px;
+}
+
+.erp-welcome-mark small {
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 2px;
+}
+
+.erp-welcome-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.erp-primary-action,
+.erp-secondary-action {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 750;
+  text-decoration: none;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.erp-primary-action {
+  border: 1px solid #806443;
+  background: #806443;
+  color: #fff;
+}
+
+.erp-primary-action:hover {
+  transform: translateY(-1px);
+  background: #694f32;
+  color: #fff;
+}
+
+.erp-secondary-action {
+  border: 1px solid #ded4c5;
+  background: rgba(255, 255, 255, 0.65);
+  color: #725735;
+}
+
+.erp-secondary-action:hover {
+  background: #fff;
+  color: #4f3a23;
+}
+
+/* =========================================================
+   ERROR / RETRY MESSAGE
+   ========================================================= */
+
+.erp-dashboard-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 24px;
+  padding: 16px 18px;
+  border: 1px solid #f0d4a5;
+  border-radius: 12px;
+  background: #fff9ed;
+}
+
+.erp-dashboard-alert strong {
+  display: block;
+  margin-bottom: 5px;
+  color: #8a5b14;
+  font-size: 13px;
+}
+
+.erp-dashboard-alert p {
+  margin: 0;
+  color: #795d34;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.erp-dashboard-alert button {
+  flex-shrink: 0;
+  padding: 9px 13px;
+  border: 1px solid #e5c38b;
+  border-radius: 8px;
+  background: #fff;
+  color: #79531d;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.erp-dashboard-alert button:hover {
+  background: #fff2d9;
+}
+
+/* =========================================================
+   SUMMARY CARDS
+   ========================================================= */
 
 .erp-summary-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
-  margin-bottom: 32px;
+  gap: 17px;
+  margin-bottom: 36px;
 }
 
 .erp-summary-card {
+  position: relative;
   min-width: 0;
-  padding: 22px;
-  border: 1px solid #e8ebf1;
-  border-radius: 14px;
+  overflow: hidden;
+  padding: 23px;
+  border: 1px solid #e7eaf0;
+  border-radius: 15px;
   background: #fff;
+  box-shadow: 0 2px 5px rgba(15, 23, 42, 0.018);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.erp-summary-card:hover {
+  transform: translateY(-2px);
+  border-color: #d9c9b2;
+  box-shadow: 0 9px 24px rgba(15, 23, 42, 0.055);
 }
 
 .erp-summary-top {
   display: flex;
+  min-height: 38px;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  color: #64748b;
+  gap: 10px;
+  color: #667085;
   font-size: 12px;
+  font-weight: 650;
 }
 
 .erp-summary-icon {
   display: grid;
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   flex-shrink: 0;
   place-items: center;
-  border-radius: 10px;
-  background: #f2eee7;
-  color: #725735;
+  border-radius: 11px;
+  background: #f3eee6;
+  color: #806443;
+  font-size: 18px;
+  font-weight: 750;
 }
 
 .erp-summary-card h3 {
-  margin: 18px 0 8px;
-  font-size: 25px;
-  font-weight: 750;
+  overflow-wrap: anywhere;
+  margin: 22px 0 8px;
+  color: #202b3c;
+  font-size: clamp(21px, 1.8vw, 29px);
+  font-weight: 800;
+  letter-spacing: -0.8px;
+  line-height: 1.25;
 }
 
 .erp-summary-card p {
   margin: 0;
-  font-size: 12px;
+  color: #8a94a6;
+  font-size: 11px;
+  line-height: 1.6;
 }
 
+.erp-summary-card.sales .erp-summary-icon {
+  background: #eaf5ee;
+  color: #268453;
+}
+
+.erp-summary-card.dues .erp-summary-icon {
+  background: #fff2e5;
+  color: #bd6b21;
+}
+
+.erp-summary-card.inventory .erp-summary-icon {
+  background: #edf2ff;
+  color: #4e68b5;
+}
+
+.erp-summary-card.customers .erp-summary-icon {
+  background: #f3eefe;
+  color: #7956b5;
+}
+
+/* =========================================================
+   SHARED SECTION HEADINGS
+   ========================================================= */
+
 .erp-section {
-  margin-bottom: 24px;
+  min-width: 0;
+  margin-bottom: 36px;
 }
 
 .erp-section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
   margin-bottom: 18px;
 }
 
-.erp-section-heading h2 {
+.erp-section-heading > div {
+  min-width: 0;
+}
+
+.erp-section-heading .erp-eyebrow {
   margin-bottom: 5px;
 }
 
-.erp-section-heading p {
-  margin: 0;
-  font-size: 13px;
+.erp-section-heading h2 {
+  margin: 0 0 6px;
+  color: #253145;
+  font-size: 20px;
+  font-weight: 780;
+  letter-spacing: -0.45px;
 }
+
+.erp-section-heading p:not(.erp-eyebrow) {
+  margin: 0;
+  color: #8590a1;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.erp-text-link {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 7px;
+  padding-bottom: 3px;
+  color: #806443;
+  font-size: 12px;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.erp-text-link:hover {
+  color: #594126;
+}
+
+/* =========================================================
+   BUSINESS MODULES
+   ========================================================= */
 
 .erp-module-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  gap: 17px;
 }
 
 .erp-module-card {
   display: flex;
   min-width: 0;
+  min-height: 190px;
   flex-direction: column;
   align-items: flex-start;
-  min-height: 190px;
-  padding: 22px;
-  border: 1px solid #e8ebf1;
-  border-radius: 14px;
+  padding: 23px;
+  border: 1px solid #e7eaf0;
+  border-radius: 15px;
   background: #fff;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  color: inherit;
+  text-decoration: none;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
 }
 
 .erp-module-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.07);
+  transform: translateY(-3px);
+  border-color: #d9c8b1;
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.065);
+}
+
+.erp-module-card:focus-visible,
+.erp-primary-action:focus-visible,
+.erp-secondary-action:focus-visible,
+.erp-text-link:focus-visible {
+  outline: 3px solid rgba(140, 108, 66, 0.35);
+  outline-offset: 3px;
 }
 
 .erp-module-icon {
   display: grid;
-  width: 42px;
-  height: 42px;
-  margin-bottom: 16px;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  margin-bottom: 17px;
   place-items: center;
-  border-radius: 11px;
-  background: #f2eee7;
-  color: #725735;
-  font-size: 19px;
+  border-radius: 12px;
+  background: #f3eee6;
+  color: #806443;
+  font-size: 20px;
+  font-weight: 750;
 }
 
 .erp-module-card h3 {
-  margin-bottom: 8px;
+  margin: 0 0 8px;
+  color: #293548;
+  font-size: 15px;
+  font-weight: 750;
 }
 
 .erp-module-card p {
-  margin-bottom: 18px;
-  font-size: 13px;
+  margin: 0 0 18px;
+  color: #7e899a;
+  font-size: 12px;
+  line-height: 1.8;
 }
 
 .erp-module-arrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   margin-top: auto;
   color: #8c6c42;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 750;
 }
+
+.erp-module-arrow span {
+  transition: transform 0.2s ease;
+}
+
+.erp-module-card:hover .erp-module-arrow span {
+  transform: translateX(3px);
+}
+
+/* =========================================================
+   FINANCIAL SNAPSHOT
+   ========================================================= */
+
+.erp-financial-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 17px;
+}
+
+.erp-financial-card {
+  min-width: 0;
+  padding: 23px;
+  border: 1px solid #e7eaf0;
+  border-radius: 15px;
+  background: #fff;
+}
+
+.erp-financial-label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #687386;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.erp-financial-dot {
+  width: 9px;
+  height: 9px;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+
+.sales-dot {
+  background: #319767;
+}
+
+.purchase-dot {
+  background: #5576ce;
+}
+
+.expense-dot {
+  background: #d58a3e;
+}
+
+.erp-financial-card h3 {
+  overflow-wrap: anywhere;
+  margin: 20px 0 8px;
+  color: #253145;
+  font-size: clamp(22px, 2vw, 29px);
+  font-weight: 800;
+  letter-spacing: -0.65px;
+}
+
+.erp-financial-card p {
+  margin: 0;
+  color: #8993a3;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.erp-dashboard-footnote {
+  margin: 12px 0 0;
+  color: #8a94a6;
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+/* =========================================================
+   STOCK OVERVIEW
+   ========================================================= */
+
+.erp-stock-section {
+  padding: 25px;
+  border: 1px solid #e7eaf0;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.erp-stock-section .erp-section-heading {
+  margin-bottom: 22px;
+}
+
+.erp-stock-overview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 15px;
+}
+
+.erp-stock-stat {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 14px;
+  padding: 17px;
+  border: 1px solid #edf0f4;
+  border-radius: 12px;
+  background: #fbfcfe;
+}
+
+.erp-stock-stat-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 11px;
+  background: #edf2ff;
+  color: #5570b9;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.erp-stock-stat-icon.warning {
+  background: #fff2e5;
+  color: #b86a22;
+}
+
+.erp-stock-stat p {
+  margin: 0 0 5px;
+  color: #7d8798;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.erp-stock-stat strong {
+  display: block;
+  overflow-wrap: anywhere;
+  color: #273448;
+  font-size: 23px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+/* Low-stock list */
+
+.erp-low-stock-list {
+  margin-top: 22px;
+  overflow: hidden;
+  border: 1px solid #eceff4;
+  border-radius: 12px;
+}
+
+.erp-low-stock-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #eceff4;
+  background: #fafbfc;
+}
+
+.erp-low-stock-heading strong {
+  color: #374357;
+  font-size: 12px;
+}
+
+.erp-low-stock-heading > span {
+  color: #9a681f;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.erp-low-stock-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #f0f2f5;
+}
+
+.erp-low-stock-row:last-child {
+  border-bottom: 0;
+}
+
+.erp-low-stock-row > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.erp-low-stock-row strong {
+  overflow-wrap: anywhere;
+  color: #374357;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.erp-low-stock-row span {
+  color: #8a94a6;
+  font-size: 10px;
+}
+
+.erp-low-stock-quantity {
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.erp-low-stock-quantity strong {
+  color: #b86a22;
+}
+
+.erp-stock-clear {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+  padding: 15px 16px;
+  border: 1px solid #d8eddf;
+  border-radius: 11px;
+  background: #f4fbf6;
+  color: #39734d;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.erp-stock-clear > span {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 50%;
+  background: #dff2e5;
+  font-weight: 800;
+}
+
+/* =========================================================
+   FOOTER
+   ========================================================= */
 
 .erp-footer {
-  padding: 20px 0 0;
-  color: #94a3b8;
-  font-size: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 0 22px;
+  color: #9aa3b1;
+  font-size: 11px;
+  line-height: 1.8;
 }
 
-.erp-footer span {
-  padding: 0 5px;
+.erp-footer > span:not(.erp-footer-date) {
+  padding: 0 4px;
 }
+
+.erp-footer-date {
+  margin-left: auto;
+  color: #9aa3b1;
+}
+
+/* =========================================================
+   RESPONSIVE — LAPTOPS AND TABLETS
+   ========================================================= */
 
 @media (max-width: 1200px) {
   .erp-summary-grid {
@@ -182,24 +708,499 @@
   .erp-module-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .erp-welcome {
+    padding: 30px;
+  }
 }
 
+@media (max-width: 900px) {
+  .erp-financial-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .erp-financial-card {
+    padding: 20px;
+  }
+
+  .erp-stock-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .erp-stock-stat {
+    padding: 15px;
+  }
+
+  .erp-welcome-mark {
+    width: 90px;
+    height: 90px;
+  }
+
+  .erp-welcome-mark > span {
+    font-size: 29px;
+  }
+}
+
+/* =========================================================
+   RESPONSIVE — MOBILE
+   ========================================================= */
+
 @media (max-width: 600px) {
+  .dashboard-content {
+    padding: 0;
+  }
+
   .erp-welcome {
-    padding: 22px;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding: 23px 20px;
+    border-radius: 14px;
+  }
+
+  .erp-welcome::after {
+    right: -100px;
+  }
+
+  .erp-welcome h2 {
+    font-size: 25px;
+    letter-spacing: -0.7px;
+  }
+
+  .erp-welcome-copy > p:not(.erp-eyebrow) {
+    font-size: 12px;
   }
 
   .erp-welcome-mark {
     display: none;
   }
 
-  .erp-summary-grid,
-  .erp-module-grid {
-    grid-template-columns: 1fr;
+  .erp-welcome-actions {
+    align-items: stretch;
+    gap: 9px;
+    margin-top: 20px;
   }
 
-  .erp-summary-card,
+  .erp-primary-action,
+  .erp-secondary-action {
+    min-height: 40px;
+    padding: 10px 12px;
+    font-size: 11px;
+  }
+
+  .erp-summary-grid,
+  .erp-module-grid,
+  .erp-financial-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .erp-summary-grid {
+    margin-bottom: 30px;
+  }
+
+  .erp-summary-card {
+    padding: 19px;
+  }
+
+  .erp-summary-card h3 {
+    margin-top: 15px;
+    font-size: 25px;
+  }
+
+  .erp-section {
+    margin-bottom: 30px;
+  }
+
+  .erp-section-heading {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .erp-section-heading h2 {
+    font-size: 18px;
+  }
+
+  .erp-section-heading p:not(.erp-eyebrow) {
+    font-size: 11px;
+  }
+
+  .erp-text-link {
+    padding-top: 18px;
+    font-size: 11px;
+  }
+
   .erp-module-card {
-    padding: 18px;
+    min-height: 170px;
+    padding: 20px;
+  }
+
+  .erp-financial-card {
+    padding: 20px;
+  }
+
+  .erp-stock-section {
+    padding: 19px 15px;
+  }
+
+  .erp-stock-overview {
+    gap: 10px;
+  }
+
+  .erp-stock-stat {
+    padding: 14px;
+  }
+
+  .erp-dashboard-alert {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .erp-low-stock-row {
+    gap: 10px;
+    padding: 13px 12px;
+  }
+
+  .erp-low-stock-row strong {
+    font-size: 11px;
+  }
+
+  .erp-footer-date {
+    width: 100%;
+    margin-left: 0;
+  }
+}
+
+/* =========================================================
+   ACCESSIBILITY — REDUCED MOTION
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .erp-summary-card,
+  .erp-module-card,
+  .erp-primary-action,
+  .erp-secondary-action,
+  .erp-module-arrow span {
+    transition: none;
+  }
+
+  .erp-summary-card:hover,
+  .erp-module-card:hover,
+  .erp-primary-action:hover {
+    transform: none;
+  }
+}
+
+/* ==========================================
+   LIVE DATE & TIME PANEL
+   ========================================== */
+
+.erp-live-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 0 0 24px;
+  padding: 18px 24px;
+  background: #ffffff;
+  border: 1px solid #e7e4de;
+  border-radius: 16px;
+  box-shadow: 0 3px 12px rgba(35, 42, 54, 0.04);
+}
+
+.erp-live-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 8px 12px;
+  color: #18794e;
+  background: #eaf7ef;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.erp-live-dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  background: #22a06b;
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px rgba(34, 160, 107, 0.12);
+  animation: erp-live-pulse 1.8s ease-in-out infinite;
+}
+
+.erp-live-date,
+.erp-live-clock {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.erp-live-date {
+  flex: 1;
+}
+
+.erp-live-clock {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.erp-live-label {
+  color: #7c8493;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+}
+
+.erp-live-date strong {
+  color: #182b46;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.erp-live-clock strong {
+  color: #806344;
+  font-size: 20px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@keyframes erp-live-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* ==========================================
+   SALES PERFORMANCE CARDS
+   ========================================== */
+
+.erp-sales-period-section {
+  margin-top: 28px;
+  margin-bottom: 32px;
+}
+
+.erp-sales-period-section .erp-section-heading {
+  margin-bottom: 18px;
+}
+
+.erp-sales-period-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  width: 100%;
+}
+
+.erp-sales-period-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+  min-height: 190px;
+  padding: 22px;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #e8e7e3;
+  border-radius: 16px;
+  box-shadow: 0 4px 14px rgba(30, 41, 59, 0.035);
+  transition: transform 180ms ease, box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+
+.erp-sales-period-card::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  content: "";
+}
+
+.erp-sales-period-card.today::before {
+  background: #bc9560;
+}
+
+.erp-sales-period-card.week::before {
+  background: #5285b8;
+}
+
+.erp-sales-period-card.month::before {
+  background: #389575;
+}
+
+.erp-sales-period-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px rgba(30, 41, 59, 0.08);
+}
+
+.erp-sales-period-card.today:hover {
+  border-color: #d9c5a9;
+}
+
+.erp-sales-period-card.week:hover {
+  border-color: #b8d0e8;
+}
+
+.erp-sales-period-card.month:hover {
+  border-color: #b5ddcf;
+}
+
+.erp-sales-period-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.erp-sales-period-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  color: #806344;
+  background: #f5efe6;
+  border-radius: 12px;
+  font-size: 21px;
+  font-weight: 700;
+}
+
+.erp-sales-period-card.week .erp-sales-period-icon {
+  color: #376d9e;
+  background: #edf4fb;
+}
+
+.erp-sales-period-card.month .erp-sales-period-icon {
+  color: #247b5d;
+  background: #eaf6f0;
+}
+
+.erp-sales-period-tag {
+  padding: 6px 9px;
+  color: #806344;
+  background: #f7f1e9;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  white-space: nowrap;
+}
+
+.erp-sales-period-card.week .erp-sales-period-tag {
+  color: #376d9e;
+  background: #edf4fb;
+}
+
+.erp-sales-period-card.month .erp-sales-period-tag {
+  color: #247b5d;
+  background: #eaf6f0;
+}
+
+.erp-sales-period-title {
+  margin: 0 0 8px;
+  color: #657084;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.erp-sales-period-card h3 {
+  margin: 0;
+  color: #182b46;
+  font-size: clamp(22px, 2vw, 29px);
+  font-weight: 800;
+  line-height: 1.3;
+  letter-spacing: -0.6px;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.erp-sales-period-note {
+  margin: 10px 0 0;
+  color: #8991a0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* ==========================================
+   RESPONSIVE LAYOUT
+   ========================================== */
+
+@media (max-width: 900px) {
+  .erp-sales-period-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .erp-sales-period-card.month {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 600px) {
+  .erp-live-panel {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 16px 12px;
+    padding: 16px;
+  }
+
+  .erp-live-indicator {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .erp-live-date strong {
+    font-size: 13px;
+  }
+
+  .erp-live-clock strong {
+    font-size: 16px;
+  }
+
+  .erp-sales-period-section {
+    margin-top: 22px;
+    margin-bottom: 26px;
+  }
+
+  .erp-sales-period-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .erp-sales-period-card.month {
+    grid-column: auto;
+  }
+
+  .erp-sales-period-card {
+    min-height: 175px;
+    padding: 19px;
+  }
+
+  .erp-sales-period-card h3 {
+    font-size: 26px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .erp-live-dot {
+    animation: none;
+  }
+
+  .erp-sales-period-card {
+    transition: none;
+  }
+
+  .erp-sales-period-card:hover {
+    transform: none;
   }
 }

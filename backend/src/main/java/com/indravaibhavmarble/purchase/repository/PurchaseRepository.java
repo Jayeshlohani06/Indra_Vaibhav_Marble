@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDate;
 
 public interface PurchaseRepository extends JpaRepository<Purchase, Long> {
 
@@ -25,4 +26,11 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM Purchase p WHERE p.id = :id")
     Optional<Purchase> findByIdForUpdate(@Param("id") Long id);
+    List<Purchase> findByPurchaseDateBetweenAndStatus(
+        LocalDate startDate,
+        LocalDate endDate,
+        String status
+);
+
+    List<Purchase> findByStatusOrderByPurchaseDateDescIdDesc(String status);
 }

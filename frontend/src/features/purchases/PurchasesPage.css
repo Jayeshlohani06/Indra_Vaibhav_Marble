@@ -341,3 +341,60 @@
 .purchase-modal .purchase-alert {
   margin: 12px 0;
 }
+
+.payment-panel {
+  margin-top: 20px;
+}
+
+.purchase-action-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.payment-balance-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 20px 0;
+}
+
+.payment-balance-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--border-color, #dedede);
+  border-radius: 10px;
+}
+
+.payment-balance-grid span {
+  font-size: 0.875rem;
+  opacity: 0.8;
+}
+
+.payment-balance-grid strong {
+  font-size: 1.15rem;
+  overflow-wrap: anywhere;
+}
+
+.payment-form,
+.payment-history {
+  margin-top: 24px;
+}
+
+.payment-form h4,
+.payment-history h4 {
+  margin-bottom: 16px;
+}
+
+.payment-form > button {
+  margin-top: 16px;
+}
+
+@media (max-width: 640px) {
+  .payment-balance-grid {
+    grid-template-columns: 1fr;
+  }
+}

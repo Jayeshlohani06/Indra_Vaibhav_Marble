@@ -1,6 +1,7 @@
 
 package com.indravaibhavmarble.salesorder.repository;
 
+import java.time.LocalDate;
 import com.indravaibhavmarble.salesorder.entity.SalesOrder;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -18,4 +19,10 @@ public interface SalesOrderRepository
 
     List<SalesOrder> findByCustomerIdOrderByCreatedAtDesc(
             Long customerId);
+    List<SalesOrder> findByOrderDateBetweenAndStatusNotIn(
+        LocalDate startDate,
+        LocalDate endDate,
+        List<String> statuses
+);        
+
 }

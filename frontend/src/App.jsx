@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 
 import LoginPage from "./features/auth/LoginPage";
@@ -9,6 +8,8 @@ import SalesOrdersPage from "./features/sales-orders/SalesOrdersPage";
 import StockMovementsPage from "./features/stock-movements/StockMovementsPage";
 import SuppliersPage from "./features/suppliers/SuppliersPage";
 import PurchasesPage from "./features/purchases/PurchasesPage";
+import ExpensesPage from "./features/expenses/ExpensesPage";
+import ReportsPage from "./features/reports/ReportsPage";
 
 import "./App.css";
 
@@ -20,6 +21,8 @@ const VALID_PAGES = [
   "stock-movements",
   "suppliers",
   "purchases",
+  "expenses",
+  "reports",
 ];
 
 function getCurrentPage() {
@@ -80,6 +83,14 @@ function App() {
     purchases: {
       breadcrumb: "Purchases",
       title: "Purchase Management",
+    },
+    expenses: {
+      breadcrumb: "Expenses",
+      title: "Expense Management",
+    },
+    reports: {
+      breadcrumb: "Reports",
+      title: "Financial Reports",
     },
   };
 
@@ -178,14 +189,24 @@ function App() {
             <span>Suppliers</span>
           </a>
 
-          {/* Expenses — coming later */}
-          <a className="erp-nav-item" href="#expenses">
+          {/* Expenses */}
+          <a
+            className={`erp-nav-item ${
+              currentPage === "expenses" ? "active" : ""
+            }`}
+            href="#expenses"
+          >
             <span className="erp-nav-icon">₹</span>
             <span>Expenses</span>
           </a>
 
-          {/* Reports — coming later */}
-          <a className="erp-nav-item" href="#reports">
+          {/* Reports */}
+          <a
+            className={`erp-nav-item ${
+              currentPage === "reports" ? "active" : ""
+            }`}
+            href="#reports"
+          >
             <span className="erp-nav-icon">▥</span>
             <span>Reports</span>
           </a>
@@ -240,6 +261,10 @@ function App() {
             <SuppliersPage />
           ) : currentPage === "purchases" ? (
             <PurchasesPage />
+          ) : currentPage === "expenses" ? (
+            <ExpensesPage />
+          ) : currentPage === "reports" ? (
+            <ReportsPage />
           ) : (
             <DashboardPage />
           )}
