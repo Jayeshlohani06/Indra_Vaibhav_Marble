@@ -46,6 +46,17 @@ public class ProductService {
     }
 
     public Product createProduct(Product product) {
+        if (product == null) {
+            throw new IllegalArgumentException("Product details are required");
+        }
+
+        if (product.getProductCode() == null
+                || product.getProductCode().isBlank()) {
+            product.setProductCode(generateProductCode(product.getName()));
+        } else {
+            product.setProductCode(product.getProductCode().trim());
+        }
+
         validateProduct(product, true);
 
         if (productRepository.existsByProductCode(
@@ -56,6 +67,23 @@ public class ProductService {
         }
 
         return productRepository.save(product);
+    }
+
+    private String generateProductCode(String name) {
+        String prefix = name.toUpperCase()
+                .replaceAll("[^A-Z0-9]+", "-")
+                .replaceAll("(^-|-$)", "");
+        if (prefix.isBlank()) {
+            prefix = "PRODUCT";
+        }
+        prefix = prefix.substring(0, Math.min(prefix.length(), 35));
+
+        String code = prefix;
+        int suffix = 1;
+        while (productRepository.existsByProductCode(code)) {
+            code = prefix + "-" + suffix++;
+        }
+        return code;
     }
 
     public Product updateProduct(Long id, Product updatedProduct) {

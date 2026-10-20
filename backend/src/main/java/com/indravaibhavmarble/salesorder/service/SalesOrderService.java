@@ -8,12 +8,16 @@ import com.indravaibhavmarble.customer.repository.CustomerRepository;
 import com.indravaibhavmarble.product.entity.Product;
 import com.indravaibhavmarble.product.repository.ProductRepository;
 import com.indravaibhavmarble.salesorder.dto.SalesOrderItemRequest;
+import com.indravaibhavmarble.salesorder.dto.SalesOrderChargeRequest;
+import com.indravaibhavmarble.salesorder.dto.SalesOrderChargeResponse;
 import com.indravaibhavmarble.salesorder.dto.SalesOrderItemResponse;
 import com.indravaibhavmarble.salesorder.dto.SalesOrderRequest;
 import com.indravaibhavmarble.salesorder.dto.SalesOrderResponse;
 import com.indravaibhavmarble.salesorder.entity.SalesOrder;
 import com.indravaibhavmarble.salesorder.entity.SalesOrderItem;
+import com.indravaibhavmarble.salesorder.entity.SalesOrderCharge;
 import com.indravaibhavmarble.salesorder.repository.SalesOrderItemRepository;
+import com.indravaibhavmarble.salesorder.repository.SalesOrderChargeRepository;
 import com.indravaibhavmarble.salesorder.repository.SalesOrderRepository;
 import com.indravaibhavmarble.stockmovement.service.StockMovementService;
 import com.indravaibhavmarble.unit.entity.MeasurementUnit;
@@ -39,6 +43,7 @@ public class SalesOrderService {
 
     private final SalesOrderRepository orderRepository;
     private final SalesOrderItemRepository itemRepository;
+    private final SalesOrderChargeRepository chargeRepository;
     private final CustomerRepository customerRepository;
     private final ProductRepository productRepository;
     private final MeasurementUnitRepository unitRepository;
@@ -48,6 +53,7 @@ public class SalesOrderService {
     public SalesOrderService(
             SalesOrderRepository orderRepository,
             SalesOrderItemRepository itemRepository,
+            SalesOrderChargeRepository chargeRepository,
             CustomerRepository customerRepository,
             ProductRepository productRepository,
             MeasurementUnitRepository unitRepository,
@@ -56,6 +62,7 @@ public class SalesOrderService {
 
         this.orderRepository = orderRepository;
         this.itemRepository = itemRepository;
+        this.chargeRepository = chargeRepository;
         this.customerRepository = customerRepository;
         this.productRepository = productRepository;
         this.unitRepository = unitRepository;
@@ -182,7 +189,12 @@ if (itemRequest.unitPrice() != null
                 : product.getSellingPrice()
 ).setScale(2, RoundingMode.HALF_UP);
 
-            BigDecimal gstRate = product.getGstRate();
+            BigDecimal gstRate = itemRequest.gstRate() == null
+                    ? product.getGstRate()
+                    : itemRequest.gstRate();
+            if (gstRate.signum() < 0 || gstRate.compareTo(new BigDecimal("100")) > 0) {
+                throw new IllegalArgumentException("GST rate must be between 0 and 100");
+            }
 
             BigDecimal taxableAmount = unitPrice
                     .multiply(itemRequest.quantity())
@@ -232,7 +244,28 @@ if (itemRequest.unitPrice() != null
         }
 
         BigDecimal totalTax = totalCgst.add(totalSgst).add(totalIgst);
-        BigDecimal grandTotal = subtotal.add(totalTax);
+        BigDecimal chargesTotal = ZERO;
+        List<SalesOrderCharge> charges = new ArrayList<>();
+        if (request.charges() != null) {
+            if (request.charges().size() > 30) {
+                throw new IllegalArgumentException("An order cannot contain more than 30 additional charges");
+            }
+            for (SalesOrderChargeRequest chargeRequest : request.charges()) {
+                if (chargeRequest == null || chargeRequest.description() == null
+                        || chargeRequest.description().isBlank()
+                        || chargeRequest.description().trim().length() > 120
+                        || chargeRequest.amount() == null
+                        || chargeRequest.amount().signum() <= 0) {
+                    throw new IllegalArgumentException("Each additional charge needs a description and positive amount");
+                }
+                SalesOrderCharge charge = SalesOrderCharge.createNew();
+                charge.setDescription(chargeRequest.description().trim());
+                charge.setAmount(chargeRequest.amount().setScale(2, RoundingMode.HALF_UP));
+                chargesTotal = chargesTotal.add(charge.getAmount());
+                charges.add(charge);
+            }
+        }
+        BigDecimal grandTotal = subtotal.add(totalTax).add(chargesTotal);
 
         order.setSubtotal(subtotal);
         order.setCgstAmount(totalCgst);
@@ -248,6 +281,10 @@ if (itemRequest.unitPrice() != null
         }
 
         List<SalesOrderItem> savedItems = itemRepository.saveAll(items);
+        for (SalesOrderCharge charge : charges) {
+            charge.setSalesOrderId(savedOrder.getId());
+        }
+        List<SalesOrderCharge> savedCharges = chargeRepository.saveAll(charges);
 
         // Record the already-applied stock changes against the saved order.
         for (StockChange change : stockChanges) {
@@ -263,7 +300,7 @@ if (itemRequest.unitPrice() != null
                             + savedOrder.getOrderNumber());
         }
 
-        return toResponse(savedOrder, customer, savedItems);
+        return toResponse(savedOrder, customer, savedItems, savedCharges);
     }
 
     @Transactional(readOnly = true)
@@ -277,7 +314,8 @@ if (itemRequest.unitPrice() != null
                     return toResponse(
                             order,
                             customer,
-                            itemRepository.findBySalesOrderId(order.getId()));
+                            itemRepository.findBySalesOrderId(order.getId()),
+                            chargeRepository.findBySalesOrderId(order.getId()));
                 })
                 .toList();
     }
@@ -295,7 +333,8 @@ if (itemRequest.unitPrice() != null
         return toResponse(
                 order,
                 customer,
-                itemRepository.findBySalesOrderId(order.getId()));
+                itemRepository.findBySalesOrderId(order.getId()),
+                chargeRepository.findBySalesOrderId(order.getId()));
     }
 
     private void validateRequest(SalesOrderRequest request) {
@@ -346,7 +385,8 @@ if (itemRequest.unitPrice() != null
     private SalesOrderResponse toResponse(
             SalesOrder order,
             Customer customer,
-            List<SalesOrderItem> items) {
+            List<SalesOrderItem> items,
+            List<SalesOrderCharge> charges) {
 
         List<SalesOrderItemResponse> itemResponses = items.stream()
                 .map(item -> new SalesOrderItemResponse(
@@ -363,6 +403,10 @@ if (itemRequest.unitPrice() != null
                         item.getSgstAmount(),
                         item.getIgstAmount(),
                         item.getLineTotal()))
+                .toList();
+        List<SalesOrderChargeResponse> chargeResponses = charges.stream()
+                .map(charge -> new SalesOrderChargeResponse(
+                        charge.getId(), charge.getDescription(), charge.getAmount()))
                 .toList();
 
         return new SalesOrderResponse(
@@ -381,6 +425,7 @@ if (itemRequest.unitPrice() != null
                 order.getGrandTotal(),
                 order.getNotes(),
                 order.getCreatedAt(),
-                itemResponses);
+                itemResponses,
+                chargeResponses);
     }
 }

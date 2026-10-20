@@ -12,4 +12,7 @@ public interface StockMovementRepository
     List<StockMovement> findAllByOrderByCreatedAtDesc();
 
     List<StockMovement> findByProductIdOrderByCreatedAtDesc(Long productId);
+
+    java.util.Optional<StockMovement> findByReferenceTypeAndReferenceId(
+            String referenceType, Long referenceId);
 }

@@ -13,6 +13,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -24,6 +25,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
+@EnableMethodSecurity
 public class SecurityConfig {
 
     /**
@@ -127,7 +129,85 @@ public class SecurityConfig {
                             "/api/auth/login"
                     ).permitAll()
 
-                    // Require authentication for all other endpoints
+                    // Reports and read-only workspace access.
+                    .requestMatchers(HttpMethod.GET, "/api/reports/**")
+                    .hasAuthority("REPORT_READ")
+                    .requestMatchers(HttpMethod.GET, "/api/products/**")
+                    .hasAuthority("PRODUCT_READ")
+                    .requestMatchers(HttpMethod.GET, "/api/categories/**", "/api/units/**")
+                    .hasAuthority("MASTER_DATA_READ")
+                    .requestMatchers(HttpMethod.GET, "/api/inventory/settings/**")
+                    .hasAuthority("PRODUCT_READ")
+                    .requestMatchers(HttpMethod.GET, "/api/customers/**")
+                    .hasAuthority("CUSTOMER_READ")
+                    .requestMatchers(HttpMethod.GET, "/api/suppliers/**")
+                    .hasAuthority("SUPPLIER_READ")
+                    .requestMatchers(HttpMethod.GET, "/api/purchases/**")
+                    .hasAuthority("PURCHASE_READ")
+                    .requestMatchers(HttpMethod.GET, "/api/sales-orders/**")
+                    .hasAuthority("SALES_READ")
+                    .requestMatchers(HttpMethod.GET, "/api/stock-movements/**")
+                    .hasAuthority("INVENTORY_READ")
+                    .requestMatchers(HttpMethod.GET, "/api/expenses/**")
+                    .hasAuthority("EXPENSE_READ")
+                    .requestMatchers(HttpMethod.GET, "/api/expense-categories/**")
+                    .hasAuthority("MASTER_DATA_READ")
+                    .requestMatchers(HttpMethod.GET, "/api/users/**")
+                    .hasAuthority("USER_READ")
+                    .requestMatchers(
+                            HttpMethod.GET,
+                            "/api/purchases/*/payments/**",
+                            "/api/sales-orders/*/payments/**")
+                    .hasAuthority("PAYMENT_READ")
+
+                    // Master-data and product mutations.
+                    .requestMatchers(HttpMethod.POST, "/api/categories/**", "/api/units/**", "/api/expense-categories/**")
+                    .hasAuthority("MASTER_DATA_MANAGE")
+                    .requestMatchers(HttpMethod.POST, "/api/products/**")
+                    .hasAuthority("PRODUCT_MANAGE")
+                    .requestMatchers(HttpMethod.PUT, "/api/products/**")
+                    .hasAuthority("PRODUCT_MANAGE")
+                    .requestMatchers(HttpMethod.DELETE, "/api/products/**")
+                    .hasAuthority("PRODUCT_MANAGE")
+
+                    // Customer and supplier mutations.
+                    .requestMatchers(HttpMethod.POST, "/api/customers/**")
+                    .hasAuthority("CUSTOMER_MANAGE")
+                    .requestMatchers(HttpMethod.PUT, "/api/customers/**")
+                    .hasAuthority("CUSTOMER_MANAGE")
+                    .requestMatchers(HttpMethod.DELETE, "/api/customers/**")
+                    .hasAuthority("CUSTOMER_MANAGE")
+                    .requestMatchers(HttpMethod.POST, "/api/suppliers/**")
+                    .hasAuthority("SUPPLIER_MANAGE")
+                    .requestMatchers(HttpMethod.PUT, "/api/suppliers/**")
+                    .hasAuthority("SUPPLIER_MANAGE")
+                    .requestMatchers(HttpMethod.DELETE, "/api/suppliers/**")
+                    .hasAuthority("SUPPLIER_MANAGE")
+
+                    // Sales, purchasing, inventory, and expense mutations.
+                    .requestMatchers(HttpMethod.POST, "/api/sales-orders/**")
+                    .hasAuthority("SALES_MANAGE")
+                    .requestMatchers(HttpMethod.POST, "/api/purchases/**")
+                    .hasAuthority("PURCHASE_MANAGE")
+                    .requestMatchers(
+                            HttpMethod.POST,
+                            "/api/purchases/*/payments/**",
+                            "/api/sales-orders/*/payments/**")
+                    .hasAuthority("PAYMENT_MANAGE")
+                    .requestMatchers(HttpMethod.POST, "/api/stock-movements/**")
+                    .hasAuthority("INVENTORY_MANAGE")
+                    .requestMatchers(HttpMethod.PUT, "/api/inventory/settings/**")
+                    .hasAuthority("INVENTORY_MANAGE")
+                    .requestMatchers(HttpMethod.POST, "/api/expenses/**")
+                    .hasAuthority("EXPENSE_MANAGE")
+                    .requestMatchers(HttpMethod.PUT, "/api/expenses/**")
+                    .hasAuthority("EXPENSE_MANAGE")
+                    .requestMatchers(HttpMethod.POST, "/api/users/**")
+                    .hasAuthority("USER_MANAGE")
+                    .requestMatchers(HttpMethod.PUT, "/api/users/**")
+                    .hasAuthority("USER_MANAGE")
+
+                    // Require authentication for endpoints not yet classified.
                     .anyRequest().authenticated()
             )
 

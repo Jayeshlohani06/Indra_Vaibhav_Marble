@@ -23,8 +23,9 @@ public class SupplierController {
     }
 
     @GetMapping
-    public List<SupplierResponse> getAllSuppliers() {
-        return supplierService.getAllSuppliers();
+    public List<SupplierResponse> getAllSuppliers(
+            @RequestParam(defaultValue = "ACTIVE") String status) {
+        return supplierService.getSuppliers(status);
     }
 
     @GetMapping("/{id}")
@@ -52,5 +53,10 @@ public class SupplierController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deactivateSupplier(@PathVariable Long id) {
         supplierService.deactivateSupplier(id);
+    }
+
+    @PostMapping("/{id}/reactivate")
+    public SupplierResponse reactivateSupplier(@PathVariable Long id) {
+        return supplierService.reactivateSupplier(id);
     }
 }

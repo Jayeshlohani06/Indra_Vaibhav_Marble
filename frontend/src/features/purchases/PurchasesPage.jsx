@@ -18,6 +18,7 @@ import {
 } from "../../services/api/paymentApi";
 import CreateProductForm from "./CreateProductForm";
 import "./PurchasesPage.css";
+import { usePermission } from "../../auth/PermissionsContext";
 
 const today = () => {
   const date = new Date();
@@ -43,6 +44,7 @@ const round2 = (value) =>
   Math.round((value + Number.EPSILON) * 100) / 100;
 
 function PurchasesPage() {
+  const canManagePurchases = usePermission("PURCHASE_MANAGE");
   const [suppliers, setSuppliers] = useState([]);
   const [products, setProducts] = useState([]);
   const [purchases, setPurchases] = useState([]);
@@ -73,6 +75,14 @@ function PurchasesPage() {
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentSaving, setPaymentSaving] = useState(false);
   const [paymentError, setPaymentError] = useState("");
+  const [showPurchaseForm, setShowPurchaseForm] = useState(false);
+  const [detailsPurchase, setDetailsPurchase] = useState(null);
+  const [purchaseSearch, setPurchaseSearch] = useState("");
+  const [purchaseStatus, setPurchaseStatus] = useState("ALL");
+  const [purchaseDateFilter, setPurchaseDateFilter] = useState("ALL");
+  const [purchasePage, setPurchasePage] = useState(1);
+
+  const PAGE_SIZE = 10;
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -151,6 +161,55 @@ function PurchasesPage() {
       ),
     };
   }, [items, invoiceDiscount]);
+
+  const filteredPurchases = useMemo(() => {
+    const term = purchaseSearch.trim().toLowerCase();
+    const now = new Date();
+    return purchases.filter((purchase) => {
+      const matchesSearch = !term || [
+        purchase.purchaseNumber,
+        purchase.supplierName,
+        purchase.supplierInvoiceNumber,
+      ].some((value) => String(value || "").toLowerCase().includes(term));
+      const matchesStatus = purchaseStatus === "ALL"
+        || purchase.status === purchaseStatus;
+      let matchesDate = true;
+      if (purchaseDateFilter !== "ALL" && purchase.purchaseDate) {
+        const purchaseDateValue = new Date(`${purchase.purchaseDate}T00:00:00`);
+        const days = purchaseDateFilter === "TODAY"
+          ? 1 : purchaseDateFilter === "WEEK" ? 7 : 30;
+        matchesDate = (now - purchaseDateValue) / 86400000 < days;
+      }
+      return matchesSearch && matchesStatus && matchesDate;
+    }).sort((first, second) =>
+      String(second.purchaseDate || "").localeCompare(
+        String(first.purchaseDate || "")
+      )
+    );
+  }, [purchaseDateFilter, purchaseSearch, purchaseStatus, purchases]);
+
+  const purchasePageCount = Math.max(
+    1,
+    Math.ceil(filteredPurchases.length / PAGE_SIZE)
+  );
+  const visiblePurchases = filteredPurchases.slice(
+    (purchasePage - 1) * PAGE_SIZE,
+    purchasePage * PAGE_SIZE
+  );
+  const receivedPurchases = purchases.filter(
+    (purchase) => purchase.status === "RECEIVED"
+  );
+  const draftPurchases = purchases.filter(
+    (purchase) => purchase.status === "DRAFT"
+  );
+  const purchaseValue = purchases.reduce(
+    (total, purchase) => total + Number(purchase.totalAmount || 0),
+    0
+  );
+  const purchaseTax = purchases.reduce(
+    (total, purchase) => total + Number(purchase.gstAmount || 0),
+    0
+  );
 
   function updateItem(index, field, value) {
     setItems((previous) =>
@@ -357,6 +416,7 @@ function PurchasesPage() {
 
       resetForm();
       await loadData();
+      setShowPurchaseForm(false);
     } catch (err) {
       setError(err.message || "Unable to save purchase.");
     } finally {
@@ -480,10 +540,17 @@ function PurchasesPage() {
           </p>
         </div>
 
-        <div className="purchase-count-card">
-          <span>Saved purchases</span>
-          <strong>{purchases.length}</strong>
-        </div>
+        {canManagePurchases && <button
+          type="button"
+          className="purchase-primary-button"
+          onClick={() => {
+            setError("");
+            setSuccess("");
+            setShowPurchaseForm(true);
+          }}
+        >
+          + Create Purchase
+        </button>}
       </div>
 
       {error && (
@@ -498,13 +565,21 @@ function PurchasesPage() {
         </div>
       )}
 
+      <div className="purchase-kpi-grid">
+        <div className="purchase-kpi-card is-blue"><span>Total purchase value</span><strong>{money(purchaseValue)}</strong><small>All saved purchase records</small></div>
+        <div className="purchase-kpi-card is-amber"><span>Draft purchases</span><strong>{draftPurchases.length}</strong><small>Awaiting receipt</small></div>
+        <div className="purchase-kpi-card is-green"><span>Received purchases</span><strong>{receivedPurchases.length}</strong><small>Stock added to inventory</small></div>
+        <div className="purchase-kpi-card is-purple"><span>Total GST</span><strong>{money(purchaseTax)}</strong><small>Recorded input tax</small></div>
+      </div>
+
       {loading ? (
         <div className="purchase-card">
           Loading suppliers, products, categories, units, and purchases...
         </div>
       ) : (
         <>
-          <form className="purchase-card" onSubmit={handleSubmit}>
+          {showPurchaseForm && <div className="purchase-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && !saving && setShowPurchaseForm(false)}>
+          <form className="purchase-card purchase-modal purchase-create-modal" onSubmit={handleSubmit}>
             <div className="purchase-section-heading">
               <div>
                 <h3>New Purchase</h3>
@@ -585,13 +660,13 @@ function PurchasesPage() {
                 </p>
               </div>
 
-              <button
+              {canManagePurchases && <button
                 type="button"
                 className="purchase-secondary-button"
                 onClick={addLine}
               >
                 + Add item
-              </button>
+              </button>}
             </div>
 
             {products.length === 0 && (
@@ -612,14 +687,14 @@ function PurchasesPage() {
                   <div className="purchase-item-row" key={index}>
                     <div className="purchase-item-title">
                       <strong>Item {index + 1}</strong>
-                      <button
+                      {canManagePurchases && <button
                         type="button"
                         className="purchase-remove-button"
                         onClick={() => removeLine(index)}
                         disabled={items.length === 1}
                       >
                         Remove
-                      </button>
+                      </button>}
                     </div>
 
                     <label className="purchase-product-field">
@@ -801,16 +876,42 @@ function PurchasesPage() {
               </button>
             </div>
           </form>
+          </div>}
 
           <div className="purchase-card">
             <div className="purchase-section-heading">
               <div>
-                <h3>Purchase History</h3>
-                <p>Previously saved purchase records.</p>
+                <h3>Purchase directory</h3>
+                <p>Search, receive, and review supplier purchases.</p>
               </div>
             </div>
 
-            {purchases.length === 0 ? (
+            <div className="purchase-filters">
+              <input
+                type="search"
+                placeholder="Search purchase, supplier, invoice..."
+                aria-label="Search purchases"
+                value={purchaseSearch}
+                onChange={(event) => {
+                  setPurchaseSearch(event.target.value);
+                  setPurchasePage(1);
+                }}
+              />
+              <select value={purchaseStatus} aria-label="Filter purchase status" onChange={(event) => { setPurchaseStatus(event.target.value); setPurchasePage(1); }}>
+                <option value="ALL">All statuses</option>
+                <option value="DRAFT">Draft</option>
+                <option value="RECEIVED">Received</option>
+              </select>
+              <select value={purchaseDateFilter} aria-label="Filter purchase date" onChange={(event) => { setPurchaseDateFilter(event.target.value); setPurchasePage(1); }}>
+                <option value="ALL">All dates</option>
+                <option value="TODAY">Today</option>
+                <option value="WEEK">Last 7 days</option>
+                <option value="MONTH">Last 30 days</option>
+              </select>
+              <button type="button" className="purchase-secondary-button" onClick={() => { setPurchaseSearch(""); setPurchaseStatus("ALL"); setPurchaseDateFilter("ALL"); setPurchasePage(1); }}>Clear</button>
+            </div>
+
+            {visiblePurchases.length === 0 ? (
               <div className="purchase-empty-state">
                 No purchases found. Your first saved purchase will appear here.
               </div>
@@ -829,7 +930,7 @@ function PurchasesPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {purchases.map((purchase) => (
+                    {visiblePurchases.map((purchase) => (
                       <tr key={purchase.id}>
                         <td>
                           <strong>{purchase.purchaseNumber}</strong>
@@ -847,29 +948,16 @@ function PurchasesPage() {
                         </td>
                         <td>{money(purchase.totalAmount)}</td>
                         <td>
-                          {purchase.status === "DRAFT" ? (
-                            <button
-                              type="button"
-                              className="purchase-primary-button"
-                              disabled={receivingId !== null}
-                              onClick={() => handleReceivePurchase(purchase)}
-                            >
-                              {receivingId === purchase.id
-                                ? "Receiving..."
-                                : "Receive Purchase"}
-                            </button>
-                          ) : (
-                            <div className="purchase-action-group">
-                              <span>Received</span>
-                              <button
-                                type="button"
-                                className="purchase-secondary-button"
-                                onClick={() => openPaymentPanel(purchase)}
-                              >
-                                Payments
+                          <div className="purchase-action-group">
+                            <button type="button" className="purchase-secondary-button" onClick={() => setDetailsPurchase(purchase)}>View</button>
+                            {canManagePurchases && purchase.status === "DRAFT" ? (
+                              <button type="button" className="purchase-primary-button" disabled={receivingId !== null} onClick={() => handleReceivePurchase(purchase)}>
+                                {receivingId === purchase.id ? "Receiving..." : "Receive"}
                               </button>
-                            </div>
-                          )}
+                            ) : canManagePurchases ? (
+                              <button type="button" className="purchase-secondary-button" onClick={() => openPaymentPanel(purchase)}>Payments</button>
+                            ) : null}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -877,10 +965,15 @@ function PurchasesPage() {
                 </table>
               </div>
             )}
+            <div className="purchase-pagination">
+              <span>Showing {filteredPurchases.length ? (purchasePage - 1) * PAGE_SIZE + 1 : 0}–{Math.min(purchasePage * PAGE_SIZE, filteredPurchases.length)} of {filteredPurchases.length}</span>
+              <div><button type="button" disabled={purchasePage <= 1} onClick={() => setPurchasePage((current) => current - 1)}>Previous</button><strong>Page {purchasePage} of {purchasePageCount}</strong><button type="button" disabled={purchasePage >= purchasePageCount} onClick={() => setPurchasePage((current) => current + 1)}>Next</button></div>
+            </div>
           </div>
 
           {paymentPurchase && (
-            <div className="purchase-card payment-panel">
+            <div className="purchase-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setPaymentPurchase(null)}>
+            <div className="purchase-card payment-panel purchase-modal">
               <div className="purchase-section-heading">
                 <div>
                   <h3>Supplier Payments</h3>
@@ -1061,8 +1154,36 @@ function PurchasesPage() {
                 </>
               )}
             </div>
+            </div>
           )}
         </>
+      )}
+
+      {detailsPurchase && (
+        <div className="purchase-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setDetailsPurchase(null)}>
+          <section className="purchase-modal purchase-details-modal" role="dialog" aria-modal="true" aria-labelledby="purchase-details-title">
+            <div className="purchase-section-heading">
+              <div><p className="purchases-eyebrow">PURCHASE DETAILS</p><h2 id="purchase-details-title">{detailsPurchase.purchaseNumber}</h2><p>{detailsPurchase.supplierName || `Supplier #${detailsPurchase.supplierId}`} · {detailsPurchase.purchaseDate}</p></div>
+              <button type="button" className="purchase-secondary-button" onClick={() => setDetailsPurchase(null)}>Close</button>
+            </div>
+            <div className="purchase-detail-grid">
+              <div><span>Status</span><strong>{detailsPurchase.status}</strong></div>
+              <div><span>Supplier invoice</span><strong>{detailsPurchase.supplierInvoiceNumber || "—"}</strong></div>
+              <div><span>Subtotal</span><strong>{money(detailsPurchase.subtotal)}</strong></div>
+              <div><span>Discount</span><strong>{money(detailsPurchase.discountAmount)}</strong></div>
+              <div><span>GST</span><strong>{money(detailsPurchase.gstAmount)}</strong></div>
+              <div><span>Total</span><strong>{money(detailsPurchase.totalAmount)}</strong></div>
+            </div>
+            <div className="purchase-detail-items">
+              <h3>Items</h3>
+              {detailsPurchase.items?.map((item) => <div className="purchase-detail-item" key={item.id}><span>{item.productName}<small>{item.productCode}</small></span><span>{item.quantity} × {money(item.purchaseRate)}</span><strong>{money(item.lineTotal)}</strong></div>)}
+            </div>
+            <div className="purchase-form-actions">
+              {canManagePurchases && detailsPurchase.status === "DRAFT" && <button type="button" className="purchase-primary-button" onClick={() => { setDetailsPurchase(null); handleReceivePurchase(detailsPurchase); }}>Receive purchase</button>}
+              {canManagePurchases && detailsPurchase.status === "RECEIVED" && <button type="button" className="purchase-secondary-button" onClick={() => { setDetailsPurchase(null); openPaymentPanel(detailsPurchase); }}>Open payments</button>}
+            </div>
+          </section>
+        </div>
       )}
 
       {createProductForIndex !== null && (

@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 public record SalesOrderItemRequest(
         Long productId,
         BigDecimal quantity,
-        BigDecimal unitPrice
+        BigDecimal unitPrice,
+        BigDecimal gstRate
 ) {
 }

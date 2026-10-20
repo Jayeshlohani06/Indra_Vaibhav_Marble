@@ -30,11 +30,18 @@ public class SupplierService {
 
     @Transactional(readOnly = true)
     public List<SupplierResponse> getAllSuppliers() {
-        return supplierRepository.findAll()
-                .stream()
-                .filter(Supplier::isActive)
-                .sorted((a, b) -> a.getName()
-                        .compareToIgnoreCase(b.getName()))
+        return getSuppliers("ACTIVE");
+    }
+
+    @Transactional(readOnly = true)
+    public List<SupplierResponse> getSuppliers(String status) {
+        List<Supplier> suppliers = switch (status == null
+                ? "ACTIVE" : status.trim().toUpperCase(Locale.ROOT)) {
+            case "ALL" -> supplierRepository.findAllByOrderByNameAsc();
+            case "INACTIVE" -> supplierRepository.findByActiveFalseOrderByNameAsc();
+            default -> supplierRepository.findByActiveTrueOrderByNameAsc();
+        };
+        return suppliers.stream()
                 .map(supplierMapper::toResponse)
                 .toList();
     }
@@ -72,6 +79,14 @@ public class SupplierService {
         Supplier supplier = getActiveSupplier(id);
         supplier.setActive(false);
         supplierRepository.save(supplier);
+    }
+
+    public SupplierResponse reactivateSupplier(Long id) {
+        Supplier supplier = supplierRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Supplier not found with ID: " + id));
+        supplier.setActive(true);
+        return supplierMapper.toResponse(supplierRepository.save(supplier));
     }
 
     private Supplier getActiveSupplier(Long id) {

@@ -11,6 +11,10 @@ public interface SupplierRepository extends JpaRepository<Supplier, Long> {
 
     List<Supplier> findByActiveTrueOrderByNameAsc();
 
+    List<Supplier> findByActiveFalseOrderByNameAsc();
+
+    List<Supplier> findAllByOrderByNameAsc();
+
     Optional<Supplier> findByIdAndActiveTrue(Long id);
 
     boolean existsBySupplierCode(String supplierCode);

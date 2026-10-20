@@ -90,6 +90,42 @@ public class StockMovementService {
                 stockMovementRepository.save(requestedMovement));
     }
 
+    public StockMovementResponse reverseMovement(Long movementId, String notes) {
+        StockMovement original = stockMovementRepository.findById(movementId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Stock movement not found with ID: " + movementId));
+
+        if ("REVERSAL".equals(original.getMovementType())) {
+            throw new IllegalArgumentException(
+                    "A reversal movement cannot be reversed");
+        }
+
+        boolean alreadyReversed = stockMovementRepository
+                .findByReferenceTypeAndReferenceId("REVERSAL", movementId)
+                .isPresent();
+        if (alreadyReversed) {
+            throw new IllegalArgumentException(
+                    "This movement has already been reversed");
+        }
+
+        StockMovement reversal = StockMovement.createNew(
+                original.getProductId(),
+                "REVERSAL",
+                original.getQuantityChange().negate(),
+                null,
+                null,
+                "REVERSAL",
+                movementId,
+                original.getReferenceNumber(),
+                null);
+        reversal.setReferenceType("REVERSAL");
+        reversal.setReferenceId(movementId);
+        reversal.setNotes(notes == null || notes.isBlank()
+                ? "Reversal of movement #" + movementId
+                : notes.trim());
+        return recordMovement(reversal);
+    }
+
     /**
      * Records a stock change that has ALREADY been applied by the sales
      * service. This method must not deduct stock a second time.
@@ -170,6 +206,26 @@ public class StockMovementService {
                 || movement.getQuantityChange().signum() == 0) {
             throw new IllegalArgumentException(
                     "Quantity change must not be zero");
+        }
+
+        BigDecimal change = movement.getQuantityChange();
+        String type = movement.getMovementType();
+        if ("PURCHASE".equals(type) && change.signum() < 0
+                || "SALE".equals(type) && change.signum() > 0) {
+            throw new IllegalArgumentException(
+                    "Purchase movements must increase stock and sale movements must reduce stock");
+        }
+        if ("ADJUSTMENT".equals(type)
+                && (movement.getNotes() == null
+                || movement.getNotes().isBlank())) {
+            throw new IllegalArgumentException(
+                    "A reason is required for stock adjustments");
+        }
+        if ("REVERSAL".equals(type)
+                && (movement.getReferenceType() == null
+                || movement.getReferenceId() == null)) {
+            throw new IllegalArgumentException(
+                    "A reversal must reference the original movement");
         }
     }
 }

@@ -297,6 +297,104 @@
   color: #7956b5;
 }
 
+.erp-summary-card.positive .erp-summary-icon {
+  background: #eaf7ef;
+  color: #188653;
+}
+
+.erp-summary-card.negative .erp-summary-icon {
+  background: #fff0f0;
+  color: #b42318;
+}
+
+/* =========================================================
+   ACTION CENTER
+   ========================================================= */
+
+.erp-attention-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 15px;
+}
+
+.erp-attention-card {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 13px;
+  padding: 17px;
+  border: 1px solid #e7eaf0;
+  border-radius: 13px;
+  background: #fff;
+  color: inherit;
+  text-decoration: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.erp-attention-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 9px 22px rgba(15, 23, 42, 0.06);
+}
+
+.erp-attention-card.is-warning {
+  border-color: #f0d6ae;
+  background: #fffaf1;
+}
+
+.erp-attention-card.is-clear {
+  border-color: #d8eddf;
+  background: #f7fcf8;
+}
+
+.erp-attention-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 10px;
+  background: #fff0d7;
+  color: #a96318;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.erp-attention-card.is-clear .erp-attention-icon {
+  background: #dff2e5;
+  color: #277849;
+}
+
+.erp-attention-card > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.erp-attention-card strong {
+  color: #263243;
+  font-size: 17px;
+}
+
+.erp-attention-card div span {
+  color: #4e5b6e;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.erp-attention-card small {
+  overflow-wrap: anywhere;
+  color: #8a94a6;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.erp-attention-arrow {
+  margin-left: auto;
+  color: #8c6c42;
+  font-size: 17px;
+}
+
 /* =========================================================
    SHARED SECTION HEADINGS
    ========================================================= */
@@ -485,6 +583,18 @@
 
 .expense-dot {
   background: #d58a3e;
+}
+
+.movement-dot {
+  background: #806443;
+}
+
+.erp-financial-card.movement-positive h3 {
+  color: #188653;
+}
+
+.erp-financial-card.movement-negative h3 {
+  color: #b42318;
 }
 
 .erp-financial-card h3 {
@@ -715,6 +825,10 @@
 }
 
 @media (max-width: 900px) {
+  .erp-attention-grid {
+    grid-template-columns: 1fr;
+  }
+
   .erp-financial-grid {
     grid-template-columns: 1fr;
   }
@@ -887,6 +1001,135 @@
   .erp-module-card:hover,
   .erp-primary-action:hover {
     transform: none;
+  }
+}
+
+/* Final landing-page rhythm */
+.dashboard-content {
+  max-width: 1440px;
+}
+
+.erp-live-panel {
+  min-height: 54px;
+  margin-bottom: 18px;
+  padding: 12px 18px;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.erp-welcome {
+  margin-bottom: 22px;
+  padding: 28px 30px;
+  border-radius: 15px;
+}
+
+.erp-welcome h2 {
+  margin-bottom: 8px;
+}
+
+.erp-welcome-actions {
+  margin-top: 18px;
+}
+
+.erp-sales-period-section {
+  margin-bottom: 26px;
+}
+
+.erp-sales-period-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.erp-sales-period-card {
+  min-height: 156px;
+  padding: 19px;
+  border-radius: 13px;
+}
+
+.erp-summary-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.erp-summary-card {
+  min-height: 144px;
+  padding: 19px;
+  border-radius: 13px;
+}
+
+.erp-summary-card h3 {
+  margin-top: 17px;
+}
+
+.erp-attention-section {
+  margin-bottom: 28px;
+}
+
+.erp-financial-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.erp-financial-card {
+  padding: 19px;
+  border-radius: 13px;
+}
+
+.erp-stock-section {
+  padding: 22px;
+  border-radius: 14px;
+}
+
+.erp-module-grid {
+  gap: 14px;
+}
+
+.erp-module-card {
+  min-height: 166px;
+  padding: 19px;
+  border-radius: 13px;
+}
+
+@media (max-width: 1200px) {
+  .erp-summary-grid,
+  .erp-financial-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .erp-sales-period-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .erp-sales-period-card.month {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 600px) {
+  .erp-live-panel {
+    margin-bottom: 14px;
+  }
+
+  .erp-welcome {
+    margin-bottom: 18px;
+    padding: 22px 19px;
+  }
+
+  .erp-sales-period-grid,
+  .erp-summary-grid,
+  .erp-financial-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .erp-sales-period-card.month {
+    grid-column: auto;
+  }
+
+  .erp-summary-grid {
+    margin-bottom: 24px;
   }
 }
 

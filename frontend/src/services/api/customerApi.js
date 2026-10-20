@@ -11,6 +11,9 @@ export async function getCustomers(params = {}) {
   if (params.phone?.trim()) {
     query.set("phone", params.phone.trim());
   }
+  if (params.status) {
+    query.set("status", params.status);
+  }
 
   const queryString = query.toString();
   const endpoint = queryString
@@ -34,4 +37,8 @@ export async function updateCustomer(id, customer) {
 
 export async function deactivateCustomer(id) {
   return httpClient.delete(`/api/customers/${id}`);
+}
+
+export async function reactivateCustomer(id) {
+  return httpClient.post(`/api/customers/${id}/reactivate`);
 }

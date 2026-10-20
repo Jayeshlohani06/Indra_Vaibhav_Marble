@@ -6,6 +6,7 @@ import { getCustomers } from "../../services/api/customerApi";
 import { getFinancialSummary, getSupplierOutstanding } from "../../services/api/reportApi";
 
 import "./DashboardPage.css";
+import { usePermission } from "../../auth/PermissionsContext";
 
 const currencyFormatter = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -112,6 +113,7 @@ const modules = [
 ];
 
 function DashboardPage() {
+  const canManageSales = usePermission("SALES_MANAGE");
   const [dashboard, setDashboard] = useState({
     loading: true,
     error: "",
@@ -229,6 +231,9 @@ function DashboardPage() {
     const threshold = Number(product.lowStockThreshold ?? 0);
     return threshold > 0 && quantity <= threshold;
   });
+  const outOfStockProducts = activeProducts.filter(
+    (product) => Number(product.stockQuantity ?? 0) <= 0
+  );
 
   const supplierDues = (supplierOutstanding ?? []).reduce(
     (sum, supplier) => sum + Number(supplier.outstandingBalance ?? 0),
@@ -240,29 +245,10 @@ function DashboardPage() {
   const salesTotal = Number(financial?.salesOrderTotal ?? 0);
   const purchaseTotal = Number(financial?.receivedPurchaseTotal ?? 0);
   const expenseTotal = Number(financial?.expenseTotal ?? 0);
+  const netMovement = salesTotal - purchaseTotal - expenseTotal;
+  const supplierCount = supplierOutstanding?.length ?? 0;
 
   const summaryCards = [
-    {
-      title: "Sales Today",
-      value: todaySales ? formatCurrency(todaySalesTotal) : "—",
-      note: `${todaySales?.salesOrderCount ?? "—"} sales orders`,
-      icon: "₹",
-      tone: "sales",
-    },
-    {
-      title: "Sales This Week",
-      value: weekSales ? formatCurrency(weekSalesTotal) : "—",
-      note: `${weekSales?.salesOrderCount ?? "—"} sales orders`,
-      icon: "₹",
-      tone: "sales",
-    },
-    {
-      title: "Sales This Month",
-      value: financial ? formatCurrency(salesTotal) : "—",
-      note: `${financial?.salesOrderCount ?? "—"} sales orders`,
-      icon: "₹",
-      tone: "sales",
-    },
     {
       title: "Supplier Dues",
       value: supplierOutstanding ? formatCurrency(supplierDues) : "—",
@@ -283,6 +269,13 @@ function DashboardPage() {
       note: "Customer records returned by API",
       icon: "♙",
       tone: "customers",
+    },
+    {
+      title: "Net Movement",
+      value: financial ? formatCurrency(netMovement) : "—",
+      note: "Sales less purchases and expenses",
+      icon: "↗",
+      tone: netMovement >= 0 ? "positive" : "negative",
     },
   ];
 
@@ -314,9 +307,9 @@ function DashboardPage() {
             activity from one place.
           </p>
           <div className="erp-welcome-actions">
-            <a href="#billing" className="erp-primary-action">
+            {canManageSales && <a href="#billing" className="erp-primary-action">
               + Create a sales order
-            </a>
+            </a>}
             <a href="#reports" className="erp-secondary-action">
               View reports <span aria-hidden="true">→</span>
             </a>
@@ -430,6 +423,46 @@ function DashboardPage() {
         ))}
       </section>
 
+      <section className="erp-section erp-attention-section">
+        <div className="erp-section-heading">
+          <div>
+            <p className="erp-eyebrow">ACTION CENTER</p>
+            <h2>Needs your attention</h2>
+            <p>Operational signals to review before they affect daily work.</p>
+          </div>
+        </div>
+
+        <div className="erp-attention-grid">
+          <a className={`erp-attention-card ${outOfStockProducts.length ? "is-warning" : "is-clear"}`} href="#inventory">
+            <span className="erp-attention-icon">!</span>
+            <div>
+              <strong>{loading ? "…" : outOfStockProducts.length}</strong>
+              <span>Out-of-stock products</span>
+              <small>{outOfStockProducts.length ? "Review replenishment now" : "No products are out of stock"}</small>
+            </div>
+            <span className="erp-attention-arrow">→</span>
+          </a>
+          <a className={`erp-attention-card ${lowStockProducts.length ? "is-warning" : "is-clear"}`} href="#inventory">
+            <span className="erp-attention-icon">▦</span>
+            <div>
+              <strong>{loading ? "…" : lowStockProducts.length}</strong>
+              <span>Low-stock products</span>
+              <small>{lowStockProducts.length ? "Check reorder requirements" : "Stock levels look healthy"}</small>
+            </div>
+            <span className="erp-attention-arrow">→</span>
+          </a>
+          <a className={`erp-attention-card ${supplierDues > 0 ? "is-warning" : "is-clear"}`} href="#reports">
+            <span className="erp-attention-icon">₹</span>
+            <div>
+              <strong>{loading ? "…" : formatCurrency(supplierDues)}</strong>
+              <span>Supplier dues</span>
+              <small>{supplierDues > 0 ? `${supplierCount} suppliers with received-purchase balances` : "No outstanding supplier balance"}</small>
+            </div>
+            <span className="erp-attention-arrow">→</span>
+          </a>
+        </div>
+      </section>
+
       <section className="erp-section">
         <div className="erp-section-heading">
           <div>
@@ -491,6 +524,14 @@ function DashboardPage() {
             </div>
             <h3>{loading ? "Loading…" : financial ? formatCurrency(expenseTotal) : "Unavailable"}</h3>
             <p>{financial?.expenseCount ?? "—"} recorded expenses</p>
+          </article>
+          <article className={`erp-financial-card ${netMovement >= 0 ? "movement-positive" : "movement-negative"}`}>
+            <div className="erp-financial-label">
+              <span className="erp-financial-dot movement-dot" />
+              Net movement
+            </div>
+            <h3>{loading ? "Loading…" : financial ? formatCurrency(netMovement) : "Unavailable"}</h3>
+            <p>Sales less received purchases and expenses</p>
           </article>
         </div>
         <p className="erp-dashboard-footnote">

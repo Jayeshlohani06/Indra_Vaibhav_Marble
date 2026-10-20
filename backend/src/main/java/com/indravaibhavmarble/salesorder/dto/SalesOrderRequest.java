@@ -9,6 +9,7 @@ public record SalesOrderRequest(
         LocalDate orderDate,
         String taxType,
         String notes,
-        List<SalesOrderItemRequest> items
+        List<SalesOrderItemRequest> items,
+        List<SalesOrderChargeRequest> charges
 ) {
 }

@@ -2,11 +2,16 @@
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:8081";
 
-// Keep the JWT in memory instead of persistent browser storage.
-let authToken = null;
+const AUTH_TOKEN_KEY = "indra-vaibhav-auth-token";
+let authToken = sessionStorage.getItem(AUTH_TOKEN_KEY);
 
 export function setAuthToken(token) {
   authToken = token || null;
+  if (authToken) {
+    sessionStorage.setItem(AUTH_TOKEN_KEY, authToken);
+  } else {
+    sessionStorage.removeItem(AUTH_TOKEN_KEY);
+  }
 }
 
 async function request(endpoint, options = {}) {
@@ -36,6 +41,10 @@ async function request(endpoint, options = {}) {
   }
 
   if (!response.ok) {
+    if (response.status === 401) {
+      setAuthToken(null);
+      window.dispatchEvent(new Event("auth-expired"));
+    }
     throw new Error(
       data?.message ||
         data?.error ||

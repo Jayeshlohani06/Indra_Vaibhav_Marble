@@ -25,4 +25,10 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             LocalDate endDate,
             String category
     );
+
+    List<Expense> findByStatusAndExpenseDateBetweenOrderByExpenseDateDescIdDesc(
+            String status,
+            LocalDate startDate,
+            LocalDate endDate
+    );
 }

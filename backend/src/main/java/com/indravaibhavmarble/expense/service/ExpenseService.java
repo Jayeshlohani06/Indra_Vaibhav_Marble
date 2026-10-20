@@ -4,6 +4,7 @@ package com.indravaibhavmarble.expense.service;
 import com.indravaibhavmarble.common.exception.ResourceNotFoundException;
 import com.indravaibhavmarble.expense.dto.ExpenseRequest;
 import com.indravaibhavmarble.expense.dto.ExpenseResponse;
+import com.indravaibhavmarble.expense.dto.ExpenseVoidRequest;
 import com.indravaibhavmarble.expense.entity.Expense;
 import com.indravaibhavmarble.expense.repository.ExpenseRepository;
 import com.indravaibhavmarble.supplier.repository.SupplierRepository;
@@ -14,6 +15,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
+import java.time.OffsetDateTime;
 
 @Service
 @Transactional
@@ -91,11 +93,53 @@ public class ExpenseService {
         return toResponse(expenseRepository.save(expense));
     }
 
+    public ExpenseResponse updateExpense(Long id, ExpenseRequest request) {
+        Expense expense = expenseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Expense not found: " + id));
+        if ("VOIDED".equals(expense.getStatus())) {
+            throw new IllegalArgumentException("Voided expenses cannot be edited");
+        }
+        if (request == null) {
+            throw new IllegalArgumentException("Expense data is required");
+        }
+        expense.setExpenseDate(request.expenseDate());
+        expense.setCategory(request.category());
+        expense.setDescription(request.description());
+        expense.setAmount(request.amount());
+        expense.setPaymentMethod(request.paymentMethod());
+        expense.setSupplierId(request.supplierId());
+        expense.setReferenceNumber(request.referenceNumber());
+        expense.setNotes(request.notes());
+        validateExpense(expense);
+        normalize(expense);
+        validateSupplier(expense);
+        return toResponse(expenseRepository.save(expense));
+    }
+
+    public ExpenseResponse voidExpense(Long id, ExpenseVoidRequest request) {
+        Expense expense = expenseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Expense not found: " + id));
+        if ("VOIDED".equals(expense.getStatus())) {
+            throw new IllegalArgumentException("Expense is already voided");
+        }
+        if (request == null || request.reason() == null || request.reason().isBlank()) {
+            throw new IllegalArgumentException("A void reason is required");
+        }
+        if (request.reason().trim().length() > 500) {
+            throw new IllegalArgumentException("Void reason cannot exceed 500 characters");
+        }
+        expense.setStatus("VOIDED");
+        expense.setVoidedAt(OffsetDateTime.now());
+        expense.setVoidReason(request.reason().trim());
+        return toResponse(expenseRepository.save(expense));
+    }
+
     @Transactional(readOnly = true)
     public List<ExpenseResponse> getAllExpenses(
             LocalDate startDate,
             LocalDate endDate,
-            String category
+            String category,
+            String status
     ) {
         if (startDate != null
                 && endDate != null
@@ -133,7 +177,15 @@ public class ExpenseService {
                     .findAllByOrderByExpenseDateDescIdDesc();
         }
 
+        String requestedStatus = status == null || status.isBlank()
+                ? "ACTIVE" : status.trim().toUpperCase();
+        if (!Set.of("ACTIVE", "VOIDED", "ALL").contains(requestedStatus)) {
+            throw new IllegalArgumentException("Invalid expense status");
+        }
+
         return expenses.stream()
+                .filter(expense -> "ALL".equals(requestedStatus)
+                        || requestedStatus.equals(expense.getStatus()))
                 .map(this::toResponse)
                 .toList();
     }
@@ -161,9 +213,35 @@ public class ExpenseService {
                 expense.getSupplierId(),
                 expense.getReferenceNumber(),
                 expense.getNotes(),
+                expense.getStatus(),
+                expense.getVoidedAt(),
+                expense.getVoidReason(),
                 expense.getCreatedAt(),
                 expense.getUpdatedAt()
         );
+    }
+
+    private void normalize(Expense expense) {
+        expense.setCategory(expense.getCategory().trim());
+        if (expense.getDescription() != null) {
+            String description = expense.getDescription().trim();
+            expense.setDescription(description.isEmpty() ? null : description);
+        }
+        expense.setPaymentMethod(expense.getPaymentMethod().trim().toUpperCase());
+        if (expense.getReferenceNumber() != null) {
+            expense.setReferenceNumber(expense.getReferenceNumber().trim());
+        }
+        if (expense.getNotes() != null) {
+            expense.setNotes(expense.getNotes().trim());
+        }
+    }
+
+    private void validateSupplier(Expense expense) {
+        if (expense.getSupplierId() != null) {
+            supplierRepository.findByIdAndActiveTrue(expense.getSupplierId())
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Supplier not found or inactive: " + expense.getSupplierId()));
+        }
     }
 
     private void validateExpense(Expense expense) {

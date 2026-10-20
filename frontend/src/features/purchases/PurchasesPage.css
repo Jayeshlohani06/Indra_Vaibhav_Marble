@@ -3,6 +3,63 @@
   gap: 22px;
   color: var(--text-primary, #202938);
 }
+
+.purchase-create-modal {
+  width: min(980px, 100%);
+}
+
+.purchase-details-modal {
+  width: min(720px, 100%);
+}
+
+.purchase-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.purchase-detail-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 13px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+}
+
+.purchase-detail-grid span {
+  color: #94a3b8;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.purchase-detail-grid strong {
+  color: #172033;
+  font-size: 13px;
+}
+
+.purchase-detail-items {
+  margin-top: 20px;
+}
+
+.purchase-detail-items h3 {
+  margin: 0 0 10px;
+}
+
+.purchase-detail-item {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr auto;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid #e8edf3;
+  font-size: 12px;
+}
+
+.purchase-detail-item small {
+  display: block;
+  margin-top: 3px;
+  color: #64748b;
+}
 .purchases-heading,
 .purchase-section-heading,
 .purchase-form-actions,
@@ -47,6 +104,63 @@
 }
 .purchase-count-card strong {
   font-size: 24px;
+}
+
+.purchases-heading > .purchase-primary-button {
+  align-self: center;
+}
+
+.purchase-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.purchase-kpi-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-height: 125px;
+  padding: 18px;
+  overflow: hidden;
+  border: 1px solid #e5eaf1;
+  border-radius: 13px;
+  background: #fff;
+  box-shadow: 0 5px 16px rgb(15 23 42 / 4%);
+}
+
+.purchase-kpi-card::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 3px;
+  content: "";
+}
+
+.purchase-kpi-card.is-blue::before { background: #315ee8; }
+.purchase-kpi-card.is-amber::before { background: #d58a19; }
+.purchase-kpi-card.is-green::before { background: #16a36a; }
+.purchase-kpi-card.is-purple::before { background: #7c3aed; }
+
+.purchase-kpi-card span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.purchase-kpi-card strong {
+  color: #172033;
+  font-size: clamp(21px, 2vw, 28px);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.purchase-kpi-card small {
+  margin-top: auto;
+  color: #94a3b8;
+  font-size: 11px;
 }
 .purchase-card {
   padding: 22px;
@@ -245,6 +359,56 @@
   overflow-x: auto;
   margin-top: 18px;
 }
+
+.purchase-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.purchase-filters input,
+.purchase-filters select,
+.purchase-pagination button {
+  min-height: 40px;
+  padding: 9px 11px;
+  border: 1px solid #d8e0e9;
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+  font-size: 12px;
+}
+
+.purchase-filters input {
+  width: min(300px, 100%);
+}
+
+.purchase-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding-top: 16px;
+  color: #64748b;
+  font-size: 11px;
+}
+
+.purchase-pagination > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.purchase-pagination button {
+  cursor: pointer;
+}
+
+.purchase-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
 .purchase-table {
   width: 100%;
   border-collapse: collapse;
@@ -275,6 +439,10 @@
   font-weight: 700;
 }
 @media (max-width: 900px) {
+  .purchase-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .purchase-line-fields {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -294,6 +462,24 @@
   .purchase-form-grid,
   .purchase-line-fields {
     grid-template-columns: 1fr;
+  }
+
+  .purchase-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .purchase-pagination {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .purchase-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .purchase-detail-item {
+    grid-template-columns: 1fr;
+    gap: 5px;
   }
   .purchase-wide-field {
     grid-column: auto;

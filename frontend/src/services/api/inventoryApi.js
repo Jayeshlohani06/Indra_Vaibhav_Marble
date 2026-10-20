@@ -37,6 +37,14 @@ export async function getMeasurementUnits() {
   return httpClient.get("/api/units");
 }
 
+export async function createCategory(category) {
+  return httpClient.post("/api/categories", category);
+}
+
+export async function createMeasurementUnit(unit) {
+  return httpClient.post("/api/units", unit);
+}
+
 // ===============================
 // Inventory tracking configuration
 // ===============================
@@ -69,4 +77,3 @@ export async function getProductStockMovements(productId) {
 export async function recordStockMovement(movement) {
   return httpClient.post("/api/stock-movements", movement);
 }
-

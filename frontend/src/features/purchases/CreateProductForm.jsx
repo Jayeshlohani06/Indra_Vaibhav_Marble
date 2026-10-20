@@ -16,6 +16,17 @@ const initialForm = {
   gstRate: "18",
   lowStockThreshold: "0",
 };
+
+function buildProductCode(name) {
+  return (
+    name
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 35) || "PRODUCT"
+  );
+}
+
 function CreateProductForm({ onClose, onCreated }) {
   const [form, setForm] = useState({ ...initialForm });
   const [categories, setCategories] = useState([]);
@@ -57,7 +68,8 @@ function CreateProductForm({ onClose, onCreated }) {
     setError("");
     setNotice("");
     const product = {
-      productCode: form.productCode.trim(),
+      productCode:
+        form.productCode.trim() || buildProductCode(form.name.trim()),
       name: form.name.trim(),
       description: form.description.trim(),
       categoryId: Number(form.categoryId),
@@ -68,8 +80,8 @@ function CreateProductForm({ onClose, onCreated }) {
       stockQuantity: 0,
       lowStockThreshold: Number(form.lowStockThreshold),
     };
-    if (!product.productCode || !product.name) {
-      setError("Product code and product name are required.");
+    if (!product.name) {
+      setError("Product name is required.");
       return;
     }
     if (!product.categoryId || !product.unitId) {
@@ -164,14 +176,15 @@ function CreateProductForm({ onClose, onCreated }) {
           <form onSubmit={handleSubmit}>
             <div className="purchase-form-grid">
               <label>
-                Product code *
+                Product code
                 <input
                   name="productCode"
                   value={form.productCode}
                   onChange={handleChange}
                   maxLength={50}
-                  required
+                  placeholder="Optional — generated from product name"
                 />
+                <small>Leave blank to generate a unique code automatically.</small>
               </label>
               <label>
                 Product name *

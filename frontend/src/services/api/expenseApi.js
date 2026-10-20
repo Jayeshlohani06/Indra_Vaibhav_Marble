@@ -16,6 +16,10 @@ export async function getExpenses(filters = {}) {
     query.set("category", filters.category);
   }
 
+  if (filters.status) {
+    query.set("status", filters.status);
+  }
+
   const queryString = query.toString();
   const endpoint = queryString
     ? `/api/expenses?${queryString}`
@@ -30,4 +34,20 @@ export async function getExpenseById(id) {
 
 export async function createExpense(expense) {
   return httpClient.post("/api/expenses", expense);
+}
+
+export async function updateExpense(id, expense) {
+  return httpClient.put(`/api/expenses/${id}`, expense);
+}
+
+export async function voidExpense(id, reason) {
+  return httpClient.post(`/api/expenses/${id}/void`, { reason });
+}
+
+export async function getExpenseCategories() {
+  return httpClient.get("/api/expense-categories");
+}
+
+export async function createExpenseCategory(category) {
+  return httpClient.post("/api/expense-categories", category);
 }

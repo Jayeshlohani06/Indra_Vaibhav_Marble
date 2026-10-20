@@ -3,6 +3,7 @@ package com.indravaibhavmarble.expense.controller;
 
 import com.indravaibhavmarble.expense.dto.ExpenseRequest;
 import com.indravaibhavmarble.expense.dto.ExpenseResponse;
+import com.indravaibhavmarble.expense.dto.ExpenseVoidRequest;
 import com.indravaibhavmarble.expense.service.ExpenseService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -28,6 +29,20 @@ public class ExpenseController {
         return expenseService.createExpense(request);
     }
 
+    @PutMapping("/{id}")
+    public ExpenseResponse updateExpense(
+            @PathVariable Long id,
+            @RequestBody ExpenseRequest request) {
+        return expenseService.updateExpense(id, request);
+    }
+
+    @PostMapping("/{id}/void")
+    public ExpenseResponse voidExpense(
+            @PathVariable Long id,
+            @RequestBody ExpenseVoidRequest request) {
+        return expenseService.voidExpense(id, request);
+    }
+
     @GetMapping
     public List<ExpenseResponse> getAllExpenses(
             @RequestParam(required = false)
@@ -39,10 +54,13 @@ public class ExpenseController {
             LocalDate endDate,
 
             @RequestParam(required = false)
-            String category) {
+            String category,
+
+            @RequestParam(required = false, defaultValue = "ACTIVE")
+            String status) {
 
         return expenseService.getAllExpenses(
-                startDate, endDate, category);
+                startDate, endDate, category, status);
     }
 
     @GetMapping("/{id}")

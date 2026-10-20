@@ -15,6 +15,9 @@ public record ExpenseResponse(
         Long supplierId,
         String referenceNumber,
         String notes,
+        String status,
+        OffsetDateTime voidedAt,
+        String voidReason,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt
 ) {

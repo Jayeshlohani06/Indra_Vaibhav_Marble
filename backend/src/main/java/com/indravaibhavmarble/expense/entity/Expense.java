@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.Locale;
 
 @Entity
 @Table(name = "expenses")
@@ -36,6 +37,15 @@ private String description;
 
     @Column(length = 1000)
     private String notes;
+
+    @Column(nullable = false, length = 20)
+    private String status = "ACTIVE";
+
+    @Column(name = "voided_at")
+    private OffsetDateTime voidedAt;
+
+    @Column(name = "void_reason", length = 500)
+    private String voidReason;
 
     @Column(name = "created_at", insertable = false, updatable = false)
     private OffsetDateTime createdAt;
@@ -120,5 +130,29 @@ private String description;
 
     public OffsetDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status == null ? null : status.trim().toUpperCase(Locale.ROOT);
+    }
+
+    public OffsetDateTime getVoidedAt() {
+        return voidedAt;
+    }
+
+    public void setVoidedAt(OffsetDateTime voidedAt) {
+        this.voidedAt = voidedAt;
+    }
+
+    public String getVoidReason() {
+        return voidReason;
+    }
+
+    public void setVoidReason(String voidReason) {
+        this.voidReason = voidReason;
     }
 }

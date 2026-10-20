@@ -26,7 +26,18 @@ public class CustomerService {
 
     @Transactional(readOnly = true)
     public List<CustomerResponse> getAllCustomers() {
-        return customerRepository.findByActiveTrueOrderByNameAsc()
+        return getCustomers("ACTIVE");
+    }
+
+    @Transactional(readOnly = true)
+    public List<CustomerResponse> getCustomers(String status) {
+        List<Customer> customers = switch (status == null
+                ? "ACTIVE" : status.trim().toUpperCase(Locale.ROOT)) {
+            case "ALL" -> customerRepository.findAllByOrderByNameAsc();
+            case "INACTIVE" -> customerRepository.findByActiveFalseOrderByNameAsc();
+            default -> customerRepository.findByActiveTrueOrderByNameAsc();
+        };
+        return customers
                 .stream()
                 .map(CustomerMapper::toResponse)
                 .toList();
@@ -41,9 +52,10 @@ public class CustomerService {
     public CustomerResponse createCustomer(CustomerRequest request) {
         validateCustomer(request);
 
-        String customerCode = normalizeCode(request.customerCode());
+        String customerCode = generateCustomerCode();
 
-        if (customerRepository.existsByCustomerCode(customerCode)) {
+        if (customerRepository.findByCustomerCodeIgnoreCase(customerCode)
+                .isPresent()) {
             throw new IllegalArgumentException(
                     "Customer code already exists: " + customerCode);
         }
@@ -62,7 +74,10 @@ public class CustomerService {
         Customer existing = findCustomerById(id);
         validateCustomer(request);
 
-        String customerCode = normalizeCode(request.customerCode());
+        String customerCode = request.customerCode() == null
+                || request.customerCode().isBlank()
+                ? existing.getCustomerCode()
+                : normalizeCode(request.customerCode());
 
         customerRepository.findByCustomerCode(customerCode)
                 .ifPresent(customer -> {
@@ -86,26 +101,28 @@ public class CustomerService {
         customerRepository.save(customer);
     }
 
+    public CustomerResponse reactivateCustomer(Long id) {
+        Customer customer = findCustomerById(id);
+        customer.setActive(true);
+        return CustomerMapper.toResponse(customerRepository.save(customer));
+    }
+
     @Transactional(readOnly = true)
-    public List<CustomerResponse> searchCustomers(String name, String phone) {
-        if (name != null && !name.isBlank()) {
-            return customerRepository
-                    .findByNameContainingIgnoreCaseOrderByNameAsc(name.trim())
-                    .stream()
-                    .filter(Customer::isActive)
-                    .map(CustomerMapper::toResponse)
-                    .toList();
-        }
-
-        if (phone != null && !phone.isBlank()) {
-            return customerRepository.findByPhoneContaining(phone.trim())
-                    .stream()
-                    .filter(Customer::isActive)
-                    .map(CustomerMapper::toResponse)
-                    .toList();
-        }
-
-        return getAllCustomers();
+    public List<CustomerResponse> searchCustomers(
+            String name, String phone, String status) {
+        String term = name != null && !name.isBlank()
+                ? name.trim().toLowerCase(Locale.ROOT)
+                : phone == null ? "" : phone.trim().toLowerCase(Locale.ROOT);
+        return getCustomers(status).stream()
+                .filter(customer -> term.isBlank()
+                        || customer.name().toLowerCase(Locale.ROOT).contains(term)
+                        || customer.customerCode().toLowerCase(Locale.ROOT).contains(term)
+                        || customer.phone().toLowerCase(Locale.ROOT).contains(term)
+                        || (customer.email() != null
+                        && customer.email().toLowerCase(Locale.ROOT).contains(term))
+                        || (customer.gstin() != null
+                        && customer.gstin().toLowerCase(Locale.ROOT).contains(term)))
+                .toList();
     }
 
     private Customer findCustomerById(Long id) {
@@ -125,12 +142,6 @@ public class CustomerService {
                     "Customer request is required");
         }
 
-        if (request.customerCode() == null
-                || request.customerCode().isBlank()) {
-            throw new IllegalArgumentException(
-                    "Customer code is required");
-        }
-
         if (request.name() == null || request.name().isBlank()) {
             throw new IllegalArgumentException(
                     "Customer name is required");
@@ -141,7 +152,8 @@ public class CustomerService {
                     "Customer phone is required");
         }
 
-        if (request.customerCode().trim().length() > 30) {
+        if (request.customerCode() != null
+                && request.customerCode().trim().length() > 30) {
             throw new IllegalArgumentException(
                     "Customer code cannot exceed 30 characters");
         }
@@ -156,10 +168,20 @@ public class CustomerService {
                     "Customer phone cannot exceed 20 characters");
         }
 
+        if (!request.phone().trim().matches("^[0-9+()\\- ]{7,20}$")) {
+            throw new IllegalArgumentException(
+                    "Enter a valid phone number");
+        }
+
         if (request.email() != null
                 && request.email().length() > 150) {
             throw new IllegalArgumentException(
                     "Email cannot exceed 150 characters");
+        }
+        if (request.email() != null && !request.email().isBlank()
+                && !request.email().trim().matches(
+                "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
+            throw new IllegalArgumentException("Enter a valid email address");
         }
 
         if (request.gstin() != null
@@ -167,6 +189,11 @@ public class CustomerService {
                 && request.gstin().trim().length() != 15) {
             throw new IllegalArgumentException(
                     "GSTIN must contain exactly 15 characters");
+        }
+        if (request.gstin() != null && !request.gstin().isBlank()
+                && !request.gstin().trim().toUpperCase(Locale.ROOT).matches(
+                "^[0-9]{2}[A-Z0-9]{13}$")) {
+            throw new IllegalArgumentException("Enter a valid GSTIN");
         }
 
         BigDecimal creditLimit = request.creditLimit();
@@ -179,5 +206,17 @@ public class CustomerService {
 
     private String normalizeCode(String customerCode) {
         return customerCode.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private String generateCustomerCode() {
+        int sequence = customerRepository.count() > Integer.MAX_VALUE
+                ? Integer.MAX_VALUE
+                : (int) customerRepository.count() + 1;
+        String code;
+        do {
+            code = String.format(Locale.ROOT, "CUST-%05d", sequence++);
+        } while (customerRepository.findByCustomerCodeIgnoreCase(code)
+                .isPresent());
+        return code;
     }
 }

@@ -4,6 +4,8 @@ package com.indravaibhavmarble.category.controller;
 import com.indravaibhavmarble.category.entity.ProductCategory;
 import com.indravaibhavmarble.category.service.ProductCategoryService;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -23,5 +25,10 @@ public class ProductCategoryController {
     @GetMapping
     public List<ProductCategory> getCategories() {
         return categoryService.getActiveCategories();
+    }
+
+    @PostMapping
+    public ProductCategory createCategory(@RequestBody ProductCategory category) {
+        return categoryService.createCategory(category);
     }
 }

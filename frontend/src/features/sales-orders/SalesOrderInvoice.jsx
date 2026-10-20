@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import { getSalesOrderById } from "../../services/api/salesOrderApi";
+import {
+  getSalesOrderBalance,
+  getSalesOrderById,
+} from "../../services/api/salesOrderApi";
 import { getCustomerById } from "../../services/api/customerApi";
 import "./SalesOrderInvoice.css";
 
@@ -222,6 +225,7 @@ function printInvoice(order, customer, items) {
         <div class="total-row"><span>SGST</span><strong>${money(order.sgstAmount)}</strong></div>
         <div class="total-row"><span>IGST</span><strong>${money(order.igstAmount)}</strong></div>
         <div class="total-row"><span>Total Tax</span><strong>${money(order.totalTax)}</strong></div>
+        ${(order.charges || []).map((charge) => `<div class="total-row"><span>${escapeHtml(charge.description)}</span><strong>${money(charge.amount)}</strong></div>`).join("")}
         <div class="total-row grand"><span>Grand Total</span><strong>${money(order.grandTotal)}</strong></div>
       </div>
     </section>
@@ -255,6 +259,7 @@ export default function SalesOrderInvoice({ orderId, onClose }) {
   const [order, setOrder] = useState(null);
   const [customer, setCustomer] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [balance, setBalance] = useState(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -266,6 +271,12 @@ export default function SalesOrderInvoice({ orderId, onClose }) {
 
       try {
         const savedOrder = await getSalesOrderById(orderId);
+        let savedBalance = null;
+        try {
+          savedBalance = await getSalesOrderBalance(orderId);
+        } catch {
+          savedBalance = null;
+        }
         let savedCustomer = null;
 
         try {
@@ -277,6 +288,7 @@ export default function SalesOrderInvoice({ orderId, onClose }) {
         if (!cancelled) {
           setOrder(savedOrder);
           setCustomer(savedCustomer);
+          setBalance(savedBalance);
         }
       } catch (err) {
         if (!cancelled) {
@@ -323,6 +335,11 @@ export default function SalesOrderInvoice({ orderId, onClose }) {
             ? "Draft order — not a final tax invoice"
             : "Saved order invoice"}
         </span>
+        {balance && (
+          <span className="sales-invoice-payment-summary">
+            {balance.paymentStatus.replace("_", " ")} · Due {money(balance.outstandingBalance)}
+          </span>
+        )}
         <div>
           <button
             type="button"
@@ -407,6 +424,7 @@ export default function SalesOrderInvoice({ orderId, onClose }) {
             <div><span>SGST</span><strong>{money(order.sgstAmount)}</strong></div>
             <div><span>IGST</span><strong>{money(order.igstAmount)}</strong></div>
             <div><span>Total Tax</span><strong>{money(order.totalTax)}</strong></div>
+            {(order.charges || []).map((charge) => <div key={charge.id}><span>{charge.description}</span><strong>{money(charge.amount)}</strong></div>)}
             <div className="sales-invoice-grand-total"><span>Grand Total</span><strong>{money(order.grandTotal)}</strong></div>
           </div>
         </section>

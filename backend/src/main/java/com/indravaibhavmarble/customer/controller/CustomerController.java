@@ -23,14 +23,15 @@ public class CustomerController {
     @GetMapping
     public List<CustomerResponse> getAllCustomers(
             @RequestParam(required = false) String name,
-            @RequestParam(required = false) String phone
+            @RequestParam(required = false) String phone,
+            @RequestParam(defaultValue = "ACTIVE") String status
     ) {
         if ((name != null && !name.isBlank())
                 || (phone != null && !phone.isBlank())) {
-            return customerService.searchCustomers(name, phone);
+            return customerService.searchCustomers(name, phone, status);
         }
 
-        return customerService.getAllCustomers();
+        return customerService.getCustomers(status);
     }
 
     @GetMapping("/{id}")
@@ -58,5 +59,10 @@ public class CustomerController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deactivateCustomer(@PathVariable Long id) {
         customerService.deactivateCustomer(id);
+    }
+
+    @PostMapping("/{id}/reactivate")
+    public CustomerResponse reactivateCustomer(@PathVariable Long id) {
+        return customerService.reactivateCustomer(id);
     }
 }

@@ -11,9 +11,15 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
 
     Optional<Customer> findByCustomerCode(String customerCode);
 
+    Optional<Customer> findByCustomerCodeIgnoreCase(String customerCode);
+
     boolean existsByCustomerCode(String customerCode);
 
     List<Customer> findByActiveTrueOrderByNameAsc();
+
+    List<Customer> findAllByOrderByNameAsc();
+
+    List<Customer> findByActiveFalseOrderByNameAsc();
 
     List<Customer> findByNameContainingIgnoreCaseOrderByNameAsc(String name);
 

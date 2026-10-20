@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
 
   getSalesOrders,
 
   createSalesOrder,
+  getSalesOrderBalance,
+  recordSalesOrderPayment,
 
 } from "../../services/api/salesOrderApi";
 
@@ -17,14 +19,16 @@ import {
 } from "../../services/api/customerApi";
 
 import {
-
   getProducts,
-
   getMeasurementUnits,
-
 } from "../../services/api/inventoryApi";
+import {
+  createExpenseCategory,
+  getExpenseCategories,
+} from "../../services/api/expenseApi";
 
 import "./SalesOrdersPage.css";
+import { usePermission } from "../../auth/PermissionsContext";
 import SalesOrderInvoice from "./SalesOrderInvoice";
 
 function formatCurrency(value) {
@@ -61,7 +65,7 @@ function roundMoney(value) {
 
 }
 
-function calculateTotals(items, taxType) {
+function calculateTotals(items, taxType, charges = []) {
 
   let subtotal = 0;
 
@@ -129,7 +133,8 @@ function calculateTotals(items, taxType) {
 
     totalTax,
 
-    grandTotal: roundMoney(subtotal + totalTax),
+    chargesTotal: roundMoney(charges.reduce((sum, charge) => sum + (Number(charge.amount) || 0), 0)),
+    grandTotal: roundMoney(subtotal + totalTax + charges.reduce((sum, charge) => sum + (Number(charge.amount) || 0), 0)),
 
   };
 
@@ -166,6 +171,8 @@ const emptyOrderItem = {
 };
 
 function SalesOrdersPage() {
+  const canManageSales = usePermission("SALES_MANAGE");
+  const canManagePayments = usePermission("PAYMENT_MANAGE");
 
   const [orders, setOrders] = useState([]);
 
@@ -190,7 +197,24 @@ function SalesOrdersPage() {
   const [showForm, setShowForm] = useState(false);
 
   const [showCustomerForm, setShowCustomerForm] = useState(false);
+  const [showChargeCategoryForm, setShowChargeCategoryForm] = useState(false);
+  const [chargeCategories, setChargeCategories] = useState([]);
+  const [newChargeCategory, setNewChargeCategory] = useState("");
   const [invoiceOrderId, setInvoiceOrderId] = useState(null);
+  const [detailsOrder, setDetailsOrder] = useState(null);
+  const [paymentBalance, setPaymentBalance] = useState(null);
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [paymentForm, setPaymentForm] = useState({
+    paymentDate: today(),
+    amount: "",
+    paymentMethod: "CASH",
+    referenceNumber: "",
+    notes: "",
+  });
+  const [orderSearch, setOrderSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [dateFilter, setDateFilter] = useState("ALL");
+  const [orderPage, setOrderPage] = useState(1);
 
   const [customerId, setCustomerId] = useState("");
 
@@ -199,6 +223,7 @@ function SalesOrdersPage() {
   const [taxType, setTaxType] = useState("INTRA");
 
   const [notes, setNotes] = useState("");
+  const [charges, setCharges] = useState([]);
 
   const [items, setItems] = useState([{ ...emptyOrderItem }]);
 
@@ -208,11 +233,14 @@ function SalesOrdersPage() {
 
   });
 
+  const PAGE_SIZE = 10;
+
   const loadOrders = useCallback(async () => {
 
     const data = await getSalesOrders();
 
     setOrders(Array.isArray(data) ? data : []);
+    setError("");
 
   }, []);
 
@@ -225,16 +253,17 @@ function SalesOrdersPage() {
     try {
 
       const [customerData, productData, unitData] =
-
         await Promise.all([
-
           getCustomers(),
-
           getProducts(),
-
           getMeasurementUnits(),
-
         ]);
+      let categoryData = [];
+      try {
+        categoryData = await getExpenseCategories();
+      } catch {
+        categoryData = [];
+      }
 
       setCustomers(
 
@@ -264,6 +293,11 @@ function SalesOrdersPage() {
 
         )
 
+      );
+      setChargeCategories(
+        (Array.isArray(categoryData) ? categoryData : categoryData?.data || [])
+          .filter((category) => category?.name)
+          .sort((a, b) => a.name.localeCompare(b.name))
       );
 
     } catch (err) {
@@ -296,7 +330,11 @@ function SalesOrdersPage() {
 
     } catch (err) {
 
-      setError(err.message || "Unable to load sales orders.");
+      setError(
+        err.message === "An unexpected error occurred"
+          ? "Sales orders could not be loaded. Restart the backend so the latest database migrations can run, then refresh."
+          : err.message || "Unable to load sales orders."
+      );
 
     } finally {
 
@@ -421,9 +459,39 @@ function SalesOrdersPage() {
     setTaxType("INTRA");
 
     setNotes("");
+    setCharges([]);
 
     setItems([{ ...emptyOrderItem }]);
 
+  }
+
+  function addCharge() {
+    setCharges((current) => [...current, { description: "", amount: "" }]);
+  }
+
+  function updateCharge(index, field, value) {
+    setCharges((current) => current.map((charge, chargeIndex) =>
+      chargeIndex === index ? { ...charge, [field]: value } : charge
+    ));
+  }
+
+  function removeCharge(index) {
+    setCharges((current) => current.filter((_, chargeIndex) => chargeIndex !== index));
+  }
+
+  async function addChargeCategory(event) {
+    event.preventDefault();
+    const name = newChargeCategory.trim();
+    if (!name) return;
+    try {
+      const created = await createExpenseCategory({ name, categoryType: "OPERATING" });
+      setChargeCategories((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
+      setCharges((current) => [...current, { description: created.name, amount: "" }]);
+      setNewChargeCategory("");
+      setShowChargeCategoryForm(false);
+    } catch (err) {
+      setError(err.message || "Unable to add charge category.");
+    }
   }
 
   async function handleCreateCustomer(event) {
@@ -472,14 +540,7 @@ function SalesOrdersPage() {
 
       setCustomerSaving(true);
 
-      // The current backend requires a unique customer code.
-
-      const customerCode = `C-${Date.now()}`;
-
       const payload = {
-
-        customerCode,
-
         name,
 
         phone,
@@ -657,8 +718,14 @@ function SalesOrdersPage() {
         quantity: Number(item.quantity),
 
         unitPrice: Number(item.unitPrice),
-
+        gstRate: Number(item.gstRate) || 0,
       })),
+      charges: charges
+        .filter((charge) => charge.description.trim() && Number(charge.amount) > 0)
+        .map((charge) => ({
+          description: charge.description.trim(),
+          amount: Number(charge.amount),
+        })),
 
     };
 
@@ -696,7 +763,74 @@ function SalesOrdersPage() {
 
   }
 
-  const totals = calculateTotals(items, taxType);
+  const totals = calculateTotals(items, taxType, charges);
+  const filteredOrders = useMemo(() => {
+    const term = orderSearch.trim().toLowerCase();
+    const now = new Date();
+    return orders.filter((order) => {
+      const matchesSearch = !term || [
+        order.orderNumber,
+        order.customerName,
+        order.status,
+      ].some((value) => String(value || "").toLowerCase().includes(term));
+      const matchesStatus = statusFilter === "ALL"
+        || order.status === statusFilter;
+      let matchesDate = true;
+      if (dateFilter !== "ALL" && order.orderDate) {
+        const orderDate = new Date(`${order.orderDate}T00:00:00`);
+        const days = dateFilter === "TODAY" ? 1 : dateFilter === "WEEK" ? 7 : 30;
+        matchesDate = (now - orderDate) / 86400000 < days;
+      }
+      return matchesSearch && matchesStatus && matchesDate;
+    }).sort((first, second) =>
+      String(second.orderDate || "").localeCompare(String(first.orderDate || ""))
+    );
+  }, [dateFilter, orderSearch, orders, statusFilter]);
+  const orderPageCount = Math.max(1, Math.ceil(filteredOrders.length / PAGE_SIZE));
+  const visibleOrders = filteredOrders.slice(
+    (orderPage - 1) * PAGE_SIZE,
+    orderPage * PAGE_SIZE
+  );
+  const confirmedOrders = orders.filter((order) => order.status === "CONFIRMED");
+  const cancelledOrders = orders.filter((order) => order.status === "CANCELLED");
+  const monthKey = today().slice(0, 7);
+  const monthOrders = orders.filter((order) =>
+    String(order.orderDate || "").startsWith(monthKey)
+  );
+  const totalSales = orders.reduce(
+    (total, order) => total + Number(order.grandTotal || 0), 0
+  );
+  const totalTax = orders.reduce(
+    (total, order) => total + Number(order.totalTax || 0), 0
+  );
+  const averageOrder = orders.length ? totalSales / orders.length : 0;
+
+  async function openOrderDetails(order) {
+    setDetailsOrder(order);
+    setPaymentBalance(null);
+    try {
+      setPaymentBalance(await getSalesOrderBalance(order.id));
+    } catch (err) {
+      setError(err.message || "Unable to load payment balance.");
+    }
+  }
+
+  async function handlePaymentSubmit(event) {
+    event.preventDefault();
+    if (!detailsOrder) return;
+    try {
+      await recordSalesOrderPayment(detailsOrder.id, {
+        ...paymentForm,
+        amount: Number(paymentForm.amount),
+      });
+      setPaymentForm({ paymentDate: today(), amount: "", paymentMethod: "CASH", referenceNumber: "", notes: "" });
+      setShowPaymentForm(false);
+      setPaymentBalance(await getSalesOrderBalance(detailsOrder.id));
+      setSuccess("Payment recorded successfully.");
+    } catch (err) {
+      setError(err.message || "Unable to record payment.");
+    }
+  }
 
   return (
 
@@ -730,7 +864,7 @@ function SalesOrdersPage() {
 
           </button>
 
-          <button
+          {canManageSales && <button
 
             type="button"
 
@@ -741,8 +875,7 @@ function SalesOrdersPage() {
           >
 
             + Create Sales Order
-
-          </button>
+          </button>}
 
         </div>
 
@@ -1091,8 +1224,16 @@ function SalesOrdersPage() {
       {/* Create Sales Order Form */}
 
       {showForm && (
-
-        <form className="sales-order-form" onSubmit={handleSubmit}>
+        <div
+          className="sales-order-modal-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !saving) {
+              setShowForm(false);
+              setError("");
+            }
+          }}
+        >
+        <form className="sales-order-form sales-order-modal" onSubmit={handleSubmit}>
 
           <div className="sales-order-form-heading">
 
@@ -1152,7 +1293,7 @@ function SalesOrdersPage() {
 
                     </label>
 
-                    <button
+                    {canManageSales && <button
 
                       type="button"
 
@@ -1170,7 +1311,7 @@ function SalesOrdersPage() {
 
                       + Add New Customer
 
-                    </button>
+                    </button>}
 
                   </div>
 
@@ -1435,7 +1576,6 @@ function SalesOrdersPage() {
                       </label>
 
                       <label>
-
                         Price per {product ? unit : "unit"} (₹)
 
                         <input
@@ -1466,6 +1606,20 @@ function SalesOrdersPage() {
 
                         />
 
+                      </label>
+
+                      <label>
+                        GST (%)
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          value={item.gstRate}
+                          onChange={(event) =>
+                            updateItem(index, "gstRate", event.target.value)
+                          }
+                        />
                       </label>
 
                       <div className="sales-order-line-total">
@@ -1544,6 +1698,58 @@ function SalesOrdersPage() {
 
               </label>
 
+              <section className="sales-order-charges">
+                <div className="sales-order-items-heading">
+                  <div>
+                    <h3>Additional bill charges</h3>
+                    <p>Optional charges such as labour, transport, loading, or delivery.</p>
+                  </div>
+                  <button type="button" className="sales-orders-secondary" onClick={addCharge}>
+                    + Add charge
+                  </button>
+                </div>
+                {charges.length > 0 && (
+                  <div className="sales-order-charges-list">
+                    {charges.map((charge, index) => (
+                      <div className="sales-order-charge-row" key={index}>
+                        <select
+                          value={charge.description}
+                          onChange={(event) => updateCharge(index, "description", event.target.value)}
+                        >
+                          <option value="">Select charge category</option>
+                          {chargeCategories.map((category) => (
+                            <option key={category.id || category.name} value={category.name}>
+                              {category.name}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={charge.amount}
+                          onChange={(event) => updateCharge(index, "amount", event.target.value)}
+                          placeholder="Amount (₹)"
+                        />
+                        <button type="button" className="sales-order-remove" onClick={() => removeCharge(index)}>
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  className="sales-orders-text-button"
+                  onClick={() => {
+                    setNewChargeCategory("");
+                    setShowChargeCategoryForm(true);
+                  }}
+                >
+                  + Add new charge category
+                </button>
+              </section>
+
               <div className="sales-order-totals">
 
                 <h3>Order Summary</h3>
@@ -1603,12 +1809,17 @@ function SalesOrdersPage() {
                 )}
 
                 <div>
-
                   <span>Total GST</span>
 
                   <strong>{formatCurrency(totals.totalTax)}</strong>
 
                 </div>
+                {totals.chargesTotal > 0 && (
+                  <div>
+                    <span>Additional charges</span>
+                    <strong>{formatCurrency(totals.chargesTotal)}</strong>
+                  </div>
+                )}
 
                 <div className="sales-order-grand-total">
 
@@ -1662,7 +1873,7 @@ function SalesOrdersPage() {
 
                 >
 
-                  {saving ? "Saving..." : "Save Draft Order"}
+                  {saving ? "Saving..." : "Confirm & Create Order"}
 
                 </button>
 
@@ -1673,57 +1884,16 @@ function SalesOrdersPage() {
           )}
 
         </form>
-
+        </div>
       )}
 
-      {/* Sales Orders Summary */}
-
       <div className="sales-orders-summary">
-
-        <div className="sales-orders-summary-card">
-
-          <span>Total orders</span>
-
-          <strong>{orders.length}</strong>
-
-        </div>
-
-        <div className="sales-orders-summary-card">
-
-          <span>Draft orders</span>
-
-          <strong>
-
-            {orders.filter((order) => order.status === "DRAFT").length}
-
-          </strong>
-
-        </div>
-
-        <div className="sales-orders-summary-card">
-
-          <span>Total order value</span>
-
-          <strong>
-
-            {formatCurrency(
-
-              orders.reduce(
-
-                (total, order) =>
-
-                  total + Number(order.grandTotal || 0),
-
-                0
-
-              )
-
-            )}
-
-          </strong>
-
-        </div>
-
+        <div className="sales-orders-summary-card is-blue"><span>Total sales value</span><strong>{formatCurrency(totalSales)}</strong><small>All recorded orders</small></div>
+        <div className="sales-orders-summary-card is-green"><span>Orders this month</span><strong>{monthOrders.length}</strong><small>Based on order date</small></div>
+        <div className="sales-orders-summary-card is-purple"><span>Confirmed orders</span><strong>{confirmedOrders.length}</strong><small>Stock has been deducted</small></div>
+        <div className="sales-orders-summary-card is-amber"><span>Average order value</span><strong>{formatCurrency(averageOrder)}</strong><small>{orders.length} total orders</small></div>
+        <div className="sales-orders-summary-card is-red"><span>Cancelled orders</span><strong>{cancelledOrders.length}</strong><small>Requires review</small></div>
+        <div className="sales-orders-summary-card is-slate"><span>Total tax collected</span><strong>{formatCurrency(totalTax)}</strong><small>CGST, SGST and IGST</small></div>
       </div>
 
       {loading && (
@@ -1737,7 +1907,38 @@ function SalesOrdersPage() {
       )}
 
       {!loading && (
-
+        <div className="sales-orders-directory">
+          <div className="sales-orders-filters">
+            <div>
+              <h2>Sales order directory</h2>
+              <p>Search orders and review their invoice details.</p>
+            </div>
+            <div className="sales-orders-filter-controls">
+              <input
+                type="search"
+                value={orderSearch}
+                placeholder="Search order, customer..."
+                aria-label="Search sales orders"
+                onChange={(event) => {
+                  setOrderSearch(event.target.value);
+                  setOrderPage(1);
+                }}
+              />
+              <select value={statusFilter} aria-label="Filter order status" onChange={(event) => { setStatusFilter(event.target.value); setOrderPage(1); }}>
+                <option value="ALL">All statuses</option>
+                <option value="CONFIRMED">Confirmed</option>
+                <option value="DRAFT">Draft</option>
+                <option value="CANCELLED">Cancelled</option>
+              </select>
+              <select value={dateFilter} aria-label="Filter order date" onChange={(event) => { setDateFilter(event.target.value); setOrderPage(1); }}>
+                <option value="ALL">All dates</option>
+                <option value="TODAY">Today</option>
+                <option value="WEEK">Last 7 days</option>
+                <option value="MONTH">Last 30 days</option>
+              </select>
+              <button type="button" className="sales-orders-secondary" onClick={() => { setOrderSearch(""); setStatusFilter("ALL"); setDateFilter("ALL"); setOrderPage(1); }}>Clear</button>
+            </div>
+          </div>
         <div className="sales-orders-table-wrapper">
 
           <table className="sales-orders-table">
@@ -1763,7 +1964,7 @@ function SalesOrdersPage() {
 
             <tbody>
 
-              {orders.length === 0 ? (
+              {visibleOrders.length === 0 ? (
 
                 <tr>
 
@@ -1777,7 +1978,7 @@ function SalesOrdersPage() {
 
               ) : (
 
-                orders.map((order) => (
+                visibleOrders.map((order) => (
 
                   <tr key={order.id}>
 
@@ -1814,9 +2015,9 @@ function SalesOrdersPage() {
                       <button
                         type="button"
                         className="sales-orders-secondary"
-                        onClick={() => setInvoiceOrderId(order.id)}
+                        onClick={() => openOrderDetails(order)}
                       >
-                        View / Print
+                        View
                       </button>
                     </td>
 
@@ -1831,7 +2032,96 @@ function SalesOrdersPage() {
           </table>
 
         </div>
+        <div className="sales-orders-pagination">
+          <span>Showing {filteredOrders.length ? (orderPage - 1) * PAGE_SIZE + 1 : 0}–{Math.min(orderPage * PAGE_SIZE, filteredOrders.length)} of {filteredOrders.length}</span>
+          <div>
+            <button type="button" disabled={orderPage <= 1} onClick={() => setOrderPage((current) => current - 1)}>Previous</button>
+            <strong>Page {orderPage} of {orderPageCount}</strong>
+            <button type="button" disabled={orderPage >= orderPageCount} onClick={() => setOrderPage((current) => current + 1)}>Next</button>
+          </div>
+        </div>
+        </div>
+      )}
 
+      {detailsOrder && (
+        <div className="sales-order-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setDetailsOrder(null)}>
+          <section className="sales-order-details-modal" role="dialog" aria-modal="true" aria-labelledby="sales-order-details-title">
+            <div className="sales-order-form-heading">
+              <div><p className="sales-orders-overline">ORDER DETAILS</p><h2 id="sales-order-details-title">{detailsOrder.orderNumber}</h2><p>{detailsOrder.customerName} · {detailsOrder.orderDate}</p></div>
+              <button type="button" className="sales-orders-refresh" onClick={() => setDetailsOrder(null)} aria-label="Close order details">Close</button>
+            </div>
+            <div className="sales-order-detail-summary">
+              <div><span>Status</span><strong>{detailsOrder.status}</strong></div>
+              <div><span>Tax type</span><strong>{detailsOrder.taxType}</strong></div>
+              <div><span>Subtotal</span><strong>{formatCurrency(detailsOrder.subtotal)}</strong></div>
+              <div><span>Total tax</span><strong>{formatCurrency(detailsOrder.totalTax)}</strong></div>
+              <div><span>Grand total</span><strong>{formatCurrency(detailsOrder.grandTotal)}</strong></div>
+              {paymentBalance && <div><span>Payment status</span><strong>{paymentBalance.paymentStatus}</strong></div>}
+              {paymentBalance && <div><span>Outstanding</span><strong>{formatCurrency(paymentBalance.outstandingBalance)}</strong></div>}
+            </div>
+            <div className="sales-order-detail-items">
+              <h3>Products</h3>
+              {detailsOrder.items?.map((item) => <div className="sales-order-detail-item" key={item.id}><span>{item.productName} <small>{item.productCode}</small></span><span>{item.quantity} {item.unitCode} × {formatCurrency(item.unitPrice)} · GST {item.gstRate}%</span><strong>{formatCurrency(item.lineTotal)}</strong></div>)}
+              {detailsOrder.charges?.map((charge) => <div className="sales-order-detail-item" key={`charge-${charge.id}`}><span>{charge.description}</span><strong>{formatCurrency(charge.amount)}</strong></div>)}
+            </div>
+            <div className="sales-order-form-actions">
+              {canManagePayments && paymentBalance?.outstandingBalance > 0 && <button type="button" className="sales-orders-secondary" onClick={() => setShowPaymentForm(true)}>Record payment</button>}
+              <button type="button" className="sales-orders-secondary" onClick={() => { setInvoiceOrderId(detailsOrder.id); setDetailsOrder(null); }}>View / Print Invoice</button>
+              <button type="button" className="sales-orders-primary" onClick={() => setDetailsOrder(null)}>Done</button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {showPaymentForm && detailsOrder && (
+        <div className="sales-order-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setShowPaymentForm(false)}>
+          <form className="sales-order-details-modal sales-payment-modal" onSubmit={handlePaymentSubmit}>
+            <div className="sales-order-form-heading"><div><p className="sales-orders-overline">PAYMENT COLLECTION</p><h2>Record payment</h2><p>{detailsOrder.orderNumber} · Balance {formatCurrency(paymentBalance?.outstandingBalance)}</p></div><button type="button" className="sales-orders-refresh" onClick={() => setShowPaymentForm(false)}>Close</button></div>
+            <div className="sales-payment-grid">
+              <label>Payment date<input type="date" max={today()} value={paymentForm.paymentDate} onChange={(event) => setPaymentForm({ ...paymentForm, paymentDate: event.target.value })} required /></label>
+              <label>Amount (₹)<input type="number" min="0.01" step="0.01" max={paymentBalance?.outstandingBalance} value={paymentForm.amount} onChange={(event) => setPaymentForm({ ...paymentForm, amount: event.target.value })} required /></label>
+              <label>Payment method<select value={paymentForm.paymentMethod} onChange={(event) => setPaymentForm({ ...paymentForm, paymentMethod: event.target.value })}><option value="CASH">Cash</option><option value="UPI">UPI</option><option value="BANK_TRANSFER">Bank transfer</option><option value="CHEQUE">Cheque</option><option value="CARD">Card</option><option value="OTHER">Other</option></select></label>
+              <label>Reference number<input value={paymentForm.referenceNumber} onChange={(event) => setPaymentForm({ ...paymentForm, referenceNumber: event.target.value })} maxLength={100} /></label>
+              <label className="sales-payment-full-width">Notes<textarea rows="3" value={paymentForm.notes} onChange={(event) => setPaymentForm({ ...paymentForm, notes: event.target.value })} maxLength={1000} /></label>
+            </div>
+            <div className="sales-order-form-actions"><button type="button" className="sales-orders-secondary" onClick={() => setShowPaymentForm(false)}>Cancel</button><button type="submit" className="sales-orders-primary">Save payment</button></div>
+          </form>
+        </div>
+      )}
+
+      {showChargeCategoryForm && (
+        <div
+          className="sales-customer-modal-backdrop"
+          onMouseDown={(event) => event.target === event.currentTarget && setShowChargeCategoryForm(false)}
+        >
+          <form className="sales-customer-modal sales-charge-category-modal" onSubmit={addChargeCategory}>
+            <div className="sales-customer-modal-heading">
+              <div>
+                <p className="sales-orders-overline">BILLING SETUP</p>
+                <h2>Add charge category</h2>
+                <p>Use this category in future bills and expense records.</p>
+              </div>
+              <button type="button" className="sales-customer-modal-close" onClick={() => setShowChargeCategoryForm(false)} aria-label="Close">
+                ×
+              </button>
+            </div>
+            <label className="sales-charge-category-input">
+              Category name
+              <input
+                autoFocus
+                value={newChargeCategory}
+                onChange={(event) => setNewChargeCategory(event.target.value)}
+                placeholder="e.g. Cutting charges"
+                maxLength={100}
+                required
+              />
+            </label>
+            <div className="sales-order-form-actions">
+              <button type="button" className="sales-orders-secondary" onClick={() => setShowChargeCategoryForm(false)}>Cancel</button>
+              <button type="submit" className="sales-orders-primary">Add category</button>
+            </div>
+          </form>
+        </div>
       )}
 
       {invoiceOrderId !== null && (

@@ -27,6 +27,23 @@ public class MeasurementUnit {
     protected MeasurementUnit() {
     }
 
+    @PrePersist
+    protected void onCreate() {
+        createdAt = OffsetDateTime.now();
+    }
+
+    public void setCode(String code) {
+        this.code = code;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+
     public Long getId() {
         return id;
     }

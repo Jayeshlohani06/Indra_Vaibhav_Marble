@@ -67,7 +67,8 @@ public class FinancialReportService {
 
         List<Expense> expenses =
                 expenseRepository
-                        .findByExpenseDateBetweenOrderByExpenseDateDescIdDesc(
+                        .findByStatusAndExpenseDateBetweenOrderByExpenseDateDescIdDesc(
+                                "ACTIVE",
                                 startDate,
                                 endDate);
 

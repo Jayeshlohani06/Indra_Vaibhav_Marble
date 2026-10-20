@@ -12,3 +12,15 @@ export async function getSalesOrderById(id) {
 export async function createSalesOrder(order) {
   return httpClient.post("/api/sales-orders", order);
 }
+
+export async function getSalesOrderPayments(orderId) {
+  return httpClient.get(`/api/sales-orders/${orderId}/payments`);
+}
+
+export async function recordSalesOrderPayment(orderId, payment) {
+  return httpClient.post(`/api/sales-orders/${orderId}/payments`, payment);
+}
+
+export async function getSalesOrderBalance(orderId) {
+  return httpClient.get(`/api/sales-orders/${orderId}/payments/balance`);
+}

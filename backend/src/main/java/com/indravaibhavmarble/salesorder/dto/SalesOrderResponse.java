@@ -22,6 +22,7 @@ public record SalesOrderResponse(
         BigDecimal grandTotal,
         String notes,
         OffsetDateTime createdAt,
-        List<SalesOrderItemResponse> items
+        List<SalesOrderItemResponse> items,
+        List<SalesOrderChargeResponse> charges
 ) {
 }

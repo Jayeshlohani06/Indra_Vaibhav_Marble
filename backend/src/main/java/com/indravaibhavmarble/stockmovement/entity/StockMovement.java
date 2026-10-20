@@ -120,13 +120,41 @@ public class StockMovement {
     public OffsetDateTime getCreatedAt() {
         return createdAt;
     }
-    
-public void setStockBefore(BigDecimal stockBefore) {
-    this.stockBefore = stockBefore;
-}
 
-public void setStockAfter(BigDecimal stockAfter) {
-    this.stockAfter = stockAfter;
-}
+    public void setProductId(Long productId) {
+        this.productId = productId;
+    }
+
+    public void setMovementType(String movementType) {
+        this.movementType = movementType;
+    }
+
+    public void setQuantityChange(BigDecimal quantityChange) {
+        this.quantityChange = quantityChange;
+    }
+
+    public void setReferenceType(String referenceType) {
+        this.referenceType = referenceType;
+    }
+
+    public void setReferenceId(Long referenceId) {
+        this.referenceId = referenceId;
+    }
+
+    public void setReferenceNumber(String referenceNumber) {
+        this.referenceNumber = referenceNumber;
+    }
+
+    public void setNotes(String notes) {
+        this.notes = notes;
+    }
+
+    public void setStockBefore(BigDecimal stockBefore) {
+        this.stockBefore = stockBefore;
+    }
+
+    public void setStockAfter(BigDecimal stockAfter) {
+        this.stockAfter = stockAfter;
+    }
 
 }

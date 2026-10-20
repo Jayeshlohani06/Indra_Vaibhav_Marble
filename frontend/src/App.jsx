@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import LoginPage from "./features/auth/LoginPage";
 import DashboardPage from "./features/dashboard/DashboardPage";
@@ -10,6 +10,9 @@ import SuppliersPage from "./features/suppliers/SuppliersPage";
 import PurchasesPage from "./features/purchases/PurchasesPage";
 import ExpensesPage from "./features/expenses/ExpensesPage";
 import ReportsPage from "./features/reports/ReportsPage";
+import UserManagementPage from "./features/users/UserManagementPage";
+import { logout } from "./services/api/authApi";
+import { PermissionsProvider } from "./auth/PermissionsContext";
 
 import "./App.css";
 
@@ -23,7 +26,20 @@ const VALID_PAGES = [
   "purchases",
   "expenses",
   "reports",
+  "users",
 ];
+
+const PAGE_PERMISSIONS = {
+  inventory: "PRODUCT_READ",
+  "stock-movements": "INVENTORY_READ",
+  customers: "CUSTOMER_READ",
+  billing: "SALES_READ",
+  purchases: "PURCHASE_READ",
+  suppliers: "SUPPLIER_READ",
+  expenses: "EXPENSE_READ",
+  reports: "REPORT_READ",
+  users: "USER_READ",
+};
 
 function getCurrentPage() {
   const page = window.location.hash.replace("#", "");
@@ -32,7 +48,13 @@ function getCurrentPage() {
 }
 
 function App() {
-  const [session, setSession] = useState(null);
+  const [session, setSession] = useState(() => {
+    try {
+      return JSON.parse(sessionStorage.getItem("indra-vaibhav-user") || "null");
+    } catch {
+      return null;
+    }
+  });
   const [currentPage, setCurrentPage] = useState(getCurrentPage);
 
   useEffect(() => {
@@ -47,9 +69,41 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    function handleAuthExpired() {
+      sessionStorage.removeItem("indra-vaibhav-user");
+      setSession(null);
+      window.location.hash = "#dashboard";
+    }
+
+    window.addEventListener("auth-expired", handleAuthExpired);
+    return () => window.removeEventListener("auth-expired", handleAuthExpired);
+  }, []);
+
   function handleLoginSuccess(response) {
     setSession(response.user);
+    sessionStorage.setItem("indra-vaibhav-user", JSON.stringify(response.user));
   }
+
+  function handleLogout() {
+    logout();
+    sessionStorage.removeItem("indra-vaibhav-user");
+    setSession(null);
+    window.location.hash = "#dashboard";
+  }
+
+  const permissions = useMemo(
+    () => new Set(session?.permissions || []),
+    [session]
+  );
+  const canAccessPage = (page) =>
+    page === "dashboard" || permissions.has(PAGE_PERMISSIONS[page]);
+
+  useEffect(() => {
+    if (session && !canAccessPage(currentPage)) {
+      window.location.hash = "#dashboard";
+    }
+  }, [session, currentPage, permissions]);
 
   if (!session) {
     return <LoginPage onLoginSuccess={handleLoginSuccess} />;
@@ -92,6 +146,10 @@ function App() {
       breadcrumb: "Reports",
       title: "Financial Reports",
     },
+    users: {
+      breadcrumb: "User Management",
+      title: "User Management",
+    },
   };
 
   const currentTitle = pageTitles[currentPage] || pageTitles.dashboard;
@@ -123,8 +181,7 @@ function App() {
             <span>Dashboard</span>
           </a>
 
-          {/* Inventory */}
-          <a
+          {canAccessPage("inventory") && <a
             className={`erp-nav-item ${
               currentPage === "inventory" ? "active" : ""
             }`}
@@ -132,10 +189,9 @@ function App() {
           >
             <span className="erp-nav-icon">▤</span>
             <span>Inventory</span>
-          </a>
+          </a>}
 
-          {/* Stock Movement History */}
-          <a
+          {canAccessPage("stock-movements") && <a
             className={`erp-nav-item ${
               currentPage === "stock-movements" ? "active" : ""
             }`}
@@ -143,10 +199,9 @@ function App() {
           >
             <span className="erp-nav-icon">↕</span>
             <span>Stock Movements</span>
-          </a>
+          </a>}
 
-          {/* Customers */}
-          <a
+          {canAccessPage("customers") && <a
             className={`erp-nav-item ${
               currentPage === "customers" ? "active" : ""
             }`}
@@ -154,10 +209,9 @@ function App() {
           >
             <span className="erp-nav-icon">♙</span>
             <span>Customers</span>
-          </a>
+          </a>}
 
-          {/* Sales & Billing */}
-          <a
+          {canAccessPage("billing") && <a
             className={`erp-nav-item ${
               currentPage === "billing" ? "active" : ""
             }`}
@@ -165,10 +219,9 @@ function App() {
           >
             <span className="erp-nav-icon">₹</span>
             <span>Sales &amp; Billing</span>
-          </a>
+          </a>}
 
-          {/* Purchases */}
-          <a
+          {canAccessPage("purchases") && <a
             className={`erp-nav-item ${
               currentPage === "purchases" ? "active" : ""
             }`}
@@ -176,10 +229,9 @@ function App() {
           >
             <span className="erp-nav-icon">⇄</span>
             <span>Purchases</span>
-          </a>
+          </a>}
 
-          {/* Suppliers */}
-          <a
+          {canAccessPage("suppliers") && <a
             className={`erp-nav-item ${
               currentPage === "suppliers" ? "active" : ""
             }`}
@@ -187,10 +239,9 @@ function App() {
           >
             <span className="erp-nav-icon">♧</span>
             <span>Suppliers</span>
-          </a>
+          </a>}
 
-          {/* Expenses */}
-          <a
+          {canAccessPage("expenses") && <a
             className={`erp-nav-item ${
               currentPage === "expenses" ? "active" : ""
             }`}
@@ -198,10 +249,9 @@ function App() {
           >
             <span className="erp-nav-icon">₹</span>
             <span>Expenses</span>
-          </a>
+          </a>}
 
-          {/* Reports */}
-          <a
+          {canAccessPage("reports") && <a
             className={`erp-nav-item ${
               currentPage === "reports" ? "active" : ""
             }`}
@@ -209,7 +259,8 @@ function App() {
           >
             <span className="erp-nav-icon">▥</span>
             <span>Reports</span>
-          </a>
+          </a>}
+          {canAccessPage("users") && <a className={`erp-nav-item ${currentPage === "users" ? "active" : ""}`} href="#users"><span className="erp-nav-icon">♙</span><span>User Management</span></a>}
         </nav>
 
         {/* Sidebar Footer */}
@@ -235,20 +286,24 @@ function App() {
           {/* Logged-in Administrator */}
           <div className="erp-admin">
             <div className="erp-avatar">
-              {(session.name || session.email || "A")
+              {(session.fullName || session.name || session.email || "A")
                 .charAt(0)
                 .toUpperCase()}
             </div>
 
             <div>
-              <strong>{session.name || "Administrator"}</strong>
-              <span>{session.role || "ADMIN"}</span>
+              <strong>{session.fullName || session.name || "User"}</strong>
+              <span>{(session.roles || []).join(", ") || "USER"}</span>
             </div>
+            <button type="button" className="erp-logout-button" onClick={handleLogout}>
+              Log out
+            </button>
           </div>
         </header>
 
         {/* Page Content */}
         <main className="erp-content">
+          <PermissionsProvider permissions={session.permissions}>
           {currentPage === "inventory" ? (
             <InventoryPage />
           ) : currentPage === "customers" ? (
@@ -265,9 +320,12 @@ function App() {
             <ExpensesPage />
           ) : currentPage === "reports" ? (
             <ReportsPage />
+          ) : currentPage === "users" ? (
+            <UserManagementPage isAdmin={(session.roles || []).includes("ADMIN")} />
           ) : (
             <DashboardPage />
           )}
+          </PermissionsProvider>
         </main>
       </div>
     </div>

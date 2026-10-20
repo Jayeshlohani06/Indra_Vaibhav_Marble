@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import com.indravaibhavmarble.stockmovement.dto.StockMovementResponse;
 import com.indravaibhavmarble.stockmovement.entity.StockMovement;
@@ -41,5 +42,18 @@ public class StockMovementController {
     public StockMovementResponse recordMovement(
             @RequestBody StockMovement movement) {
         return stockMovementService.recordMovement(movement);
+    }
+
+    @PostMapping("/{movementId}/reverse")
+    @ResponseStatus(HttpStatus.CREATED)
+    public StockMovementResponse reverseMovement(
+            @PathVariable Long movementId,
+            @RequestBody(required = false) ReversalRequest request) {
+        return stockMovementService.reverseMovement(
+                movementId,
+                request == null ? null : request.notes());
+    }
+
+    public record ReversalRequest(String notes) {
     }
 }
