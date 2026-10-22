@@ -3,7 +3,8 @@ FROM maven:3.9.11-eclipse-temurin-17 AS build
 
 WORKDIR /app
 
-COPY backend/pom.xml mvnw ./
+COPY backend/pom.xml ./
+COPY backend/mvnw ./
 COPY backend/.mvn .mvn
 
 RUN chmod +x mvnw
