@@ -83,6 +83,11 @@ public class PurchaseService {
         purchase.setSupplierInvoiceNumber(invoiceNumber);
         purchase.setPurchaseDate(request.purchaseDate());
         purchase.setStatus("DRAFT");
+        String taxType = normalizeTaxType(request.taxType());
+        BigDecimal invoiceGstRate = money(request.gstRate());
+        validateGstRate(invoiceGstRate);
+        purchase.setTaxType(taxType);
+        purchase.setGstRate(invoiceGstRate);
         purchase.setNotes(normalize(request.notes()));
 
         BigDecimal subtotal = ZERO;
@@ -107,8 +112,10 @@ public class PurchaseService {
             BigDecimal discount = money(
                     line.discountAmount() == null
                             ? ZERO : line.discountAmount());
-            BigDecimal gstRate = line.gstRate() == null
-                    ? product.getGstRate() : line.gstRate();
+            BigDecimal gstRate = request.gstRate() == null
+                    ? (line.gstRate() == null
+                            ? product.getGstRate() : line.gstRate())
+                    : invoiceGstRate;
 
             validateLine(quantity, rate, discount, gstRate);
 
@@ -166,6 +173,7 @@ public class PurchaseService {
         purchase.setSubtotal(subtotal);
         purchase.setDiscountAmount(totalDiscount);
         purchase.setGstAmount(gstTotal);
+        purchase.setGstRate(invoiceGstRate);
         purchase.setTotalAmount(total);
 
         Purchase savedPurchase = purchaseRepository.saveAndFlush(purchase);
@@ -215,6 +223,118 @@ public class PurchaseService {
         return toResponse(purchase, supplierName, items);
     }
 
+    public PurchaseResponse updatePurchase(Long purchaseId, PurchaseRequest request) {
+        validateRequest(request);
+
+        Purchase purchase = purchaseRepository.findById(purchaseId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Purchase not found: " + purchaseId));
+
+        if (!"DRAFT".equals(purchase.getStatus())) {
+            throw new IllegalArgumentException(
+                    "Only DRAFT purchases can be edited");
+        }
+
+        Supplier supplier = supplierRepository
+                .findByIdAndActiveTrue(request.supplierId())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Active supplier not found"));
+
+        String invoiceNumber = normalize(request.supplierInvoiceNumber());
+        if (invoiceNumber != null
+                && purchaseRepository
+                .existsBySupplierIdAndSupplierInvoiceNumberIgnoreCase(
+                        request.supplierId(), invoiceNumber)
+                && !(request.supplierId().equals(purchase.getSupplierId())
+                && invoiceNumber.equalsIgnoreCase(
+                        String.valueOf(purchase.getSupplierInvoiceNumber())))) {
+            throw new IllegalArgumentException(
+                    "This supplier invoice number already exists");
+        }
+
+        BigDecimal subtotal = ZERO;
+        BigDecimal itemDiscountTotal = ZERO;
+        BigDecimal gstTotal = ZERO;
+        List<PurchaseItem> items = new ArrayList<>();
+        String taxType = normalizeTaxType(request.taxType());
+        BigDecimal invoiceGstRate = money(request.gstRate());
+        validateGstRate(invoiceGstRate);
+
+        for (PurchaseRequest.PurchaseItemRequest line : request.items()) {
+            Product product = productRepository.findById(line.productId())
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Product not found: " + line.productId()));
+            if (!product.isActive()) {
+                throw new IllegalArgumentException(
+                        "Inactive products cannot be purchased: "
+                                + product.getName());
+            }
+
+            BigDecimal quantity = line.quantity();
+            BigDecimal rate = money(line.purchaseRate());
+            BigDecimal discount = money(line.discountAmount());
+            BigDecimal gstRate = request.gstRate() == null
+                    ? (line.gstRate() == null
+                            ? product.getGstRate() : line.gstRate())
+                    : invoiceGstRate;
+            validateLine(quantity, rate, discount, gstRate);
+
+            BigDecimal gross = quantity.multiply(rate)
+                    .setScale(2, RoundingMode.HALF_UP);
+            if (discount.compareTo(gross) > 0) {
+                throw new IllegalArgumentException(
+                        "Line discount cannot exceed its gross amount");
+            }
+            BigDecimal taxable = gross.subtract(discount);
+            BigDecimal gst = taxable.multiply(gstRate)
+                    .divide(HUNDRED, 2, RoundingMode.HALF_UP);
+
+            PurchaseItem item = new PurchaseItem();
+            item.setPurchaseId(purchaseId);
+            item.setProductId(product.getId());
+            item.setProductCode(product.getProductCode());
+            item.setProductName(product.getName());
+            item.setQuantity(quantity);
+            item.setPurchaseRate(rate);
+            item.setDiscountAmount(discount);
+            item.setGstRate(gstRate);
+            item.setGstAmount(gst);
+            item.setLineTotal(taxable.add(gst));
+            items.add(item);
+
+            subtotal = subtotal.add(gross);
+            itemDiscountTotal = itemDiscountTotal.add(discount);
+            gstTotal = gstTotal.add(gst);
+        }
+
+        BigDecimal invoiceDiscount = money(request.discountAmount());
+        BigDecimal available = subtotal.subtract(itemDiscountTotal);
+        if (invoiceDiscount.signum() < 0
+                || invoiceDiscount.compareTo(available) > 0) {
+            throw new IllegalArgumentException(
+                    "Purchase discount exceeds the amount available");
+        }
+
+        purchase.setSupplierId(supplier.getId());
+        purchase.setSupplierInvoiceNumber(invoiceNumber);
+        purchase.setPurchaseDate(request.purchaseDate());
+        purchase.setTaxType(taxType);
+        purchase.setGstRate(invoiceGstRate);
+        purchase.setNotes(normalize(request.notes()));
+        purchase.setSubtotal(subtotal);
+        purchase.setDiscountAmount(itemDiscountTotal.add(invoiceDiscount));
+        purchase.setGstAmount(gstTotal);
+        purchase.setTotalAmount(
+                subtotal.subtract(itemDiscountTotal.add(invoiceDiscount))
+                        .add(gstTotal));
+
+        purchaseRepository.save(purchase);
+        itemRepository.deleteByPurchaseId(purchaseId);
+        itemRepository.saveAll(items);
+
+        return toResponse(purchase, supplier.getName(), items);
+    }
+
     public PurchaseResponse receivePurchase(Long purchaseId) {
         if (purchaseId == null) {
             throw new IllegalArgumentException("Purchase ID is required");
@@ -241,14 +361,15 @@ public class PurchaseService {
 
         // Validate every item before applying any stock changes.
         for (PurchaseItem item : items) {
+            // Products without advanced inventory settings use the normal
+            // quantity-based flow. Only products explicitly configured for
+            // slab tracking need the separate slab receiving workflow.
             ProductInventorySetting setting = settingRepository
                     .findByProductId(item.getProductId())
-                    .orElseThrow(() -> new IllegalArgumentException(
-                            "Configure inventory tracking for product "
-                                    + item.getProductName()
-                                    + " before receiving this purchase"));
+                    .orElse(null);
 
-            if (setting.getTrackingType() == InventoryTrackingType.SLAB) {
+            if (setting != null
+                    && setting.getTrackingType() == InventoryTrackingType.SLAB) {
                 throw new IllegalArgumentException(
                         "Product " + item.getProductName()
                                 + " uses SLAB tracking. Receive individual slabs "
@@ -326,6 +447,16 @@ public class PurchaseService {
                 purchase.getSubtotal(),
                 purchase.getDiscountAmount(),
                 purchase.getGstAmount(),
+                purchase.getTaxType(),
+                purchase.getGstRate(),
+                "INTRA".equals(purchase.getTaxType())
+                        ? purchase.getGstAmount().divide(new BigDecimal("2"), 2, RoundingMode.HALF_UP)
+                        : ZERO,
+                "INTRA".equals(purchase.getTaxType())
+                        ? purchase.getGstAmount().divide(new BigDecimal("2"), 2, RoundingMode.HALF_UP)
+                        : ZERO,
+                "IGST".equals(purchase.getTaxType())
+                        ? purchase.getGstAmount() : ZERO,
                 purchase.getTotalAmount(),
                 purchase.getNotes(),
                 purchase.getCreatedAt(),
@@ -384,6 +515,23 @@ public class PurchaseService {
             throw new IllegalArgumentException(
                     "GST rate must be between 0 and 100");
         }
+    }
+
+    private void validateGstRate(BigDecimal gstRate) {
+        if (gstRate.signum() < 0 || gstRate.compareTo(HUNDRED) > 0) {
+            throw new IllegalArgumentException(
+                    "GST rate must be between 0 and 100");
+        }
+    }
+
+    private String normalizeTaxType(String taxType) {
+        String normalized = taxType == null
+                ? "INTRA" : taxType.trim().toUpperCase();
+        if (!"INTRA".equals(normalized) && !"IGST".equals(normalized)) {
+            throw new IllegalArgumentException(
+                    "Tax type must be INTRA or IGST");
+        }
+        return normalized;
     }
 
     private BigDecimal money(BigDecimal value) {

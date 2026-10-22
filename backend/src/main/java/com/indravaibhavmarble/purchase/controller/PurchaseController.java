@@ -36,7 +36,13 @@ public class PurchaseController {
     public PurchaseResponse getPurchase(@PathVariable Long id) {
         return purchaseService.getPurchase(id);
     }
-    
+
+    @PutMapping("/{id}")
+    public PurchaseResponse updatePurchase(
+            @PathVariable Long id,
+            @RequestBody PurchaseRequest request) {
+        return purchaseService.updatePurchase(id, request);
+    }
 
     @PostMapping("/{id}/receive")
     public PurchaseResponse receivePurchase(@PathVariable Long id) {

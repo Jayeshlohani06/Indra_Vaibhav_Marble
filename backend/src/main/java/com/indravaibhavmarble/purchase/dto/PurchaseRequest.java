@@ -10,6 +10,8 @@ public record PurchaseRequest(
         String supplierInvoiceNumber,
         LocalDate purchaseDate,
         BigDecimal discountAmount,
+        String taxType,
+        BigDecimal gstRate,
         String notes,
         List<PurchaseItemRequest> items
 ) {

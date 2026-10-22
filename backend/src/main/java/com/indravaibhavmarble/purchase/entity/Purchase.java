@@ -38,6 +38,12 @@ public class Purchase {
     @Column(name = "gst_amount", nullable = false, precision = 14, scale = 2)
     private BigDecimal gstAmount = BigDecimal.ZERO;
 
+    @Column(name = "tax_type", nullable = false, length = 20)
+    private String taxType = "INTRA";
+
+    @Column(name = "gst_rate", nullable = false, precision = 5, scale = 2)
+    private BigDecimal gstRate = BigDecimal.ZERO;
+
     @Column(name = "total_amount", nullable = false, precision = 14, scale = 2)
     private BigDecimal totalAmount = BigDecimal.ZERO;
 
@@ -78,6 +84,12 @@ public class Purchase {
 
     public BigDecimal getGstAmount() { return gstAmount; }
     public void setGstAmount(BigDecimal value) { gstAmount = value; }
+
+    public String getTaxType() { return taxType; }
+    public void setTaxType(String value) { taxType = value; }
+
+    public BigDecimal getGstRate() { return gstRate; }
+    public void setGstRate(BigDecimal value) { gstRate = value; }
 
     public BigDecimal getTotalAmount() { return totalAmount; }
     public void setTotalAmount(BigDecimal value) { totalAmount = value; }

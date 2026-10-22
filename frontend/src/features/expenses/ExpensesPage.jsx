@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   createExpense,
   createExpenseCategory,
@@ -48,7 +48,7 @@ function ExpensesPage() {
   const [success, setSuccess] = useState("");
   const pageSize = 10;
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const expenseData = await getExpenses({
@@ -92,11 +92,14 @@ function ExpensesPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [filters.category, filters.endDate, filters.startDate, filters.status]);
 
-  useEffect(() => { load(); }, [filters.startDate, filters.endDate, filters.category, filters.status]);
+  useEffect(() => { load(); }, [load]);
 
-  const supplierName = (id) => suppliers.find((supplier) => supplier.id === id)?.name || "—";
+  const supplierName = useCallback(
+    (id) => suppliers.find((supplier) => supplier.id === id)?.name || "—",
+    [suppliers]
+  );
   const visible = useMemo(() => {
     const term = filters.search.trim().toLowerCase();
     return expenses
@@ -105,7 +108,7 @@ function ExpensesPage() {
       .sort((a, b) => sort === "amount"
         ? Number(b.amount) - Number(a.amount)
         : String(b.expenseDate).localeCompare(String(a.expenseDate)));
-  }, [expenses, filters.paymentMethod, filters.search, sort, suppliers]);
+  }, [expenses, filters.paymentMethod, filters.search, sort, supplierName]);
   const pageCount = Math.max(1, Math.ceil(visible.length / pageSize));
   const rows = visible.slice((page - 1) * pageSize, page * pageSize);
   const active = expenses.filter((expense) => expense.status !== "VOIDED");
@@ -154,11 +157,24 @@ function ExpensesPage() {
 
   async function addCategory(event) {
     event.preventDefault();
-    if (!newCategory.trim()) return;
+    const categoryName = newCategory.trim();
+    if (!categoryName) {
+      setError("Enter a category name.");
+      return;
+    }
     try {
-      const created = await createExpenseCategory({ name: newCategory.trim(), categoryType: "OPERATING" });
-      setCategories((previous) => [...previous, created].sort((a, b) => a.name.localeCompare(b.name)));
-      setForm((previous) => ({ ...previous, category: created.name }));
+      const response = await createExpenseCategory({ name: categoryName, categoryType: "OPERATING" });
+      const created = response?.data || response;
+      const savedCategory = {
+        ...(created || {}),
+        name: created?.name || categoryName,
+      };
+      setCategories((previous) => [
+        ...previous.filter((category) => category.name.toLowerCase() !== savedCategory.name.toLowerCase()),
+        savedCategory,
+      ].sort((a, b) => a.name.localeCompare(b.name)));
+      setForm((previous) => ({ ...previous, category: savedCategory.name }));
+      setError("");
       setNewCategory(""); setShowCategoryForm(false);
     } catch (err) { setError(err.message || "Unable to add category."); }
   }
@@ -189,7 +205,7 @@ function ExpensesPage() {
         {loading ? <p className="expenses-empty">Loading expenses...</p> : !rows.length ? <p className="expenses-empty">No expenses match the current filters.</p> : <div className="expenses-table-wrapper"><table className="expenses-table"><thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Supplier</th><th>Payment</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody>{rows.map((expense) => <tr key={expense.id}><td>{expense.expenseDate}</td><td><strong>{expense.category}</strong>{expense.referenceNumber && <small>Ref: {expense.referenceNumber}</small>}</td><td>{expense.description || "—"}</td><td>{supplierName(expense.supplierId)}</td><td>{expense.paymentMethod}</td><td>{currency(expense.amount)}</td><td><span className={`expense-status ${expense.status === "VOIDED" ? "is-voided" : ""}`}>{expense.status}</span></td><td><div className="expense-row-actions"><button type="button" onClick={() => setDetails(expense)}>View</button>{canManageExpenses && expense.status !== "VOIDED" && <><button type="button" onClick={() => openEdit(expense)}>Edit</button><button type="button" className="is-danger" onClick={() => handleVoid(expense)}>Void</button></>}</div></td></tr>)}</tbody></table></div>}
         <div className="expenses-pagination"><span>Showing {visible.length ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, visible.length)} of {visible.length}</span><div><button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</button><strong>Page {page} of {pageCount}</strong><button type="button" disabled={page >= pageCount} onClick={() => setPage(page + 1)}>Next</button></div></div>
       </section>
-      {showForm && <div className="expenses-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && !saving && setShowForm(false)}><form className="expenses-modal" onSubmit={submit}><div className="expenses-modal-heading"><h2>{editingId ? "Edit expense" : "Record expense"}</h2><button type="button" onClick={() => setShowForm(false)}>Close</button></div><div className="expenses-form-grid"><label>Date *<input type="date" name="expenseDate" value={form.expenseDate} onChange={changeForm} required /></label><label>Category *<div className="expense-category-field"><select name="category" value={form.category} onChange={changeForm} required><option value="">Select category</option>{categories.map((category) => <option key={category.id} value={category.name}>{category.name}</option>)}</select><button type="button" onClick={() => setShowCategoryForm(true)}>+</button></div></label><label>Amount (₹) *<input type="number" name="amount" min="0.01" step="0.01" value={form.amount} onChange={changeForm} required /></label><label>Payment method *<select name="paymentMethod" value={form.paymentMethod} onChange={changeForm}>{paymentMethods.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label>Supplier (optional)<select name="supplierId" value={form.supplierId} onChange={changeForm}><option value="">No supplier</option>{suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}</select></label><label>Reference number<input name="referenceNumber" maxLength="100" value={form.referenceNumber} onChange={changeForm} placeholder="Receipt or transaction ID" /></label><label className="expenses-field-wide">Description<input name="description" maxLength="500" value={form.description} onChange={changeForm} /></label><label className="expenses-field-wide">Notes<textarea name="notes" maxLength="1000" rows="3" value={form.notes} onChange={changeForm} /></label></div><div className="expenses-form-actions"><button type="button" onClick={() => setShowForm(false)}>Cancel</button><button type="submit" className="expenses-primary-button" disabled={saving}>{saving ? "Saving..." : editingId ? "Save changes" : "Save expense"}</button></div></form></div>}
+      {showForm && <div className="expenses-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && !saving && setShowForm(false)}><form noValidate className="expenses-modal" onSubmit={submit}><div className="expenses-modal-heading"><h2>{editingId ? "Edit expense" : "Record expense"}</h2><button type="button" onClick={() => setShowForm(false)}>Close</button></div><div className="expenses-form-grid"><label>Date *<input type="date" name="expenseDate" value={form.expenseDate} onChange={changeForm} required /></label><label>Category *<div className="expense-category-field"><select name="category" value={form.category} onChange={changeForm} required aria-invalid={!form.category.trim()}><option value="">Select category</option>{categories.map((category) => <option key={category.id} value={category.name}>{category.name}</option>)}</select><button type="button" onClick={() => setShowCategoryForm(true)}>+</button></div></label><label>Amount (₹) *<input type="number" name="amount" min="0.01" step="0.01" value={form.amount} onChange={changeForm} required /></label><label>Payment method *<select name="paymentMethod" value={form.paymentMethod} onChange={changeForm}>{paymentMethods.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label>Supplier (optional)<select name="supplierId" value={form.supplierId} onChange={changeForm}><option value="">No supplier</option>{suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}</select></label><label>Reference number<input name="referenceNumber" maxLength="100" value={form.referenceNumber} onChange={changeForm} placeholder="Receipt or transaction ID" /></label><label className="expenses-field-wide">Description<input name="description" maxLength="500" value={form.description} onChange={changeForm} /></label><label className="expenses-field-wide">Notes<textarea name="notes" maxLength="1000" rows="3" value={form.notes} onChange={changeForm} /></label></div><div className="expenses-form-actions"><button type="button" onClick={() => setShowForm(false)}>Cancel</button><button type="submit" className="expenses-primary-button" disabled={saving}>{saving ? "Saving..." : editingId ? "Save changes" : "Save expense"}</button></div></form></div>}
       {showCategoryForm && <div className="expenses-modal-backdrop nested" onMouseDown={(event) => event.target === event.currentTarget && setShowCategoryForm(false)}><form className="expenses-small-modal" onSubmit={addCategory}><h2>Add expense category</h2><input autoFocus value={newCategory} onChange={(event) => setNewCategory(event.target.value)} placeholder="e.g. Office supplies" maxLength="100" /><div className="expenses-form-actions"><button type="button" onClick={() => setShowCategoryForm(false)}>Cancel</button><button className="expenses-primary-button">Add category</button></div></form></div>}
       {details && <div className="expenses-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setDetails(null)}><section className="expenses-small-modal"><div className="expenses-modal-heading"><h2>Expense details</h2><button type="button" onClick={() => setDetails(null)}>Close</button></div><div className="expense-detail-grid"><p><span>Date</span><strong>{details.expenseDate}</strong></p><p><span>Category</span><strong>{details.category}</strong></p><p><span>Amount</span><strong>{currency(details.amount)}</strong></p><p><span>Payment</span><strong>{details.paymentMethod}</strong></p><p><span>Supplier</span><strong>{supplierName(details.supplierId)}</strong></p><p><span>Status</span><strong>{details.status}</strong></p><p><span>Reference</span><strong>{details.referenceNumber || "—"}</strong></p><p><span>Description</span><strong>{details.description || "—"}</strong></p></div>{details.notes && <p className="expense-notes"><b>Notes</b><br />{details.notes}</p>}<div className="expenses-form-actions">{details.status !== "VOIDED" && <><button type="button" onClick={() => openEdit(details)}>Edit</button><button type="button" className="is-danger" onClick={() => handleVoid(details)}>Void expense</button></>}</div></section></div>}
     </main>

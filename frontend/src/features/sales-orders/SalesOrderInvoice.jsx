@@ -8,6 +8,8 @@ import "./SalesOrderInvoice.css";
 
 const BUSINESS = {
   name: "INDRA VAIBHAV MARBLES",
+  tagline: "Selling Quality Since 2006",
+  promise: "Quality marble. Trusted craftsmanship. Timeless spaces.",
   address: "Tekuna Farm, Hariharpur, Opp. Aryabhatta Polytechnic College",
   city: "Bodhgaya, Gaya, Bihar",
   phone: "9431062287",
@@ -114,15 +116,13 @@ function printInvoice(order, customer, items) {
         <td class="center">${escapeHtml(item.unitCode || "—")}</td>
         <td class="number">${money(item.unitPrice)}</td>
         <td class="number">${money(item.taxableAmount)}</td>
+        <td class="number">${Number(item.gstRate || 0)}%</td>
         <td class="number">${money(gst)}</td>
         <td class="number">${money(item.lineTotal)}</td>
       </tr>`;
   }).join("");
-
-  const statusLabel =
-    order.status === "DRAFT"
-      ? "DRAFT — NOT A FINAL TAX INVOICE"
-      : escapeHtml(order.status);
+  const charges = Array.isArray(order.charges) ? order.charges : [];
+  const roundOff = 0;
 
   const html = `<!doctype html>
 <html lang="en">
@@ -136,19 +136,22 @@ function printInvoice(order, customer, items) {
     html, body { margin: 0; padding: 0; color: #111; background: #fff; }
     body { font-family: Arial, Helvetica, sans-serif; font-size: 9px; line-height: 1.3; }
     .invoice { width: 100%; margin: 0 auto; }
-    .header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding-bottom: 10px; border-bottom: 2px solid #222; }
-    .business h1 { margin: 0 0 5px; font-size: 19px; letter-spacing: .3px; }
+    .header { padding-bottom: 8px; border-bottom: 3px solid #a87935; text-align: center; }
+    .header-topline { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; font-size: 9px; font-weight: bold; text-align: left; }
+    .header-topline > :nth-child(2) { text-align: center; }
+    .header-topline > :last-child { text-align: right; }
+    .invoice-title h2 { margin: 0; font-size: 14px; letter-spacing: .2px; }
+    .business h1 { margin: 8px 0 2px; color: #263c58; font-size: 19px; letter-spacing: .3px; }
+    .tagline { margin: 0 0 3px !important; color: #a87935; font-size: 8px; font-weight: bold; letter-spacing: .4px; }
     .business p { margin: 2px 0; }
-    .invoice-title { min-width: 125px; text-align: center; }
-    .invoice-title h2 { margin: 0 0 5px; padding: 7px; border: 1px solid #222; font-size: 14px; }
-    .status { font-size: 8px; font-weight: bold; }
+    .business .promise { font-size: 8px; color: #555; }
     .meta { display: grid; grid-template-columns: 1fr 1fr; margin-top: 10px; border-top: 1px solid #333; border-left: 1px solid #333; }
     .meta > div { min-width: 0; padding: 6px; border-right: 1px solid #333; border-bottom: 1px solid #333; overflow-wrap: anywhere; }
     .label { display: block; margin-bottom: 3px; color: #444; font-size: 8px; }
     .value { display: block; font-weight: 600; }
     table { width: 100%; margin-top: 11px; border-collapse: collapse; table-layout: auto; font-size: 8px; }
     th, td { border: 1px solid #333; padding: 5px 4px; vertical-align: top; overflow-wrap: anywhere; }
-    th { background: #f0f0f0; text-align: left; }
+    th { background: #eaf0f7; color: #263c58; text-align: left; }
     .center { text-align: center; }
     .number { text-align: right; white-space: nowrap; }
     .bottom { display: grid; grid-template-columns: 1fr .9fr; gap: 10px; margin-top: 10px; }
@@ -157,7 +160,7 @@ function printInvoice(order, customer, items) {
     .words p { margin: 0 0 12px; overflow-wrap: anywhere; }
     .total-row { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; border-bottom: 1px solid #ddd; }
     .total-row strong { white-space: nowrap; }
-    .grand { margin-top: 3px; padding-top: 7px; border-top: 2px solid #222; border-bottom: 0; font-size: 12px; font-weight: bold; }
+    .grand { margin-top: 3px; padding-top: 7px; border-top: 2px solid #a87935; border-bottom: 0; color: #263c58; font-size: 12px; font-weight: bold; }
     .footer { display: flex; justify-content: space-between; align-items: flex-end; gap: 15px; margin-top: 22px; }
     .footer-note { max-width: 60%; font-size: 8px; }
     .signature { min-width: 160px; text-align: center; }
@@ -173,28 +176,28 @@ function printInvoice(order, customer, items) {
 <body>
   <main class="invoice">
     <header class="header">
+      <div class="header-topline">
+        <span>GSTIN: ${escapeHtml(BUSINESS.gstin)}</span>
+        <div class="invoice-title"><h2>TAX INVOICE</h2></div>
+        <span>Mob.: ${escapeHtml(BUSINESS.phone)}</span>
+      </div>
       <div class="business">
         <h1>${escapeHtml(BUSINESS.name)}</h1>
         <p>${escapeHtml(BUSINESS.address)}</p>
         <p>${escapeHtml(BUSINESS.city)}</p>
-        <p>Phone: ${escapeHtml(BUSINESS.phone)}</p>
-        <p>GSTIN: ${escapeHtml(BUSINESS.gstin)}</p>
-        <p>State Code: ${escapeHtml(BUSINESS.stateCode)}</p>
-      </div>
-      <div class="invoice-title">
-        <h2>TAX INVOICE</h2>
-        <div class="status">${statusLabel}</div>
+        <p class="tagline">${escapeHtml(BUSINESS.tagline)}</p>
+        <p class="promise">${escapeHtml(BUSINESS.promise)}</p>
       </div>
     </header>
 
     <section class="meta">
-      <div><span class="label">Order / Reference No.</span><span class="value">${escapeHtml(order.orderNumber)}</span></div>
-      <div><span class="label">Order Date</span><span class="value">${escapeHtml(formatDate(order.orderDate))}</span></div>
-      <div><span class="label">Customer</span><span class="value">${escapeHtml(customer?.name || order.customerName || "—")}</span></div>
+      <div><span class="label">Invoice No.</span><span class="value">${escapeHtml(order.orderNumber)}</span></div>
+      <div><span class="label">Date</span><span class="value">${escapeHtml(formatDate(order.orderDate))}</span></div>
+      <div><span class="label">Purchaser's Name</span><span class="value">${escapeHtml(customer?.name || order.customerName || "—")}</span></div>
       <div><span class="label">Phone</span><span class="value">${escapeHtml(customer?.phone || "—")}</span></div>
-      <div><span class="label">Customer GSTIN</span><span class="value">${escapeHtml(customer?.gstin || "—")}</span></div>
-      <div><span class="label">Billing Address</span><span class="value">${escapeHtml(customer?.billingAddress || "—")}</span></div>
-      <div><span class="label">Shipping Address</span><span class="value">${escapeHtml(customer?.shippingAddress || "—")}</span></div>
+      <div><span class="label">Address</span><span class="value">${escapeHtml(customer?.billingAddress || "—")}</span></div>
+      <div><span class="label">GSTIN / Unique ID</span><span class="value">${escapeHtml(customer?.gstin || "—")}</span></div>
+      <div><span class="label">State Code</span><span class="value">${escapeHtml(BUSINESS.stateCode)}</span></div>
       <div><span class="label">Tax Type</span><span class="value">${order.taxType === "INTRA" ? "CGST + SGST" : "IGST"}</span></div>
     </section>
 
@@ -203,11 +206,11 @@ function printInvoice(order, customer, items) {
         <tr>
           <th>Sl.</th><th>Description of Goods</th><th>HSN</th><th>Qty.</th>
           <th>Unit</th><th>Rate (₹)</th><th>Taxable Value (₹)</th>
-          <th>GST (₹)</th><th>Amount (₹)</th>
+          <th>GST %</th><th>GST (₹)</th><th>Amount (₹)</th>
         </tr>
       </thead>
       <tbody>
-        ${itemRows || '<tr><td colspan="9" class="center">No items</td></tr>'}
+        ${itemRows || '<tr><td colspan="10" class="center">No items</td></tr>'}
       </tbody>
     </table>
 
@@ -216,22 +219,24 @@ function printInvoice(order, customer, items) {
         <h3>Amount in Words</h3>
         <p>${escapeHtml(numberToWords(order.grandTotal))}</p>
         ${order.notes ? `<h3>Notes</h3><p>${escapeHtml(order.notes)}</p>` : ""}
+        <h3>Transportation Details</h3>
+        <p><strong>Transportation mode:</strong> —<br><strong>Vehicle no.:</strong> —</p>
         <h3>Bank / Payment Details</h3>
-        <p>Configure bank details in ERP settings.</p>
+        <p><strong>Bank name:</strong> —<br><strong>Account no.:</strong> —<br><strong>IFSC / Branch:</strong> —</p>
       </div>
       <div class="totals">
-        <div class="total-row"><span>Subtotal</span><strong>${money(order.subtotal)}</strong></div>
+        <div class="total-row"><span>Total Amount Before Tax</span><strong>${money(order.subtotal)}</strong></div>
         <div class="total-row"><span>CGST</span><strong>${money(order.cgstAmount)}</strong></div>
         <div class="total-row"><span>SGST</span><strong>${money(order.sgstAmount)}</strong></div>
         <div class="total-row"><span>IGST</span><strong>${money(order.igstAmount)}</strong></div>
         <div class="total-row"><span>Total Tax</span><strong>${money(order.totalTax)}</strong></div>
-        ${(order.charges || []).map((charge) => `<div class="total-row"><span>${escapeHtml(charge.description)}</span><strong>${money(charge.amount)}</strong></div>`).join("")}
-        <div class="total-row grand"><span>Grand Total</span><strong>${money(order.grandTotal)}</strong></div>
+        ${charges.map((charge) => `<div class="total-row"><span>Add: ${escapeHtml(charge.description)}</span><strong>${money(charge.amount)}</strong></div>`).join("")}
+        <div class="total-row"><span>Round Off</span><strong>${money(roundOff)}</strong></div>
+        <div class="total-row grand"><span>Total Amount After Tax</span><strong>${money(order.grandTotal)}</strong></div>
       </div>
     </section>
 
     <footer class="footer">
-      <p class="footer-note">This document reflects the saved sales order. Draft orders are not final tax invoices. Verify invoice details and applicable GST requirements before issuing an invoice.</p>
       <div class="signature">
         <strong>For ${escapeHtml(BUSINESS.name)}</strong>
         <div class="signature-space"></div>
@@ -353,28 +358,28 @@ export default function SalesOrderInvoice({ orderId, onClose }) {
 
       <article className="sales-invoice-print-root">
         <header className="sales-invoice-header">
+          <div className="sales-invoice-header-topline">
+            <span>GSTIN: {BUSINESS.gstin}</span>
+            <div className="sales-invoice-title"><h2>TAX INVOICE</h2></div>
+            <span>Mob.: {BUSINESS.phone}</span>
+          </div>
           <div className="sales-invoice-business">
             <h1>{BUSINESS.name}</h1>
             <p>{BUSINESS.address}</p>
             <p>{BUSINESS.city}</p>
-            <p>Phone: {BUSINESS.phone}</p>
-            <p>GSTIN: {BUSINESS.gstin}</p>
-            <p>State Code: {BUSINESS.stateCode}</p>
-          </div>
-          <div className="sales-invoice-title">
-            <h2>TAX INVOICE</h2>
-            <strong>{order.status}</strong>
+            <p className="sales-invoice-tagline">{BUSINESS.tagline}</p>
+            <p className="sales-invoice-promise">{BUSINESS.promise}</p>
           </div>
         </header>
 
         <section className="sales-invoice-meta">
-          <div><span>Order / Reference No.</span><strong>{order.orderNumber}</strong></div>
-          <div><span>Order Date</span><strong>{formatDate(order.orderDate)}</strong></div>
-          <div><span>Customer</span><strong>{customer?.name || order.customerName || "—"}</strong></div>
+          <div><span>Invoice No.</span><strong>{order.orderNumber}</strong></div>
+          <div><span>Date</span><strong>{formatDate(order.orderDate)}</strong></div>
+          <div><span>Purchaser's Name</span><strong>{customer?.name || order.customerName || "—"}</strong></div>
           <div><span>Phone</span><strong>{customer?.phone || "—"}</strong></div>
-          <div><span>Customer GSTIN</span><strong>{customer?.gstin || "—"}</strong></div>
-          <div><span>Billing Address</span><strong>{customer?.billingAddress || "—"}</strong></div>
-          <div><span>Shipping Address</span><strong>{customer?.shippingAddress || "—"}</strong></div>
+          <div><span>Address</span><strong>{customer?.billingAddress || "—"}</strong></div>
+          <div><span>GSTIN / Unique ID</span><strong>{customer?.gstin || "—"}</strong></div>
+          <div><span>State Code</span><strong>{BUSINESS.stateCode}</strong></div>
           <div><span>Tax Type</span><strong>{order.taxType === "INTRA" ? "CGST + SGST" : "IGST"}</strong></div>
         </section>
 
@@ -383,7 +388,7 @@ export default function SalesOrderInvoice({ orderId, onClose }) {
             <tr>
               <th>Sl.</th><th>Description of Goods</th><th>HSN</th><th>Qty.</th>
               <th>Unit</th><th>Rate (₹)</th><th>Taxable Value (₹)</th>
-              <th>GST (₹)</th><th>Amount (₹)</th>
+              <th>GST %</th><th>GST (₹)</th><th>Amount (₹)</th>
             </tr>
           </thead>
           <tbody>
@@ -402,6 +407,7 @@ export default function SalesOrderInvoice({ orderId, onClose }) {
                   <td>{item.unitCode || "—"}</td>
                   <td className="invoice-number">{money(item.unitPrice)}</td>
                   <td className="invoice-number">{money(item.taxableAmount)}</td>
+                  <td className="invoice-number">{Number(item.gstRate || 0)}%</td>
                   <td className="invoice-number">{money(gst)}</td>
                   <td className="invoice-number">{money(item.lineTotal)}</td>
                 </tr>
@@ -415,26 +421,24 @@ export default function SalesOrderInvoice({ orderId, onClose }) {
             <h3>Amount in Words</h3>
             <p>{numberToWords(order.grandTotal)}</p>
             {order.notes && <><h3>Notes</h3><p>{order.notes}</p></>}
+            <h3>Transportation Details</h3>
+            <p><strong>Transportation mode:</strong> —<br /><strong>Vehicle no.:</strong> —</p>
             <h3>Bank / Payment Details</h3>
-            <p>Configure bank details in ERP settings.</p>
+            <p><strong>Bank name:</strong> —<br /><strong>Account no.:</strong> —<br /><strong>IFSC / Branch:</strong> —</p>
           </div>
           <div className="sales-invoice-totals">
-            <div><span>Subtotal</span><strong>{money(order.subtotal)}</strong></div>
+            <div><span>Total Amount Before Tax</span><strong>{money(order.subtotal)}</strong></div>
             <div><span>CGST</span><strong>{money(order.cgstAmount)}</strong></div>
             <div><span>SGST</span><strong>{money(order.sgstAmount)}</strong></div>
             <div><span>IGST</span><strong>{money(order.igstAmount)}</strong></div>
             <div><span>Total Tax</span><strong>{money(order.totalTax)}</strong></div>
-            {(order.charges || []).map((charge) => <div key={charge.id}><span>{charge.description}</span><strong>{money(charge.amount)}</strong></div>)}
-            <div className="sales-invoice-grand-total"><span>Grand Total</span><strong>{money(order.grandTotal)}</strong></div>
+            {(order.charges || []).map((charge) => <div key={charge.id}><span>Add: {charge.description}</span><strong>{money(charge.amount)}</strong></div>)}
+            <div><span>Round Off</span><strong>{money(0)}</strong></div>
+            <div className="sales-invoice-grand-total"><span>Total Amount After Tax</span><strong>{money(order.grandTotal)}</strong></div>
           </div>
         </section>
 
         <footer className="sales-invoice-footer">
-          <p>
-            This document reflects the saved sales order. Draft orders are not
-            final tax invoices. Verify invoice details and applicable GST
-            requirements before issuing an invoice.
-          </p>
           <div>
             <strong>For {BUSINESS.name}</strong>
             <span>Authorised Signatory</span>

@@ -9,6 +9,7 @@ import {
 import {
   createPurchase,
   getPurchases,
+  updatePurchase,
   receivePurchase,
 } from "../../services/api/purchaseApi";
 import {
@@ -31,7 +32,6 @@ const emptyLine = {
   quantity: "1",
   purchaseRate: "0",
   discountAmount: "0",
-  gstRate: "0",
 };
 
 const money = (value) =>
@@ -55,8 +55,12 @@ function PurchasesPage() {
   const [supplierInvoiceNumber, setSupplierInvoiceNumber] = useState("");
   const [purchaseDate, setPurchaseDate] = useState(today());
   const [invoiceDiscount, setInvoiceDiscount] = useState("0");
+  const [taxType, setTaxType] = useState("INTRA");
+  const [gstRate, setGstRate] = useState("0");
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState([{ ...emptyLine }]);
+  const [productSearches, setProductSearches] = useState({});
+  const [activeProductSearchIndex, setActiveProductSearchIndex] = useState(null);
 
   const [createProductForIndex, setCreateProductForIndex] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -76,6 +80,7 @@ function PurchasesPage() {
   const [paymentSaving, setPaymentSaving] = useState(false);
   const [paymentError, setPaymentError] = useState("");
   const [showPurchaseForm, setShowPurchaseForm] = useState(false);
+  const [editingPurchaseId, setEditingPurchaseId] = useState(null);
   const [detailsPurchase, setDetailsPurchase] = useState(null);
   const [purchaseSearch, setPurchaseSearch] = useState("");
   const [purchaseStatus, setPurchaseStatus] = useState("ALL");
@@ -128,7 +133,7 @@ function PurchasesPage() {
       const quantity = Number(item.quantity);
       const rate = Number(item.purchaseRate);
       const discount = Number(item.discountAmount);
-      const gstRate = Number(item.gstRate);
+      const invoiceGstRate = Number(gstRate);
 
       const gross =
         quantity > 0 && rate >= 0 ? round2(quantity * rate) : 0;
@@ -137,7 +142,7 @@ function PurchasesPage() {
         discount >= 0 && discount <= gross ? discount : 0;
 
       const taxable = round2(gross - safeDiscount);
-      const gst = round2((taxable * gstRate) / 100);
+      const gst = round2((taxable * invoiceGstRate) / 100);
       const total = round2(taxable + gst);
 
       subtotal += gross;
@@ -155,12 +160,15 @@ function PurchasesPage() {
       lineDiscounts: round2(lineDiscounts),
       invoiceDiscount: round2(extraDiscount),
       totalDiscount: round2(lineDiscounts + extraDiscount),
+      cgstAmount: taxType === "INTRA" ? round2(gstAmount / 2) : 0,
+      sgstAmount: taxType === "INTRA" ? round2(gstAmount / 2) : 0,
+      igstAmount: taxType === "IGST" ? round2(gstAmount) : 0,
       gstAmount: round2(gstAmount),
       totalAmount: round2(
         subtotal - lineDiscounts - extraDiscount + gstAmount
       ),
     };
-  }, [items, invoiceDiscount]);
+  }, [gstRate, invoiceDiscount, items, taxType]);
 
   const filteredPurchases = useMemo(() => {
     const term = purchaseSearch.trim().toLowerCase();
@@ -254,11 +262,14 @@ function PurchasesPage() {
               ...item,
               productId: String(product.id),
               purchaseRate: String(product.purchasePrice ?? 0),
-              gstRate: String(product.gstRate ?? 0),
             }
           : item
       )
     );
+  }
+
+  function productLabel(product) {
+    return `${product.productCode ? `${product.productCode} — ` : ""}${product.name}`;
   }
 
   function addLine() {
@@ -280,9 +291,55 @@ function PurchasesPage() {
     setSupplierInvoiceNumber("");
     setPurchaseDate(today());
     setInvoiceDiscount("0");
+    setTaxType("INTRA");
+    setGstRate("0");
     setNotes("");
     setItems([{ ...emptyLine }]);
+    setProductSearches({});
+    setActiveProductSearchIndex(null);
     setError("");
+  }
+
+  function openCreatePurchaseForm() {
+    setEditingPurchaseId(null);
+    resetForm();
+    setShowPurchaseForm(true);
+  }
+
+  function openEditPurchaseForm(purchase) {
+    if (purchase.status !== "DRAFT") return;
+
+    setEditingPurchaseId(purchase.id);
+    setSupplierId(String(purchase.supplierId));
+    setSupplierInvoiceNumber(purchase.supplierInvoiceNumber || "");
+    setPurchaseDate(purchase.purchaseDate || today());
+    setInvoiceDiscount(
+      String(
+        Math.max(
+          0,
+          Number(purchase.discountAmount || 0) -
+            (purchase.items || []).reduce(
+              (total, item) => total + Number(item.discountAmount || 0),
+              0
+            )
+        )
+      )
+    );
+    setTaxType(purchase.taxType || "INTRA");
+    setGstRate(String(purchase.gstRate ?? purchase.items?.[0]?.gstRate ?? 0));
+    setNotes(purchase.notes || "");
+    setItems(
+      (purchase.items || []).map((item) => ({
+        productId: String(item.productId),
+        quantity: String(item.quantity ?? ""),
+        purchaseRate: String(item.purchaseRate ?? ""),
+        discountAmount: String(item.discountAmount ?? "0"),
+      }))
+    );
+    setDetailsPurchase(null);
+    setError("");
+    setSuccess("");
+    setShowPurchaseForm(true);
   }
 
   async function handleProductCreated(product, settingsSaved) {
@@ -311,7 +368,6 @@ function PurchasesPage() {
                   ...item,
                   productId: String(createdProduct.id),
                   purchaseRate: String(createdProduct.purchasePrice ?? 0),
-                  gstRate: String(createdProduct.gstRate ?? 0),
                 }
               : item
           )
@@ -360,9 +416,9 @@ function PurchasesPage() {
           Number(item.purchaseRate) < 0 ||
           !Number.isFinite(Number(item.discountAmount)) ||
           Number(item.discountAmount) < 0 ||
-          !Number.isFinite(Number(item.gstRate)) ||
-          Number(item.gstRate) < 0 ||
-          Number(item.gstRate) > 100
+          !Number.isFinite(Number(gstRate)) ||
+          Number(gstRate) < 0 ||
+          Number(gstRate) > 100
       )
     ) {
       setError("Check quantity, purchase rate, discount, and GST values.");
@@ -395,26 +451,32 @@ function PurchasesPage() {
       supplierInvoiceNumber: supplierInvoiceNumber.trim() || null,
       purchaseDate,
       discountAmount: Number(invoiceDiscount),
+      taxType,
+      gstRate: Number(gstRate),
       notes: notes.trim() || null,
       items: items.map((item) => ({
         productId: Number(item.productId),
         quantity: Number(item.quantity),
         purchaseRate: Number(item.purchaseRate),
         discountAmount: Number(item.discountAmount),
-        gstRate: Number(item.gstRate),
       })),
     };
 
     setSaving(true);
 
     try {
-      const created = await createPurchase(payload);
+      const saved = editingPurchaseId
+        ? await updatePurchase(editingPurchaseId, payload)
+        : await createPurchase(payload);
 
       setSuccess(
-        `Purchase ${created.purchaseNumber || `#${created.id}`} saved as ${created.status || "DRAFT"}. Stock has not been changed.`
+        `Purchase ${saved.purchaseNumber || `#${saved.id}`} ${
+          editingPurchaseId ? "updated" : "saved"
+        } as ${saved.status || "DRAFT"}. Stock has not been changed.`
       );
 
       resetForm();
+      setEditingPurchaseId(null);
       await loadData();
       setShowPurchaseForm(false);
     } catch (err) {
@@ -543,11 +605,7 @@ function PurchasesPage() {
         {canManagePurchases && <button
           type="button"
           className="purchase-primary-button"
-          onClick={() => {
-            setError("");
-            setSuccess("");
-            setShowPurchaseForm(true);
-          }}
+          onClick={openCreatePurchaseForm}
         >
           + Create Purchase
         </button>}
@@ -582,7 +640,7 @@ function PurchasesPage() {
           <form className="purchase-card purchase-modal purchase-create-modal" onSubmit={handleSubmit}>
             <div className="purchase-section-heading">
               <div>
-                <h3>New Purchase</h3>
+                <h3>{editingPurchaseId ? "Edit Draft Purchase" : "New Purchase"}</h3>
                 <p>
                   Enter the details exactly as shown on the supplier invoice.
                 </p>
@@ -637,6 +695,31 @@ function PurchasesPage() {
                   step="0.01"
                   value={invoiceDiscount}
                   onChange={(event) => setInvoiceDiscount(event.target.value)}
+                  required
+                />
+              </label>
+
+              <label>
+                Tax type <b>*</b>
+                <select
+                  value={taxType}
+                  onChange={(event) => setTaxType(event.target.value)}
+                  required
+                >
+                  <option value="INTRA">CGST + SGST (Intra-state)</option>
+                  <option value="IGST">IGST (Inter-state)</option>
+                </select>
+              </label>
+
+              <label>
+                GST rate (%) <b>*</b>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={gstRate}
+                  onChange={(event) => setGstRate(event.target.value)}
                   required
                 />
               </label>
@@ -698,36 +781,92 @@ function PurchasesPage() {
                     </div>
 
                     <label className="purchase-product-field">
-                      Product <b>*</b>
-                      <select
-                        value={item.productId}
-                        onChange={(event) =>
-                          selectProduct(index, event.target.value)
+                      <span>Product <b>*</b></span>
+                      <input
+                        type="text"
+                        value={
+                          productSearches[index] ??
+                          (product ? productLabel(product) : "")
                         }
-                        required
+                        onFocus={() => setActiveProductSearchIndex(index)}
+                        onChange={(event) =>
+                          setProductSearches((current) => ({
+                              ...current,
+                              [index]: event.target.value,
+                            }))
+                        }
+                        onBlur={() =>
+                          window.setTimeout(() => {
+                            setActiveProductSearchIndex((current) =>
+                              current === index ? null : current
+                            );
+                          }, 120)
+                        }
+                        placeholder="Search product name or code..."
+                        aria-label={`Search product for item ${index + 1}`}
+                      />
+                      {activeProductSearchIndex === index && <div
+                        className="purchase-product-results"
+                        role="listbox"
+                        aria-label={`Matching products for item ${index + 1}`}
                       >
-                        <option value="">Select product</option>
+                        {products
+                          .filter((entry) => {
+                            const search = String(productSearches[index] || "")
+                              .trim()
+                              .toLowerCase();
+                            return !search || [entry.name, entry.productCode]
+                              .some((value) =>
+                                String(value || "").toLowerCase().includes(search)
+                              );
+                          })
+                          .slice(0, 30)
+                          .map((entry) => {
+                            const inactive =
+                              entry.active === false ||
+                              entry.isActive === false;
 
-                        {products.map((entry) => {
-                          const inactive =
-                            entry.active === false ||
-                            entry.isActive === false;
-
-                          return (
-                            <option
-                              key={entry.id}
-                              value={String(entry.id)}
-                              disabled={inactive}
-                            >
-                              {entry.productCode
-                                ? `${entry.productCode} — `
-                                : ""}
-                              {entry.name}
-                              {inactive ? " (Inactive)" : ""}
-                            </option>
-                          );
-                        })}
-                      </select>
+                            return (
+                              <button
+                                key={entry.id}
+                                type="button"
+                                className="purchase-product-option"
+                                disabled={inactive}
+                                role="option"
+                                aria-selected={String(entry.id) === String(item.productId)}
+                                onMouseDown={(event) => {
+                                  event.preventDefault();
+                                  selectProduct(index, String(entry.id));
+                                  setProductSearches((current) => ({
+                                    ...current,
+                                    [index]: productLabel(entry),
+                                  }));
+                                  setActiveProductSearchIndex(null);
+                                }}
+                              >
+                                <strong>{productLabel(entry)}</strong>
+                                <small>
+                                  {inactive
+                                    ? "Inactive"
+                                    : `Purchase price: ${money(entry.purchasePrice)}`}
+                                </small>
+                              </button>
+                            );
+                          })}
+                        {products.filter((entry) => {
+                          const search = String(productSearches[index] || "")
+                            .trim()
+                            .toLowerCase();
+                          return !search || [entry.name, entry.productCode]
+                            .some((value) =>
+                              String(value || "").toLowerCase().includes(search)
+                            );
+                        }).length === 0 && (
+                          <p className="purchase-product-no-results">
+                            No matching products found.
+                          </p>
+                        )}
+                      </div>}
 
                       {product && (
                         <small>
@@ -796,31 +935,28 @@ function PurchasesPage() {
                         />
                       </label>
 
-                      <label>
-                        GST (%)
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.01"
-                          value={item.gstRate}
-                          onChange={(event) =>
-                            updateItem(index, "gstRate", event.target.value)
-                          }
-                          required
-                        />
-                      </label>
                     </div>
 
                     <div className="purchase-line-total">
                       <span>Taxable: {money(calc.taxable)}</span>
-                      <span>GST: {money(calc.gst)}</span>
                       <strong>Line total: {money(calc.total)}</strong>
                     </div>
                   </div>
                 );
               })}
             </div>
+
+            {canManagePurchases && (
+              <div className="purchase-add-item-footer">
+                <button
+                  type="button"
+                  className="purchase-secondary-button"
+                  onClick={addLine}
+                >
+                  + Add another item
+                </button>
+              </div>
+            )}
 
             <div className="purchase-bottom-grid">
               <div className="purchase-note">
@@ -845,7 +981,19 @@ function PurchasesPage() {
                   <strong>- {money(calculations.invoiceDiscount)}</strong>
                 </div>
                 <div>
-                  <span>GST</span>
+                  <span>CGST</span>
+                  <strong>{money(calculations.cgstAmount)}</strong>
+                </div>
+                <div>
+                  <span>SGST</span>
+                  <strong>{money(calculations.sgstAmount)}</strong>
+                </div>
+                <div>
+                  <span>IGST</span>
+                  <strong>{money(calculations.igstAmount)}</strong>
+                </div>
+                <div>
+                  <span>Total GST</span>
                   <strong>{money(calculations.gstAmount)}</strong>
                 </div>
                 <div className="purchase-grand-total">
@@ -951,9 +1099,14 @@ function PurchasesPage() {
                           <div className="purchase-action-group">
                             <button type="button" className="purchase-secondary-button" onClick={() => setDetailsPurchase(purchase)}>View</button>
                             {canManagePurchases && purchase.status === "DRAFT" ? (
-                              <button type="button" className="purchase-primary-button" disabled={receivingId !== null} onClick={() => handleReceivePurchase(purchase)}>
-                                {receivingId === purchase.id ? "Receiving..." : "Receive"}
-                              </button>
+                              <>
+                                <button type="button" className="purchase-secondary-button" onClick={() => openEditPurchaseForm(purchase)}>
+                                  Edit
+                                </button>
+                                <button type="button" className="purchase-primary-button" disabled={receivingId !== null} onClick={() => handleReceivePurchase(purchase)}>
+                                  {receivingId === purchase.id ? "Receiving..." : "Receive"}
+                                </button>
+                              </>
                             ) : canManagePurchases ? (
                               <button type="button" className="purchase-secondary-button" onClick={() => openPaymentPanel(purchase)}>Payments</button>
                             ) : null}
@@ -1171,7 +1324,11 @@ function PurchasesPage() {
               <div><span>Supplier invoice</span><strong>{detailsPurchase.supplierInvoiceNumber || "—"}</strong></div>
               <div><span>Subtotal</span><strong>{money(detailsPurchase.subtotal)}</strong></div>
               <div><span>Discount</span><strong>{money(detailsPurchase.discountAmount)}</strong></div>
-              <div><span>GST</span><strong>{money(detailsPurchase.gstAmount)}</strong></div>
+              <div><span>Tax type</span><strong>{detailsPurchase.taxType === "IGST" ? "IGST" : "CGST + SGST"}</strong></div>
+              <div><span>CGST</span><strong>{money(detailsPurchase.cgstAmount)}</strong></div>
+              <div><span>SGST</span><strong>{money(detailsPurchase.sgstAmount)}</strong></div>
+              <div><span>IGST</span><strong>{money(detailsPurchase.igstAmount)}</strong></div>
+              <div><span>Total GST</span><strong>{money(detailsPurchase.gstAmount)}</strong></div>
               <div><span>Total</span><strong>{money(detailsPurchase.totalAmount)}</strong></div>
             </div>
             <div className="purchase-detail-items">
@@ -1179,7 +1336,7 @@ function PurchasesPage() {
               {detailsPurchase.items?.map((item) => <div className="purchase-detail-item" key={item.id}><span>{item.productName}<small>{item.productCode}</small></span><span>{item.quantity} × {money(item.purchaseRate)}</span><strong>{money(item.lineTotal)}</strong></div>)}
             </div>
             <div className="purchase-form-actions">
-              {canManagePurchases && detailsPurchase.status === "DRAFT" && <button type="button" className="purchase-primary-button" onClick={() => { setDetailsPurchase(null); handleReceivePurchase(detailsPurchase); }}>Receive purchase</button>}
+              {canManagePurchases && detailsPurchase.status === "DRAFT" && <><button type="button" className="purchase-secondary-button" onClick={() => openEditPurchaseForm(detailsPurchase)}>Edit purchase</button><button type="button" className="purchase-primary-button" onClick={() => { setDetailsPurchase(null); handleReceivePurchase(detailsPurchase); }}>Receive purchase</button></>}
               {canManagePurchases && detailsPurchase.status === "RECEIVED" && <button type="button" className="purchase-secondary-button" onClick={() => { setDetailsPurchase(null); openPaymentPanel(detailsPurchase); }}>Open payments</button>}
             </div>
           </section>

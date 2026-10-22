@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   getFinancialSummary,
   getPaymentDateSummary,
@@ -29,7 +29,7 @@ function ReportsPage() {
   const [error, setError] = useState("");
   const [supportError, setSupportError] = useState("");
 
-  async function loadReport(event) {
+  const loadReport = useCallback(async (event) => {
     event?.preventDefault();
     if (!startDate || !endDate) {
       setError("Please select both dates.");
@@ -50,7 +50,7 @@ function ReportsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [endDate, startDate]);
 
   async function loadSupportingReports() {
     setSupportLoading(true);
@@ -79,7 +79,7 @@ function ReportsPage() {
   useEffect(() => {
     loadReport();
     loadSupportingReports();
-  }, []);
+  }, [loadReport]);
 
   const values = useMemo(() => {
     const sales = Number(report?.salesOrderTotal || 0);

@@ -8,6 +8,9 @@ export async function getPurchaseById(id) {
 export async function createPurchase(purchase) {
   return httpClient.post("/api/purchases", purchase);
 }
+export async function updatePurchase(id, purchase) {
+  return httpClient.put(`/api/purchases/${id}`, purchase);
+}
 export async function receivePurchase(id) {
   return httpClient.post(`/api/purchases/${id}/receive`);
 }

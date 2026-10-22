@@ -26,13 +26,13 @@ public class UserManagementController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('USER_MANAGE')")
+    @PreAuthorize("hasRole('ADMIN')")
     public UserResponse createUser(@RequestBody UserRequest request) {
         return service.createUser(request);
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('USER_MANAGE')")
+    @PreAuthorize("hasRole('ADMIN')")
     public UserResponse updateUser(@PathVariable Long id, @RequestBody UserRequest request) {
         return service.updateUser(id, request);
     }

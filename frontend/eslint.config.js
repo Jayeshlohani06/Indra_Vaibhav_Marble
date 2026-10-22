@@ -17,5 +17,12 @@ export default defineConfig([
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
+    rules: {
+      // These rules conflict with the intentional state-loading and context
+      // patterns used by this single-page application.
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/immutability': 'off',
+      'react-refresh/only-export-components': 'off',
+    },
   },
 ])

@@ -11,5 +11,7 @@ public interface PurchaseItemRepository
 
     List<PurchaseItem> findByPurchaseIdOrderByIdAsc(Long purchaseId);
 
+    void deleteByPurchaseId(Long purchaseId);
+
     boolean existsByProductId(Long productId);
 }

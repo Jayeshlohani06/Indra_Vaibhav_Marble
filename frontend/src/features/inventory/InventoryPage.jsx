@@ -91,6 +91,8 @@ function InventoryPage() {
   const [statusFilter, setStatusFilter] = useState("ACTIVE");
   const [sortBy, setSortBy] = useState("name");
   const [sortDirection, setSortDirection] = useState("asc");
+  const [stockOverviewSearch, setStockOverviewSearch] = useState("");
+  const [stockOverviewFilter, setStockOverviewFilter] = useState("ALL");
 
   async function loadInventory() {
     try {
@@ -483,6 +485,27 @@ function InventoryPage() {
       0
     );
 
+  const stockOverviewProducts = products
+    .filter(isActive)
+    .filter((product) => {
+      const search = stockOverviewSearch.trim().toLowerCase();
+      const matchesSearch =
+        !search ||
+        String(product.name || "").toLowerCase().includes(search) ||
+        String(product.productCode || "").toLowerCase().includes(search);
+      const quantity = Number(product.stockQuantity ?? 0);
+      const matchesStock =
+        stockOverviewFilter === "ALL" ||
+        (stockOverviewFilter === "OUT" && quantity <= 0) ||
+        (stockOverviewFilter === "LOW" && quantity > 0 && isLowStock(product)) ||
+        (stockOverviewFilter === "AVAILABLE" && quantity > 0 && !isLowStock(product));
+
+      return matchesSearch && matchesStock;
+    })
+    .sort((first, second) =>
+      String(first.name || "").localeCompare(String(second.name || ""))
+    );
+
   const sortedProducts = [...filteredProducts].sort((first, second) => {
     const firstValue =
       sortBy === "stock"
@@ -565,6 +588,98 @@ function InventoryPage() {
           <strong>{formatCurrency(inventorySalesValue)}</strong>
           <small>Based on current selling prices</small>
         </article>
+      </section>
+
+      <section className="inventory-panel inventory-stock-overview" aria-labelledby="current-stock-heading">
+        <div className="inventory-panel-heading">
+          <div>
+            <p className="inventory-eyebrow">LIVE STOCK POSITION</p>
+            <h2 id="current-stock-heading">Current Stock Overview</h2>
+            <p>See the available quantity of every active item at a glance.</p>
+          </div>
+          <span className="inventory-overview-count">
+            {stockOverviewProducts.length} of {activeProductCount} active items
+          </span>
+        </div>
+
+        <div className="inventory-stock-overview-toolbar">
+          <input
+            type="search"
+            value={stockOverviewSearch}
+            onChange={(event) => setStockOverviewSearch(event.target.value)}
+            placeholder="Search stock by product or code..."
+            aria-label="Search current stock"
+          />
+          <select
+            value={stockOverviewFilter}
+            onChange={(event) => setStockOverviewFilter(event.target.value)}
+            aria-label="Filter current stock"
+          >
+            <option value="ALL">All stock</option>
+            <option value="AVAILABLE">Available</option>
+            <option value="LOW">Low stock</option>
+            <option value="OUT">Out of stock</option>
+          </select>
+        </div>
+
+        {stockOverviewProducts.length === 0 ? (
+          <div className="inventory-empty inventory-overview-empty">
+            <h3>No stock records match your filter</h3>
+            <p>Try another product name or stock status.</p>
+          </div>
+        ) : (
+          <div className="inventory-table-wrapper">
+            <table className="inventory-table inventory-stock-table">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Category</th>
+                  <th>Current Stock</th>
+                  <th>Reorder Level</th>
+                  <th>Stock Value</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stockOverviewProducts.map((product) => {
+                  const quantity = Number(product.stockQuantity ?? 0);
+                  const lowStock = isLowStock(product);
+                  const outOfStock = quantity <= 0;
+
+                  return (
+                    <tr key={product.id} className={outOfStock || lowStock ? "inventory-low-stock-row" : ""}>
+                      <td>
+                        <div className="inventory-stock-product">
+                          <strong>{product.name}</strong>
+                          <span>{product.productCode || "No code"} · {getUnitCode(product.unitId)}</span>
+                        </div>
+                      </td>
+                      <td>{getCategoryName(product.categoryId)}</td>
+                      <td>
+                        <strong>
+                          {quantity.toLocaleString("en-IN", { maximumFractionDigits: 3 })}
+                        </strong>{" "}
+                        {getUnitCode(product.unitId)}
+                      </td>
+                      <td>
+                        {Number(product.lowStockThreshold ?? 0).toLocaleString("en-IN", {
+                          maximumFractionDigits: 3,
+                        })}{" "}
+                        {getUnitCode(product.unitId)}
+                      </td>
+                      <td>{formatCurrency(quantity * Number(product.purchasePrice ?? 0))}</td>
+                      <td>
+                        <span className={`inventory-stock-badge ${outOfStock || lowStock ? "inventory-stock-badge-low" : "inventory-stock-badge-ok"}`}>
+                          {outOfStock ? "Out of stock" : lowStock ? "Low stock" : "Available"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       {success && (

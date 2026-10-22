@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import LoginPage from "./features/auth/LoginPage";
 import DashboardPage from "./features/dashboard/DashboardPage";
@@ -96,14 +96,16 @@ function App() {
     () => new Set(session?.permissions || []),
     [session]
   );
-  const canAccessPage = (page) =>
-    page === "dashboard" || permissions.has(PAGE_PERMISSIONS[page]);
+  const canAccessPage = useCallback(
+    (page) => page === "dashboard" || permissions.has(PAGE_PERMISSIONS[page]),
+    [permissions]
+  );
 
   useEffect(() => {
     if (session && !canAccessPage(currentPage)) {
       window.location.hash = "#dashboard";
     }
-  }, [session, currentPage, permissions]);
+  }, [session, currentPage, canAccessPage]);
 
   if (!session) {
     return <LoginPage onLoginSuccess={handleLoginSuccess} />;

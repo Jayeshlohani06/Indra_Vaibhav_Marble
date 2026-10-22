@@ -240,8 +240,6 @@ function DashboardPage() {
     0
   );
 
-  const todaySalesTotal = Number(todaySales?.salesOrderTotal ?? 0);
-  const weekSalesTotal = Number(weekSales?.salesOrderTotal ?? 0);
   const salesTotal = Number(financial?.salesOrderTotal ?? 0);
   const purchaseTotal = Number(financial?.receivedPurchaseTotal ?? 0);
   const expenseTotal = Number(financial?.expenseTotal ?? 0);

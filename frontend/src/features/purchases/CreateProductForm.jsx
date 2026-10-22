@@ -118,9 +118,8 @@ function CreateProductForm({ onClose, onCreated }) {
       return;
     }
     setSaving(true);
-    let createdProduct = null;
     try {
-      createdProduct = await createProduct(product);
+      const createdProduct = await createProduct(product);
       if (!createdProduct?.id) {
         setError("The product response did not contain an ID. Check Inventory before retrying.");
         return;

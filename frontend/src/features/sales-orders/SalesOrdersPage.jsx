@@ -1823,7 +1823,7 @@ function SalesOrdersPage() {
 
                 <div className="sales-order-grand-total">
 
-                  <span>Grand Total</span>
+                  <span>Total after tax</span>
 
                   <strong>
 
@@ -2055,6 +2055,7 @@ function SalesOrdersPage() {
               <div><span>Tax type</span><strong>{detailsOrder.taxType}</strong></div>
               <div><span>Subtotal</span><strong>{formatCurrency(detailsOrder.subtotal)}</strong></div>
               <div><span>Total tax</span><strong>{formatCurrency(detailsOrder.totalTax)}</strong></div>
+              {detailsOrder.charges?.length > 0 && <div><span>Additional charges</span><strong>{formatCurrency(detailsOrder.charges.reduce((sum, charge) => sum + Number(charge.amount || 0), 0))}</strong></div>}
               <div><span>Grand total</span><strong>{formatCurrency(detailsOrder.grandTotal)}</strong></div>
               {paymentBalance && <div><span>Payment status</span><strong>{paymentBalance.paymentStatus}</strong></div>}
               {paymentBalance && <div><span>Outstanding</span><strong>{formatCurrency(paymentBalance.outstandingBalance)}</strong></div>}
