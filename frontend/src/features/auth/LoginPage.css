@@ -1,11 +1,46 @@
 .login-page {
+  position: relative;
   min-height: 100vh;
   display: grid;
   place-items: center;
   padding: 28px;
   overflow: hidden;
-  background: #eeeae4;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 12% 18%, rgb(212 181 132 / 42%), transparent 28%),
+    radial-gradient(circle at 88% 82%, rgb(94 117 145 / 30%), transparent 32%),
+    linear-gradient(135deg, #e8e1d8 0%, #c9d0d6 48%, #ede8e1 100%);
   color: #25221f;
+}
+
+.login-page::before,
+.login-page::after {
+  position: absolute;
+  z-index: -1;
+  border-radius: 50%;
+  content: "";
+  filter: blur(2px);
+  pointer-events: none;
+}
+
+.login-page::before {
+  top: -180px;
+  left: -120px;
+  width: 460px;
+  height: 460px;
+  border: 1px solid rgb(255 255 255 / 52%);
+  background: linear-gradient(145deg, rgb(255 255 255 / 35%), transparent);
+  box-shadow: 80px 100px 100px rgb(117 91 61 / 13%);
+}
+
+.login-page::after {
+  right: -150px;
+  bottom: -210px;
+  width: 520px;
+  height: 520px;
+  border: 1px solid rgb(255 255 255 / 45%);
+  background: linear-gradient(145deg, rgb(255 255 255 / 30%), transparent);
+  box-shadow: -80px -90px 100px rgb(67 85 107 / 14%);
 }
 
 .login-shell {
@@ -15,10 +50,13 @@
   width: min(1120px, 100%);
   min-height: 680px;
   overflow: hidden;
-  border: 1px solid rgb(48 38 29 / 10%);
+  border: 1px solid rgb(255 255 255 / 58%);
   border-radius: 26px;
-  background: #fff;
-  box-shadow: 0 28px 80px rgb(55 43 31 / 15%);
+  background: rgb(255 255 255 / 20%);
+  box-shadow:
+    0 28px 80px rgb(55 43 31 / 18%),
+    inset 0 1px 0 rgb(255 255 255 / 62%);
+  backdrop-filter: blur(18px);
 }
 
 .login-showcase {
@@ -29,7 +67,7 @@
   overflow: hidden;
   padding: 58px 56px 34px;
   background:
-    linear-gradient(145deg, rgb(47 39 32 / 98%), rgb(88 69 47 / 96%)),
+    linear-gradient(145deg, rgb(47 39 32 / 88%), rgb(88 69 47 / 82%)),
     #40352b;
   color: #fff;
 }
@@ -194,7 +232,10 @@
   flex-direction: column;
   justify-content: center;
   padding: 64px clamp(40px, 6vw, 84px);
-  background: #fff;
+  border-left: 1px solid rgb(255 255 255 / 42%);
+  background: rgb(255 255 255 / 62%);
+  box-shadow: inset 1px 0 0 rgb(255 255 255 / 26%);
+  backdrop-filter: blur(24px);
 }
 
 .login-brand {
@@ -263,13 +304,14 @@
   box-sizing: border-box;
   height: 50px;
   padding: 0 44px;
-  border: 1px solid #e2dbd1;
+  border: 1px solid rgb(255 255 255 / 78%);
   border-radius: 10px;
   outline: none;
-  background: #fcfbfa;
+  background: rgb(255 255 255 / 48%);
   color: #29251f;
   font: inherit;
-  transition: 0.2s ease;
+  box-shadow: inset 0 1px 1px rgb(255 255 255 / 58%);
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
 
 .login-form input::placeholder {
@@ -278,8 +320,10 @@
 
 .login-form input:focus {
   border-color: #aa8960;
-  background: #fff;
-  box-shadow: 0 0 0 4px rgb(170 137 96 / 12%);
+  background: rgb(255 255 255 / 78%);
+  box-shadow:
+    0 0 0 4px rgb(170 137 96 / 14%),
+    inset 0 1px 1px rgb(255 255 255 / 80%);
 }
 
 .login-password-toggle {
@@ -292,6 +336,12 @@
   font-size: 11px;
   font-weight: 800;
   cursor: pointer;
+}
+
+.login-password-toggle:focus-visible,
+.login-submit:focus-visible {
+  outline: 3px solid rgb(170 137 96 / 42%);
+  outline-offset: 3px;
 }
 
 .login-error {
@@ -322,9 +372,9 @@
   height: 52px;
   margin-top: 17px;
   padding: 0 18px 0 20px;
-  border: 0;
+  border: 1px solid rgb(255 255 255 / 20%);
   border-radius: 10px;
-  background: #4f3d2c;
+  background: linear-gradient(135deg, rgb(79 61 44 / 96%), rgb(121 88 51 / 94%));
   color: #fff;
   font: inherit;
   font-weight: 700;
@@ -353,9 +403,11 @@
   gap: 10px;
   margin-top: 34px;
   padding: 13px;
-  border: 1px solid #eee7dd;
+  border: 1px solid rgb(255 255 255 / 72%);
   border-radius: 10px;
-  background: #fcfaf7;
+  background: rgb(255 255 255 / 38%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 58%);
+  backdrop-filter: blur(10px);
 }
 
 .login-shield {
@@ -435,7 +487,9 @@
 @media (max-width: 480px) {
   .login-page {
     padding: 0;
-    background: #fff;
+    background:
+      radial-gradient(circle at 10% 10%, rgb(212 181 132 / 35%), transparent 34%),
+      linear-gradient(145deg, #e8e1d8, #d5dce0 70%, #eee9e2);
   }
 
   .login-shell {
@@ -443,6 +497,8 @@
     border: 0;
     border-radius: 0;
     box-shadow: none;
+    background: transparent;
+    backdrop-filter: none;
   }
 
   .login-showcase {
@@ -455,5 +511,7 @@
 
   .login-card {
     padding: 34px 22px 26px;
+    border-left: 0;
+    background: rgb(255 255 255 / 66%);
   }
 }

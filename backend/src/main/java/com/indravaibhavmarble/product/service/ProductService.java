@@ -57,6 +57,9 @@ public class ProductService {
             product.setProductCode(product.getProductCode().trim());
         }
 
+        // Product creation defines catalogue data only. Stock enters through
+        // purchases or the stock movement workflow.
+        product.setStockQuantity(BigDecimal.ZERO);
         validateProduct(product, true);
 
         if (productRepository.existsByProductCode(

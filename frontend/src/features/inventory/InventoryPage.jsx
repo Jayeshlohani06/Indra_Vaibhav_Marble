@@ -27,7 +27,6 @@ const initialForm = {
   purchasePrice: "0",
   sellingPrice: "0",
   gstRate: "18",
-  stockQuantity: "0",
   lowStockThreshold: "0",
 };
 
@@ -61,6 +60,7 @@ function formatCurrency(value) {
 function InventoryPage() {
   const canManageProducts = usePermission("PRODUCT_MANAGE");
   const canManageInventory = usePermission("INVENTORY_MANAGE");
+  const canManageMasterData = usePermission("MASTER_DATA_MANAGE");
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [units, setUnits] = useState([]);
@@ -210,8 +210,11 @@ function InventoryPage() {
       setAddingReference("unit");
       setError("");
       const unit = await createMeasurementUnit({ name, code });
+      if (!unit?.id) {
+        throw new Error("The unit was created but the server returned no unit ID.");
+      }
       setUnits((current) =>
-        [...current, unit].sort((a, b) =>
+        [...current.filter((entry) => entry.id !== unit.id), unit].sort((a, b) =>
           String(a.name).localeCompare(String(b.name))
         )
       );
@@ -220,7 +223,10 @@ function InventoryPage() {
       setNewUnitCode("");
       setSuccess("Measurement unit added and selected.");
     } catch (err) {
-      setError(err.message || "Unable to add measurement unit.");
+      setError(
+        err.message ||
+          "Unable to add measurement unit. Check that the unit code is unique."
+      );
     } finally {
       setAddingReference("");
     }
@@ -249,7 +255,6 @@ function InventoryPage() {
         purchasePrice: String(product.purchasePrice ?? 0),
         sellingPrice: String(product.sellingPrice ?? 0),
         gstRate: String(product.gstRate ?? 0),
-        stockQuantity: String(product.stockQuantity ?? 0),
         lowStockThreshold: String(product.lowStockThreshold ?? 0),
       });
 
@@ -328,18 +333,6 @@ function InventoryPage() {
         "Enter valid non-negative numbers. GST must be between 0 and 100."
       );
       return;
-    }
-
-    if (!isEditing) {
-      product.stockQuantity = Number(form.stockQuantity);
-
-      if (
-        !Number.isFinite(product.stockQuantity) ||
-        product.stockQuantity < 0
-      ) {
-        setError("Opening stock must be a valid non-negative number.");
-        return;
-      }
     }
 
     try {
@@ -794,7 +787,7 @@ function InventoryPage() {
               <p>
                 {editingProductId !== null
                   ? "Update product details. Stock is managed separately."
-                  : "Enter product details and the verified opening stock."}
+                  : "Create the product master record. Stock is added through purchases."}
               </p>
             </div>
             <button className="inventory-modal-close" type="button" onClick={cancelForm} aria-label="Close product form">
@@ -890,7 +883,7 @@ function InventoryPage() {
                       </option>
                     ))}
                   </select>
-                  <button
+                  {canManageMasterData && <button
                     className="inventory-add-reference-button"
                     type="button"
                     onClick={() => setAddingReference(
@@ -899,27 +892,35 @@ function InventoryPage() {
                     disabled={saving}
                   >
                     + Add
-                  </button>
+                  </button>}
                 </div>
                 {addingReference === "unit-form" && (
                   <div className="inventory-reference-creator">
                     <input
                       value={newUnitName}
                       onChange={(event) => setNewUnitName(event.target.value)}
-                      placeholder="Unit name (e.g. Bundle)"
+                      placeholder="Unit name * (e.g. Box)"
                       maxLength={50}
+                      required
+                      aria-label="New measurement unit name"
                     />
                     <input
                       value={newUnitCode}
                       onChange={(event) => setNewUnitCode(event.target.value)}
-                      placeholder="Code (e.g. BDL)"
+                      placeholder="Code * (e.g. BDL)"
                       maxLength={20}
+                      required
+                      aria-label="New measurement unit code"
                     />
                     <button
                       className="inventory-secondary-button"
                       type="button"
                       onClick={handleAddUnit}
-                      disabled={addingReference === "unit"}
+                      disabled={
+                        addingReference === "unit" ||
+                        !newUnitName.trim() ||
+                        !newUnitCode.trim()
+                      }
                     >
                       {addingReference === "unit" ? "Adding..." : "Add unit"}
                     </button>
@@ -965,23 +966,6 @@ function InventoryPage() {
                   onChange={handleChange}
                   required
                 />
-              </label>
-
-              <label>
-                Opening Stock {editingProductId === null ? "*" : ""}
-                <input
-                  name="stockQuantity"
-                  type="number"
-                  min="0"
-                  step="0.001"
-                  value={form.stockQuantity}
-                  onChange={handleChange}
-                  disabled={editingProductId !== null || saving}
-                  required={editingProductId === null}
-                />
-                {editingProductId !== null && (
-                  <small>Stock cannot be changed through product editing.</small>
-                )}
               </label>
 
               <label>
