@@ -1,23 +1,27 @@
+
 FROM maven:3.9.11-eclipse-temurin-17 AS build
 
 WORKDIR /app
 
-COPY pom.xml mvnw ./
-COPY .mvn .mvn
+COPY backend/pom.xml mvnw ./
+COPY backend/.mvn .mvn
+
 RUN chmod +x mvnw
 RUN ./mvnw dependency:go-offline -B
 
-COPY src src
+COPY backend/src src
 RUN ./mvnw clean package -DskipTests -B
 
 FROM eclipse-temurin:17-jre
 
 WORKDIR /app
 
+RUN useradd --system --create-home appuser
+
 COPY --from=build /app/target/*.jar app.jar
 
-RUN useradd --system --create-home appuser \
-    && chown appuser:appuser /app/app.jar
+RUN chown appuser:appuser /app/app.jar
+
 USER appuser
 
 ENV JAVA_OPTS=""
