@@ -1,0 +1,7 @@
+.git
+.gitignore
+.mvn/wrapper
+target
+*.log
+application-local-secrets.properties
+**/*-secrets.properties

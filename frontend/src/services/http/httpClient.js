@@ -1,6 +1,8 @@
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8081";
+const API_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8081"
+).replace(/\/+$/, "");
+const REQUEST_TIMEOUT_MS = 30000;
 
 const AUTH_TOKEN_KEY = "indra-vaibhav-auth-token";
 let authToken = sessionStorage.getItem(AUTH_TOKEN_KEY);
@@ -24,10 +26,19 @@ async function request(endpoint, options = {}) {
     headers.Authorization = `Bearer ${authToken}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+      signal: options.signal || controller.signal,
+    });
+  } finally {
+    window.clearTimeout(timeout);
+  }
 
   const responseText = await response.text();
   let data = null;

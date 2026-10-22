@@ -16,6 +16,10 @@ WORKDIR /app
 
 COPY --from=build /app/target/*.jar app.jar
 
+RUN useradd --system --create-home appuser \
+    && chown appuser:appuser /app/app.jar
+USER appuser
+
 ENV JAVA_OPTS=""
 
 EXPOSE 8080

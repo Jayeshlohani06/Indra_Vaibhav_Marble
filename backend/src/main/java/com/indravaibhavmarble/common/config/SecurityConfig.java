@@ -3,8 +3,11 @@ package com.indravaibhavmarble.common.config;
 import com.indravaibhavmarble.auth.security.CustomUserDetailsService;
 import com.indravaibhavmarble.auth.security.JwtAuthenticationFilter;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -28,6 +31,9 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableMethodSecurity
 public class SecurityConfig {
 
+    @Value("${app.cors.allowed-origins}")
+    private String allowedOrigins;
+
     /**
      * Configure CORS to allow requests from the React frontend.
      */
@@ -37,7 +43,10 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
 
         configuration.setAllowedOrigins(
-                List.of("http://localhost:5173"));
+                Arrays.stream(allowedOrigins.split(","))
+                        .map(String::trim)
+                        .filter(origin -> !origin.isEmpty())
+                        .collect(Collectors.toList()));
 
         configuration.setAllowedMethods(
                 List.of(
