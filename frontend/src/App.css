@@ -4,6 +4,8 @@
 .erp-layout {
   display: flex;
   width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
   min-height: 100vh;
   background: #f6f7fb;
   color: #172033;
@@ -131,6 +133,8 @@
   display: flex;
   flex: 1;
   flex-direction: column;
+  width: 0;
+  max-width: 100%;
   min-width: 0;
   min-height: 100vh;
   margin-left: 250px;
@@ -214,7 +218,9 @@
 .erp-content {
   flex: 1;
   width: 100%;
+  max-width: 100%;
   min-width: 0;
+  overflow-x: hidden;
   padding: 28px 32px 36px;
 }
 
@@ -239,34 +245,59 @@
 }
 
 @media (max-width: 700px) {
+  .erp-layout {
+    padding-bottom: 72px;
+  }
+
   .erp-sidebar {
-    width: 76px;
-    padding: 20px 10px;
+    position: fixed;
+    inset: auto 0 0;
+    width: 100%;
+    height: auto;
+    max-height: 72px;
+    padding: 7px 8px calc(7px + env(safe-area-inset-bottom));
+    overflow: hidden;
+    border-top: 1px solid #454035;
   }
 
-  .erp-brand {
-    justify-content: center;
-    padding: 0 0 28px;
-  }
-
-  .erp-brand > div:last-child,
+  .erp-brand,
   .erp-nav-label,
-  .erp-nav-item > span:not(.erp-nav-icon),
   .erp-sidebar-footer {
     display: none;
   }
 
+  .erp-nav {
+    flex-direction: row;
+    gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .erp-nav::-webkit-scrollbar {
+    display: none;
+  }
+
   .erp-nav-item {
+    flex: 0 0 78px;
+    flex-direction: column;
     justify-content: center;
-    padding: 12px 4px;
+    gap: 2px;
+    min-height: 56px;
+    padding: 5px 4px;
+    font-size: 10px;
+    line-height: 1.15;
+    text-align: center;
+    white-space: normal;
   }
 
   .erp-nav-icon {
     width: auto;
+    font-size: 18px;
+    line-height: 1.1;
   }
 
   .erp-workspace {
-    margin-left: 76px;
+    margin-left: 0;
   }
 
   .erp-topbar {
@@ -286,7 +317,45 @@
     display: none;
   }
 
+  .erp-logout-button {
+    margin-left: 0;
+    padding: 7px 9px;
+    font-size: 11px;
+  }
+
   .erp-content {
     padding: 18px 12px;
+  }
+}
+
+@media (max-width: 420px) {
+  .erp-topbar {
+    gap: 10px;
+    padding: 13px 12px;
+  }
+
+  .erp-breadcrumb {
+    max-width: 190px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .erp-topbar h1 {
+    max-width: 200px;
+    overflow: hidden;
+    font-size: 17px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .erp-avatar {
+    width: 36px;
+    height: 36px;
+  }
+
+  .erp-logout-button {
+    padding: 6px 7px;
+    font-size: 10px;
   }
 }
