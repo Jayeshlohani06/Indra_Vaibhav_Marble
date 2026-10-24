@@ -9,6 +9,7 @@ import "./StockOperationsPanel.css";
 const EMPTY_FORM = {
   movementType: "PURCHASE",
   quantity: "",
+  secondaryQuantity: "",
   referenceNumber: "",
   notes: "",
 };
@@ -17,7 +18,7 @@ function getErrorMessage(error) {
   return error?.message || "Something went wrong. Please try again.";
 }
 
-export default function StockOperationsPanel({ products = [], onStockUpdated }) {
+export default function StockOperationsPanel({ products = [], units = [], onStockUpdated }) {
   const activeProducts = useMemo(
     () => products.filter((product) => product.active !== false),
     [products]
@@ -57,6 +58,9 @@ export default function StockOperationsPanel({ products = [], onStockUpdated }) 
   );
 
   const unit = selectedProduct?.unitCode || selectedProduct?.unit || "";
+  const secondaryUnit = units.find(
+    (entry) => Number(entry.id) === Number(selectedProduct?.secondaryUnitId)
+  )?.code || "";
 
   async function loadHistory(id) {
     if (!id) {
@@ -110,9 +114,15 @@ export default function StockOperationsPanel({ products = [], onStockUpdated }) 
     }
 
     const quantity = Number(form.quantity);
+    const secondaryQuantity = Number(form.secondaryQuantity);
 
     if (!Number.isFinite(quantity) || quantity <= 0) {
       setError("Enter a quantity greater than zero.");
+      return;
+    }
+    if (selectedProduct.secondaryUnitId != null
+      && (!Number.isFinite(secondaryQuantity) || secondaryQuantity <= 0)) {
+      setError("Enter a positive secondary quantity for this dual-unit product.");
       return;
     }
 
@@ -131,6 +141,9 @@ export default function StockOperationsPanel({ products = [], onStockUpdated }) 
         productId: Number(productId),
         movementType: form.movementType,
         quantityChange,
+        secondaryQuantityChange: selectedProduct.secondaryUnitId == null
+          ? null
+          : form.movementType === "SALE" ? -secondaryQuantity : secondaryQuantity,
         referenceType: "MANUAL",
         referenceNumber: form.referenceNumber.trim() || null,
         notes: form.notes.trim() || null,
@@ -246,6 +259,22 @@ export default function StockOperationsPanel({ products = [], onStockUpdated }) 
               disabled={submitting}
             />
           </div>
+
+          {secondaryUnit && <div className="stock-form-field">
+            <label htmlFor="secondary-stock-quantity">Quantity ({secondaryUnit})</label>
+            <input
+              id="secondary-stock-quantity"
+              name="secondaryQuantity"
+              type="number"
+              min="0.001"
+              step="0.001"
+              value={form.secondaryQuantity}
+              onChange={updateField}
+              placeholder={`Enter ${secondaryUnit} quantity`}
+              required
+              disabled={submitting}
+            />
+          </div>}
 
           <div className="stock-form-field">
             <label htmlFor="referenceNumber">Reference number (optional)</label>

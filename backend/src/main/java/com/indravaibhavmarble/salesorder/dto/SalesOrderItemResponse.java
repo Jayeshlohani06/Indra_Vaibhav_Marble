@@ -10,6 +10,8 @@ public record SalesOrderItemResponse(
         String productName,
         String unitCode,
         BigDecimal quantity,
+        BigDecimal secondaryQuantity,
+        String pricingUnit,
         BigDecimal unitPrice,
         BigDecimal gstRate,
         BigDecimal taxableAmount,

@@ -24,6 +24,8 @@ const initialForm = {
   description: "",
   categoryId: "",
   unitId: "",
+  secondaryUnitId: "",
+  secondaryPerPrimary: "",
   purchasePrice: "0",
   sellingPrice: "0",
   gstRate: "18",
@@ -252,6 +254,8 @@ function InventoryPage() {
         description: product.description ?? "",
         categoryId: String(product.categoryId ?? ""),
         unitId: String(product.unitId ?? ""),
+        secondaryUnitId: String(product.secondaryUnitId ?? ""),
+        secondaryPerPrimary: String(product.secondaryPerPrimary ?? ""),
         purchasePrice: String(product.purchasePrice ?? 0),
         sellingPrice: String(product.sellingPrice ?? 0),
         gstRate: String(product.gstRate ?? 0),
@@ -295,6 +299,8 @@ function InventoryPage() {
       description: form.description.trim(),
       categoryId: Number(form.categoryId),
       unitId: Number(form.unitId),
+      secondaryUnitId: form.secondaryUnitId ? Number(form.secondaryUnitId) : null,
+      secondaryPerPrimary: form.secondaryPerPrimary ? Number(form.secondaryPerPrimary) : null,
       purchasePrice: Number(form.purchasePrice),
       sellingPrice: Number(form.sellingPrice),
       gstRate: Number(form.gstRate),
@@ -636,6 +642,11 @@ function InventoryPage() {
               <tbody>
                 {stockOverviewProducts.map((product) => {
                   const quantity = Number(product.stockQuantity ?? 0);
+                  const secondaryQuantity = Number(product.secondaryStockQuantity ?? 0);
+                  const primaryUnit = getUnitCode(product.unitId);
+                  const secondaryUnit = product.secondaryUnitId
+                    ? getUnitCode(product.secondaryUnitId)
+                    : "";
                   const lowStock = isLowStock(product);
                   const outOfStock = quantity <= 0;
 
@@ -644,7 +655,10 @@ function InventoryPage() {
                       <td>
                         <div className="inventory-stock-product">
                           <strong>{product.name}</strong>
-                          <span>{product.productCode || "No code"} · {getUnitCode(product.unitId)}</span>
+                          <span>
+                            {product.productCode || "No code"} · {primaryUnit}
+                            {secondaryUnit && ` + ${secondaryUnit}`}
+                          </span>
                         </div>
                       </td>
                       <td>{getCategoryName(product.categoryId)}</td>
@@ -652,13 +666,23 @@ function InventoryPage() {
                         <strong>
                           {quantity.toLocaleString("en-IN", { maximumFractionDigits: 3 })}
                         </strong>{" "}
-                        {getUnitCode(product.unitId)}
+                        {primaryUnit}
+                        {secondaryUnit && (
+                          <span className="inventory-secondary-stock">
+                            {" "}+ {secondaryQuantity.toLocaleString("en-IN", { maximumFractionDigits: 3 })} {secondaryUnit}
+                          </span>
+                        )}
                       </td>
                       <td>
                         {Number(product.lowStockThreshold ?? 0).toLocaleString("en-IN", {
                           maximumFractionDigits: 3,
                         })}{" "}
-                        {getUnitCode(product.unitId)}
+                        {primaryUnit}
+                        {secondaryUnit && (
+                          <span className="inventory-secondary-stock">
+                            {" "}+ {secondaryUnit}
+                          </span>
+                        )}
                       </td>
                       <td>{formatCurrency(quantity * Number(product.purchasePrice ?? 0))}</td>
                       <td>
@@ -738,7 +762,7 @@ function InventoryPage() {
                 ×
               </button>
             </div>
-            <StockOperationsPanel products={products} onStockUpdated={loadInventory} />
+            <StockOperationsPanel products={products} units={units} onStockUpdated={loadInventory} />
           </div>
         </div>
       )}
@@ -927,6 +951,33 @@ function InventoryPage() {
                   </div>
                 )}
               </label>
+
+              <label>
+                Secondary Unit (optional)
+                <select
+                  name="secondaryUnitId"
+                  value={form.secondaryUnitId}
+                  onChange={handleChange}
+                >
+                  <option value="">No second unit</option>
+                  {units.filter((unit) => String(unit.id) !== String(form.unitId)).map((unit) => (
+                    <option key={unit.id} value={unit.id}>{unit.name} ({unit.code})</option>
+                  ))}
+                </select>
+              </label>
+
+              {form.secondaryUnitId && <label>
+                Secondary Units per Primary (optional)
+                <input
+                  name="secondaryPerPrimary"
+                  type="number"
+                  min="0.000001"
+                  step="0.000001"
+                  value={form.secondaryPerPrimary}
+                  onChange={handleChange}
+                  placeholder="Example: 4"
+                />
+              </label>}
 
               <label>
                 Purchase Price (₹) *
@@ -1287,13 +1338,19 @@ function InventoryPage() {
                           <td>{product.productCode}</td>
                           <td>{product.name}</td>
                           <td>{getCategoryName(product.categoryId)}</td>
-                          <td>{getUnitCode(product.unitId)}</td>
+                          <td>
+                            {getUnitCode(product.unitId)}
+                            {product.secondaryUnitId && ` + ${getUnitCode(product.secondaryUnitId)}`}
+                          </td>
                           <td>
                             ₹
                             {Number(product.sellingPrice ?? 0).toFixed(2)}
                           </td>
                           <td>
-                            <strong>{product.stockQuantity ?? 0}</strong>
+                            <strong>
+                              {product.stockQuantity ?? 0}
+                              {product.secondaryUnitId && ` + ${product.secondaryStockQuantity ?? 0}`}
+                            </strong>
                           </td>
                           <td>
                             {formatCurrency(

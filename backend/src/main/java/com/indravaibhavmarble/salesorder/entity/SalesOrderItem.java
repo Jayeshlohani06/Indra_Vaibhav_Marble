@@ -31,6 +31,12 @@ public class SalesOrderItem {
     @Column(nullable = false, precision = 14, scale = 3)
     private BigDecimal quantity;
 
+    @Column(name = "secondary_quantity", precision = 14, scale = 3)
+    private BigDecimal secondaryQuantity;
+
+    @Column(name = "pricing_unit", nullable = false, length = 10)
+    private String pricingUnit = "PRIMARY";
+
     @Column(name = "unit_price", nullable = false, precision = 14, scale = 2)
     private BigDecimal unitPrice;
 
@@ -80,6 +86,10 @@ public static SalesOrderItem createNew() {
     public void setUnitCodeSnapshot(String value) { this.unitCodeSnapshot = value; }
     public BigDecimal getQuantity() { return quantity; }
     public void setQuantity(BigDecimal quantity) { this.quantity = quantity; }
+    public BigDecimal getSecondaryQuantity() { return secondaryQuantity; }
+    public void setSecondaryQuantity(BigDecimal value) { secondaryQuantity = value; }
+    public String getPricingUnit() { return pricingUnit; }
+    public void setPricingUnit(String value) { pricingUnit = value; }
     public BigDecimal getUnitPrice() { return unitPrice; }
     public void setUnitPrice(BigDecimal unitPrice) { this.unitPrice = unitPrice; }
     public BigDecimal getGstRate() { return gstRate; }

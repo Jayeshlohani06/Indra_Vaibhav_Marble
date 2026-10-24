@@ -22,10 +22,12 @@ public record PurchaseResponse(
         BigDecimal cgstAmount,
         BigDecimal sgstAmount,
         BigDecimal igstAmount,
+        BigDecimal expenseGstAmount,
         BigDecimal totalAmount,
         String notes,
         OffsetDateTime createdAt,
-        List<PurchaseItemResponse> items
+        List<PurchaseItemResponse> items,
+        List<PurchaseExpenseResponse> expenses
 ) {
     public record PurchaseItemResponse(
             Long id,
@@ -33,11 +35,21 @@ public record PurchaseResponse(
             String productCode,
             String productName,
             BigDecimal quantity,
+            BigDecimal secondaryQuantity,
+            String pricingUnit,
             BigDecimal purchaseRate,
             BigDecimal discountAmount,
             BigDecimal gstRate,
             BigDecimal gstAmount,
             BigDecimal lineTotal
+    ) {
+    }
+
+    public record PurchaseExpenseResponse(
+            Long id,
+            Long categoryId,
+            String description,
+            BigDecimal amount
     ) {
     }
 }

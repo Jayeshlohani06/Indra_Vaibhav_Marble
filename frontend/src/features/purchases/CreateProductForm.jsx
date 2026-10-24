@@ -1,6 +1,8 @@
 ﻿import { useEffect, useState } from "react";
 import {
   createProduct,
+  createCategory,
+  createMeasurementUnit,
   getCategories,
   getMeasurementUnits,
   saveInventorySettings,
@@ -11,6 +13,8 @@ const initialForm = {
   description: "",
   categoryId: "",
   unitId: "",
+  secondaryUnitId: "",
+  secondaryPerPrimary: "",
   purchasePrice: "0",
   sellingPrice: "0",
   gstRate: "18",
@@ -39,6 +43,10 @@ function CreateProductForm({ onClose, onCreated }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newUnitName, setNewUnitName] = useState("");
+  const [newUnitCode, setNewUnitCode] = useState("");
+  const [addingReference, setAddingReference] = useState("");
   useEffect(() => {
     let cancelled = false;
     Promise.all([getCategories(), getMeasurementUnits()])
@@ -63,6 +71,46 @@ function CreateProductForm({ onClose, onCreated }) {
     const { name, value } = event.target;
     setForm((previous) => ({ ...previous, [name]: value }));
   }
+  async function addCategory() {
+    const name = newCategoryName.trim();
+    if (!name) {
+      setError("Enter a category name first.");
+      return;
+    }
+    try {
+      setAddingReference("category");
+      const created = await createCategory({ name });
+      setCategories((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
+      setForm((current) => ({ ...current, categoryId: String(created.id) }));
+      setNewCategoryName("");
+      setNotice("Category created and selected.");
+    } catch (err) {
+      setError(err.message || "Unable to create category.");
+    } finally {
+      setAddingReference("");
+    }
+  }
+  async function addUnit() {
+    const name = newUnitName.trim();
+    const code = newUnitCode.trim().toUpperCase();
+    if (!name || !code) {
+      setError("Enter both a unit name and code.");
+      return;
+    }
+    try {
+      setAddingReference("unit");
+      const created = await createMeasurementUnit({ name, code });
+      setUnits((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
+      setForm((current) => ({ ...current, unitId: String(created.id) }));
+      setNewUnitName("");
+      setNewUnitCode("");
+      setNotice("Measurement unit created and selected.");
+    } catch (err) {
+      setError(err.message || "Unable to create measurement unit.");
+    } finally {
+      setAddingReference("");
+    }
+  }
   async function handleSubmit(event) {
     event.preventDefault();
     setError("");
@@ -74,6 +122,8 @@ function CreateProductForm({ onClose, onCreated }) {
       description: form.description.trim(),
       categoryId: Number(form.categoryId),
       unitId: Number(form.unitId),
+      secondaryUnitId: form.secondaryUnitId ? Number(form.secondaryUnitId) : null,
+      secondaryPerPrimary: form.secondaryPerPrimary ? Number(form.secondaryPerPrimary) : null,
       purchasePrice: Number(form.purchasePrice),
       sellingPrice: Number(form.sellingPrice),
       gstRate: Number(form.gstRate),
@@ -86,6 +136,15 @@ function CreateProductForm({ onClose, onCreated }) {
     }
     if (!product.categoryId || !product.unitId) {
       setError("Select a category and measurement unit.");
+      return;
+    }
+    if (product.secondaryUnitId && product.secondaryUnitId === product.unitId) {
+      setError("Primary and secondary units must be different.");
+      return;
+    }
+    if (product.secondaryUnitId && product.secondaryPerPrimary !== null
+      && (!Number.isFinite(product.secondaryPerPrimary) || product.secondaryPerPrimary <= 0)) {
+      setError("Enter a positive secondary-units-per-primary conversion.");
       return;
     }
     if (
@@ -197,22 +256,44 @@ function CreateProductForm({ onClose, onCreated }) {
               </label>
               <label>
                 Category *
-                <select name="categoryId" value={form.categoryId} onChange={handleChange} required>
-                  <option value="">Select category</option>
-                  {categories.filter((item) => item.active !== false && item.isActive !== false).map((item) => (
-                    <option key={item.id} value={item.id}>{item.name}</option>
-                  ))}
-                </select>
+                <div className="purchase-reference-row">
+                  <select name="categoryId" value={form.categoryId} onChange={handleChange} required>
+                    <option value="">Select category</option>
+                    {categories.filter((item) => item.active !== false && item.isActive !== false).map((item) => (
+                      <option key={item.id} value={item.id}>{item.name}</option>
+                    ))}
+                  </select>
+                  <button type="button" className="purchase-secondary-button" onClick={() => setAddingReference(addingReference === "category-form" ? "" : "category-form")}>+ Add</button>
+                </div>
+                {addingReference === "category-form" && <div className="purchase-reference-creator"><input value={newCategoryName} onChange={(event) => setNewCategoryName(event.target.value)} placeholder="New category name" maxLength={100} /><button type="button" className="purchase-secondary-button" onClick={addCategory} disabled={addingReference === "category"}>Add category</button></div>}
               </label>
               <label>
                 Measurement unit *
-                <select name="unitId" value={form.unitId} onChange={handleChange} required>
-                  <option value="">Select unit</option>
-                  {units.filter((item) => item.active !== false && item.isActive !== false).map((item) => (
+                <div className="purchase-reference-row">
+                  <select name="unitId" value={form.unitId} onChange={handleChange} required>
+                    <option value="">Select unit</option>
+                    {units.filter((item) => item.active !== false && item.isActive !== false).map((item) => (
+                      <option key={item.id} value={item.id}>{item.name} ({item.code})</option>
+                    ))}
+                  </select>
+                  <button type="button" className="purchase-secondary-button" onClick={() => setAddingReference(addingReference === "unit-form" ? "" : "unit-form")}>+ Add</button>
+                </div>
+                {addingReference === "unit-form" && <div className="purchase-reference-creator"><input value={newUnitName} onChange={(event) => setNewUnitName(event.target.value)} placeholder="Unit name" maxLength={50} /><input value={newUnitCode} onChange={(event) => setNewUnitCode(event.target.value)} placeholder="Code" maxLength={20} /><button type="button" className="purchase-secondary-button" onClick={addUnit} disabled={addingReference === "unit"}>Add unit</button></div>}
+              </label>
+              <label>
+                Secondary unit (optional)
+                <select name="secondaryUnitId" value={form.secondaryUnitId} onChange={handleChange}>
+                  <option value="">No second unit</option>
+                  {units.filter((item) => String(item.id) !== String(form.unitId) && item.active !== false && item.isActive !== false).map((item) => (
                     <option key={item.id} value={item.id}>{item.name} ({item.code})</option>
                   ))}
                 </select>
               </label>
+              {form.secondaryUnitId && <label>
+                Secondary units per primary unit (optional)
+                <input name="secondaryPerPrimary" type="number" min="0.000001" step="0.000001" value={form.secondaryPerPrimary} onChange={handleChange} placeholder="Example: 4" />
+                <small>Used to calculate a missing quantity when possible.</small>
+              </label>}
               <label>
                 Purchase price (₹) *
                 <input name="purchasePrice" type="number" min="0" step="0.01" value={form.purchasePrice} onChange={handleChange} required />

@@ -13,14 +13,24 @@ public record PurchaseRequest(
         String taxType,
         BigDecimal gstRate,
         String notes,
-        List<PurchaseItemRequest> items
+        List<PurchaseItemRequest> items,
+        List<PurchaseExpenseRequest> expenses
 ) {
     public record PurchaseItemRequest(
             Long productId,
             BigDecimal quantity,
+            BigDecimal secondaryQuantity,
+            String pricingUnit,
             BigDecimal purchaseRate,
             BigDecimal discountAmount,
             BigDecimal gstRate
+    ) {
+    }
+
+    public record PurchaseExpenseRequest(
+            Long categoryId,
+            String description,
+            BigDecimal amount
     ) {
     }
 }

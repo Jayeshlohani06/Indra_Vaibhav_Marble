@@ -81,6 +81,22 @@ public class StockMovementService {
         }
 
         product.setStockQuantity(stockAfter);
+        if (product.getSecondaryUnitId() != null) {
+            BigDecimal secondaryBefore = product.getSecondaryStockQuantity();
+            BigDecimal secondaryChange = requestedMovement.getSecondaryQuantityChange();
+            if (secondaryChange == null) {
+                throw new IllegalArgumentException(
+                        "Secondary quantity is required for this product");
+            }
+            BigDecimal secondaryAfter = secondaryBefore.add(secondaryChange);
+            if (secondaryAfter.signum() < 0) {
+                throw new IllegalArgumentException(
+                        "Secondary stock quantity cannot become negative");
+            }
+            product.setSecondaryStockQuantity(secondaryAfter);
+            requestedMovement.setSecondaryStockBefore(secondaryBefore);
+            requestedMovement.setSecondaryStockAfter(secondaryAfter);
+        }
         productRepository.save(product);
 
         requestedMovement.setStockBefore(stockBefore);
@@ -118,6 +134,8 @@ public class StockMovementService {
                 movementId,
                 original.getReferenceNumber(),
                 null);
+        reversal.setSecondaryQuantityChange(original.getSecondaryQuantityChange() == null
+                ? null : original.getSecondaryQuantityChange().negate());
         reversal.setReferenceType("REVERSAL");
         reversal.setReferenceId(movementId);
         reversal.setNotes(notes == null || notes.isBlank()
@@ -139,6 +157,23 @@ public class StockMovementService {
             Long referenceId,
             String referenceNumber,
             String notes) {
+        return recordMovementForExistingStockChange(productId, quantityChange,
+                stockBefore, stockAfter, referenceType, referenceId,
+                referenceNumber, notes, null, null, null);
+    }
+
+    public StockMovementResponse recordMovementForExistingStockChange(
+            Long productId,
+            BigDecimal quantityChange,
+            BigDecimal stockBefore,
+            BigDecimal stockAfter,
+            String referenceType,
+            Long referenceId,
+            String referenceNumber,
+            String notes,
+            BigDecimal secondaryQuantityChange,
+            BigDecimal secondaryStockBefore,
+            BigDecimal secondaryStockAfter) {
 
         if (productId == null
                 || quantityChange == null
@@ -181,6 +216,9 @@ public class StockMovementService {
                 referenceId,
                 referenceNumber,
                 notes);
+        movement.setSecondaryQuantityChange(secondaryQuantityChange);
+        movement.setSecondaryStockBefore(secondaryStockBefore);
+        movement.setSecondaryStockAfter(secondaryStockAfter);
 
         return StockMovementResponse.from(
                 stockMovementRepository.save(movement));
