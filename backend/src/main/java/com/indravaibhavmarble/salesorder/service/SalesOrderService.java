@@ -74,7 +74,10 @@ public class SalesOrderService {
             Long productId,
             BigDecimal quantityChange,
             BigDecimal stockBefore,
-            BigDecimal stockAfter) {
+            BigDecimal stockAfter,
+            BigDecimal secondaryQuantityChange,
+            BigDecimal secondaryStockBefore,
+            BigDecimal secondaryStockAfter) {
     }
 
     @Transactional
@@ -126,13 +129,27 @@ public class SalesOrderService {
                                     "Active product not found: "
                                             + itemRequest.productId()));
 
-            if (itemRequest.quantity() == null
-                    || itemRequest.quantity().signum() <= 0) {
+            BigDecimal primaryQuantity = itemRequest.quantity();
+            BigDecimal secondaryQuantity = itemRequest.secondaryQuantity();
+            if (primaryQuantity == null && secondaryQuantity != null
+                    && product.getSecondaryPerPrimary() != null) {
+                primaryQuantity = secondaryQuantity.divide(
+                        product.getSecondaryPerPrimary(), 3, RoundingMode.HALF_UP);
+            }
+            if (secondaryQuantity == null && primaryQuantity != null
+                    && product.getSecondaryPerPrimary() != null
+                    && product.getSecondaryUnitId() != null) {
+                secondaryQuantity = primaryQuantity.multiply(
+                        product.getSecondaryPerPrimary()).setScale(3, RoundingMode.HALF_UP);
+            }
+            if (primaryQuantity == null || primaryQuantity.signum() <= 0
+                    || (product.getSecondaryUnitId() != null
+                    && (secondaryQuantity == null || secondaryQuantity.signum() <= 0))) {
                 throw new IllegalArgumentException(
-                        "Quantity must be greater than zero");
+                        "Both quantities are required for dual-unit products");
             }
 
-            if (itemRequest.quantity().scale() > 3) {
+            if (primaryQuantity.scale() > 3) {
                 throw new IllegalArgumentException(
                         "Quantity cannot have more than 3 decimal places");
             }
@@ -140,12 +157,14 @@ public class SalesOrderService {
             BigDecimal availableStock = product.getStockQuantity();
 
             if (availableStock == null
-                    || availableStock.compareTo(itemRequest.quantity()) < 0) {
+                    || availableStock                    .compareTo(primaryQuantity) < 0
+                    || (product.getSecondaryUnitId() != null
+                    && product.getSecondaryStockQuantity().compareTo(secondaryQuantity) < 0)) {
                 throw new IllegalArgumentException(
                         "Insufficient stock for product "
                                 + product.getProductCode()
                                 + ". Available: " + availableStock
-                                + ", requested: " + itemRequest.quantity());
+                                + ", requested: " + primaryQuantity);
             }
 
             // Validate the submitted price before changing stock.
@@ -172,16 +191,24 @@ if (itemRequest.unitPrice() != null
 
             // Deduct stock once. The movement service will only record it.
             BigDecimal remainingStock = availableStock
-                    .subtract(itemRequest.quantity());
+                    .subtract(primaryQuantity);
 
             product.setStockQuantity(remainingStock);
+            BigDecimal secondaryRemaining = product.getSecondaryStockQuantity();
+            if (product.getSecondaryUnitId() != null) {
+                secondaryRemaining = secondaryRemaining.subtract(secondaryQuantity);
+                product.setSecondaryStockQuantity(secondaryRemaining);
+            }
             productRepository.save(product);
 
             stockChanges.add(new StockChange(
                     product.getId(),
-                    itemRequest.quantity().negate(),
+                    primaryQuantity.negate(),
                     availableStock,
-                    remainingStock));
+                    remainingStock,
+                    product.getSecondaryUnitId() == null ? null : secondaryQuantity.negate(),
+                    product.getSecondaryUnitId() == null ? null : product.getSecondaryStockQuantity().add(secondaryQuantity),
+                    secondaryRemaining));
 
            BigDecimal unitPrice = (
         itemRequest.unitPrice() != null
@@ -196,8 +223,10 @@ if (itemRequest.unitPrice() != null
                 throw new IllegalArgumentException("GST rate must be between 0 and 100");
             }
 
+            BigDecimal billableQuantity = "SECONDARY".equalsIgnoreCase(itemRequest.pricingUnit())
+                    ? secondaryQuantity : primaryQuantity;
             BigDecimal taxableAmount = unitPrice
-                    .multiply(itemRequest.quantity())
+                    .multiply(billableQuantity)
                     .setScale(2, RoundingMode.HALF_UP);
 
             BigDecimal taxAmount = taxableAmount
@@ -226,7 +255,10 @@ if (itemRequest.unitPrice() != null
             item.setProductCodeSnapshot(product.getProductCode());
             item.setProductNameSnapshot(product.getName());
             item.setUnitCodeSnapshot(unit.getCode());
-            item.setQuantity(itemRequest.quantity());
+            item.setQuantity(primaryQuantity);
+            item.setSecondaryQuantity(secondaryQuantity);
+            item.setPricingUnit("SECONDARY".equalsIgnoreCase(itemRequest.pricingUnit())
+                    ? "SECONDARY" : "PRIMARY");
             item.setUnitPrice(unitPrice);
             item.setGstRate(gstRate);
             item.setTaxableAmount(taxableAmount);
@@ -297,7 +329,10 @@ if (itemRequest.unitPrice() != null
                     savedOrder.getId(),
                     savedOrder.getOrderNumber(),
                     "Stock deducted for sales order "
-                            + savedOrder.getOrderNumber());
+                            + savedOrder.getOrderNumber(),
+                    change.secondaryQuantityChange(),
+                    change.secondaryStockBefore(),
+                    change.secondaryStockAfter());
         }
 
         return toResponse(savedOrder, customer, savedItems, savedCharges);
@@ -396,6 +431,8 @@ if (itemRequest.unitPrice() != null
                         item.getProductNameSnapshot(),
                         item.getUnitCodeSnapshot(),
                         item.getQuantity(),
+                        item.getSecondaryQuantity(),
+                        item.getPricingUnit(),
                         item.getUnitPrice(),
                         item.getGstRate(),
                         item.getTaxableAmount(),

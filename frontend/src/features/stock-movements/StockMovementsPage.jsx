@@ -5,7 +5,7 @@ import {
   reverseStockMovement,
   recordStockMovement,
 } from "../../services/api/stockMovementApi";
-import { getProducts } from "../../services/api/inventoryApi";
+import { getProducts, getMeasurementUnits } from "../../services/api/inventoryApi";
 
 import "./StockMovementsPage.css";
 import { usePermission } from "../../auth/PermissionsContext";
@@ -46,6 +46,7 @@ function StockMovementsPage() {
   const canManageInventory = usePermission("INVENTORY_MANAGE");
   const [movements, setMovements] = useState([]);
   const [products, setProducts] = useState([]);
+  const [units, setUnits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
@@ -69,12 +70,14 @@ function StockMovementsPage() {
     setLoading(true);
     setError("");
     try {
-      const [movementData, productData] = await Promise.all([
+      const [movementData, productData, unitData] = await Promise.all([
         getAllStockMovements(),
         getProducts(),
+        getMeasurementUnits(),
       ]);
       setMovements(Array.isArray(movementData) ? movementData : []);
       setProducts(Array.isArray(productData) ? productData : []);
+      setUnits(Array.isArray(unitData) ? unitData : []);
     } catch (err) {
       setError(err.message || "Unable to load stock movement history.");
     } finally {
@@ -189,6 +192,21 @@ function StockMovementsPage() {
     setProductId("ALL");
     setDateRange("ALL");
     setPage(1);
+  }
+
+  function formatMovementQuantity(movement, value, secondaryValue) {
+    const product = productMap.get(String(movement.productId));
+    const primaryUnit = units.find(
+      (unit) => Number(unit.id) === Number(product?.unitId)
+    )?.code || product?.unitCode || product?.unit || "";
+    const secondaryUnit = units.find(
+      (unit) => Number(unit.id) === Number(product?.secondaryUnitId)
+    );
+    const primary = formatQuantity(value, primaryUnit);
+    if (!secondaryUnit || secondaryValue === null || secondaryValue === undefined) {
+      return primary;
+    }
+    return `${primary} + ${formatQuantity(secondaryValue, secondaryUnit.code || secondaryUnit.unit)}`;
   }
 
   function exportCsv() {
@@ -354,14 +372,13 @@ function StockMovementsPage() {
               <tbody>
                 {visibleMovements.map((movement) => {
                   const product = productMap.get(String(movement.productId));
-                  const unit = product?.unitCode || product?.unit || "";
                   return <tr key={movement.id} onClick={() => setSelectedMovement(movement)}>
                     <td>{formatDate(movement.createdAt)}</td>
                     <td><strong>{product?.name || `Product #${movement.productId}`}</strong><small>{product?.productCode || `ID: ${movement.productId}`}</small></td>
                     <td><span className={`stock-movement-badge stock-movement-${String(movement.movementType || "unknown").toLowerCase()}`}>{movement.movementType || "Unknown"}</span></td>
-                    <td className={Number(movement.quantityChange) < 0 ? "stock-quantity-negative" : "stock-quantity-positive"}>{Number(movement.quantityChange) > 0 ? "+" : ""}{formatQuantity(movement.quantityChange, unit)}</td>
-                    <td>{formatQuantity(movement.stockBefore, unit)}</td>
-                    <td>{formatQuantity(movement.stockAfter, unit)}</td>
+                    <td className={Number(movement.quantityChange) < 0 ? "stock-quantity-negative" : "stock-quantity-positive"}>{Number(movement.quantityChange) > 0 ? "+" : ""}{formatMovementQuantity(movement, movement.quantityChange, movement.secondaryQuantityChange)}</td>
+                    <td>{formatMovementQuantity(movement, movement.stockBefore, movement.secondaryStockBefore)}</td>
+                    <td>{formatMovementQuantity(movement, movement.stockAfter, movement.secondaryStockAfter)}</td>
                     <td><strong>{movement.referenceNumber || "Manual"}</strong><small>{movement.referenceType || "—"}</small></td>
                     <td><button type="button" className="stock-row-action" onClick={(event) => { event.stopPropagation(); setSelectedMovement(movement); }}>View</button></td>
                   </tr>;
@@ -381,9 +398,9 @@ function StockMovementsPage() {
           <div className="stock-movement-modal-heading"><div><p className="stock-movements-eyebrow">MOVEMENT DETAIL</p><h3 id="movement-detail-heading">{selectedMovement.movementType}</h3><p>{formatDate(selectedMovement.createdAt)}</p></div><button type="button" onClick={() => setSelectedMovement(null)} aria-label="Close details">×</button></div>
           <div className="stock-movement-detail-grid">
             <p><span>Product</span><strong>{productMap.get(String(selectedMovement.productId))?.name || `Product #${selectedMovement.productId}`}</strong></p>
-            <p><span>Quantity change</span><strong>{formatQuantity(selectedMovement.quantityChange)}</strong></p>
-            <p><span>Stock before</span><strong>{formatQuantity(selectedMovement.stockBefore)}</strong></p>
-            <p><span>Stock after</span><strong>{formatQuantity(selectedMovement.stockAfter)}</strong></p>
+            <p><span>Quantity change</span><strong>{formatMovementQuantity(selectedMovement, selectedMovement.quantityChange, selectedMovement.secondaryQuantityChange)}</strong></p>
+            <p><span>Stock before</span><strong>{formatMovementQuantity(selectedMovement, selectedMovement.stockBefore, selectedMovement.secondaryStockBefore)}</strong></p>
+            <p><span>Stock after</span><strong>{formatMovementQuantity(selectedMovement, selectedMovement.stockAfter, selectedMovement.secondaryStockAfter)}</strong></p>
             <p><span>Reference</span><strong>{selectedMovement.referenceNumber || "Manual"}</strong></p>
             <p><span>Source type</span><strong>{selectedMovement.referenceType || "—"}</strong></p>
           </div>

@@ -593,6 +593,53 @@
   margin: 12px 0;
 }
 
+.purchase-confirm-backdrop {
+  z-index: 30;
+}
+
+.purchase-confirm-modal {
+  max-width: 34rem;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1rem;
+  padding: 1.5rem;
+}
+
+.purchase-confirm-icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff4db;
+  color: #a15c00;
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.purchase-confirm-modal h2 {
+  margin: 0.2rem 0 0.6rem;
+  color: #172b4d;
+}
+
+.purchase-confirm-message,
+.purchase-confirm-note {
+  margin: 0;
+  color: #536581;
+  line-height: 1.55;
+}
+
+.purchase-confirm-note {
+  margin-top: 0.5rem;
+  font-size: 0.86rem;
+}
+
+.purchase-confirm-actions {
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
 .payment-panel {
   margin-top: 20px;
 }
@@ -646,6 +693,50 @@
 
 @media (max-width: 640px) {
   .payment-balance-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.purchase-expenses-list {
+  display: grid;
+  gap: 0.65rem;
+  margin-bottom: 1.25rem;
+}
+
+.purchase-expense-row {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1fr) minmax(12rem, 1.4fr) 9rem auto;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.purchase-inline-category,
+.purchase-reference-creator {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.purchase-reference-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.purchase-reference-row select {
+  flex: 1;
+}
+
+.purchase-icon-button {
+  border: 0;
+  background: transparent;
+  color: var(--danger, #b42318);
+  font-size: 1.4rem;
+  cursor: pointer;
+}
+
+@media (max-width: 760px) {
+  .purchase-expense-row {
     grid-template-columns: 1fr;
   }
 }

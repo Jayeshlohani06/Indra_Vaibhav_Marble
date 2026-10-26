@@ -60,6 +60,7 @@ public class ProductService {
         // Product creation defines catalogue data only. Stock enters through
         // purchases or the stock movement workflow.
         product.setStockQuantity(BigDecimal.ZERO);
+        product.setSecondaryStockQuantity(BigDecimal.ZERO);
         validateProduct(product, true);
 
         if (productRepository.existsByProductCode(
@@ -110,6 +111,8 @@ public class ProductService {
         existing.setDescription(updatedProduct.getDescription());
         existing.setCategoryId(updatedProduct.getCategoryId());
         existing.setUnitId(updatedProduct.getUnitId());
+        existing.setSecondaryUnitId(updatedProduct.getSecondaryUnitId());
+        existing.setSecondaryPerPrimary(updatedProduct.getSecondaryPerPrimary());
         existing.setSellingPrice(updatedProduct.getSellingPrice());
         existing.setPurchasePrice(updatedProduct.getPurchasePrice());
         existing.setGstRate(updatedProduct.getGstRate());
@@ -153,6 +156,30 @@ public class ProductService {
                 || product.getUnitId() == null) {
             throw new IllegalArgumentException(
                     "Category and measurement unit are required");
+        }
+
+        if (product.getSecondaryUnitId() != null
+                && product.getSecondaryUnitId().equals(product.getUnitId())) {
+            throw new IllegalArgumentException(
+                    "Primary and secondary measurement units must be different");
+        }
+        if (product.getSecondaryUnitId() != null) {
+            MeasurementUnit secondaryUnit = unitRepository
+                    .findById(product.getSecondaryUnitId())
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Secondary measurement unit not found: "
+                                    + product.getSecondaryUnitId()));
+            if (!secondaryUnit.isActive()) {
+                throw new IllegalArgumentException(
+                        "Selected secondary measurement unit is inactive");
+            }
+            if (product.getSecondaryPerPrimary() != null) {
+                validatePositive(product.getSecondaryPerPrimary(),
+                        "Secondary units per primary unit");
+            }
+        } else if (product.getSecondaryPerPrimary() != null) {
+            throw new IllegalArgumentException(
+                    "A secondary unit is required when a conversion is configured");
         }
 
         ProductCategory category = categoryRepository
@@ -206,6 +233,12 @@ public class ProductService {
         if (value == null || value.signum() < 0) {
             throw new IllegalArgumentException(
                     field + " must be zero or greater");
+        }
+    }
+
+    private void validatePositive(BigDecimal value, String field) {
+        if (value == null || value.signum() <= 0) {
+            throw new IllegalArgumentException(field + " must be greater than zero");
         }
     }
 }

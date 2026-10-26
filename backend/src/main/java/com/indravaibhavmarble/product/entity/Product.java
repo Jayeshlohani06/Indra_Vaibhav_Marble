@@ -28,6 +28,12 @@ public class Product {
     @Column(name = "unit_id", nullable = false)
     private Long unitId;
 
+    @Column(name = "secondary_unit_id")
+    private Long secondaryUnitId;
+
+    @Column(name = "secondary_per_primary", precision = 14, scale = 6)
+    private BigDecimal secondaryPerPrimary;
+
     @Column(name = "selling_price", nullable = false, precision = 14, scale = 2)
     private BigDecimal sellingPrice = BigDecimal.ZERO;
 
@@ -39,6 +45,9 @@ public class Product {
 
     @Column(name = "stock_quantity", nullable = false, precision = 14, scale = 3)
     private BigDecimal stockQuantity = BigDecimal.ZERO;
+
+    @Column(name = "secondary_stock_quantity", nullable = false, precision = 14, scale = 3)
+    private BigDecimal secondaryStockQuantity = BigDecimal.ZERO;
 
     @Column(name = "low_stock_threshold", nullable = false, precision = 14, scale = 3)
     private BigDecimal lowStockThreshold = BigDecimal.ZERO;
@@ -113,6 +122,11 @@ protected Product() {
         this.unitId = unitId;
     }
 
+    public Long getSecondaryUnitId() { return secondaryUnitId; }
+    public void setSecondaryUnitId(Long value) { secondaryUnitId = value; }
+    public BigDecimal getSecondaryPerPrimary() { return secondaryPerPrimary; }
+    public void setSecondaryPerPrimary(BigDecimal value) { secondaryPerPrimary = value; }
+
     public BigDecimal getSellingPrice() {
         return sellingPrice;
     }
@@ -144,6 +158,9 @@ protected Product() {
     public void setStockQuantity(BigDecimal stockQuantity) {
         this.stockQuantity = stockQuantity;
     }
+
+    public BigDecimal getSecondaryStockQuantity() { return secondaryStockQuantity; }
+    public void setSecondaryStockQuantity(BigDecimal value) { secondaryStockQuantity = value; }
 
     public BigDecimal getLowStockThreshold() {
         return lowStockThreshold;

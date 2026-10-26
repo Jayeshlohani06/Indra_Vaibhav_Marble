@@ -163,6 +163,8 @@ const emptyOrderItem = {
   productId: "",
 
   quantity: "1",
+  secondaryQuantity: "",
+  pricingUnit: "PRIMARY",
 
   unitPrice: "",
 
@@ -658,6 +660,7 @@ function SalesOrdersPage() {
       }
 
       const quantity = Number(item.quantity);
+      const secondaryQuantity = Number(item.secondaryQuantity);
 
       const unitPrice = Number(item.unitPrice);
 
@@ -698,6 +701,12 @@ function SalesOrdersPage() {
         return;
 
       }
+      if (product.secondaryUnitId != null
+        && (!Number.isFinite(secondaryQuantity) || secondaryQuantity <= 0
+          || secondaryQuantity > Number(product.secondaryStockQuantity || 0))) {
+        setError(`${product.name} needs a valid secondary quantity within available stock.`);
+        return;
+      }
 
     }
 
@@ -716,6 +725,8 @@ function SalesOrdersPage() {
         productId: Number(item.productId),
 
         quantity: Number(item.quantity),
+        secondaryQuantity: item.secondaryQuantity === "" ? null : Number(item.secondaryQuantity),
+        pricingUnit: item.pricingUnit || "PRIMARY",
 
         unitPrice: Number(item.unitPrice),
         gstRate: Number(item.gstRate) || 0,
@@ -1456,6 +1467,9 @@ function SalesOrdersPage() {
                   );
 
                   const unit = getProductUnit(product);
+                  const secondaryUnit = product && measurementUnits.find(
+                    (entry) => Number(entry.id) === Number(product.secondaryUnitId)
+                  );
 
                   const quantity = Number(item.quantity) || 0;
 
@@ -1518,16 +1532,25 @@ function SalesOrdersPage() {
                         {product && (
 
                           <small>
-
-                            Available stock: {product.stockQuantity}{" "}
-
-                            {unit}
+                              Available stock: {product.stockQuantity} {unit}
+                              {secondaryUnit && ` + ${product.secondaryStockQuantity || 0} ${secondaryUnit.code}`}
 
                           </small>
 
                         )}
 
                       </label>
+                      {secondaryUnit && <label>
+                        Quantity ({secondaryUnit.code}) <span className="required">*</span>
+                        <input type="number" min="0.001" step="0.001" value={item.secondaryQuantity} onChange={(event) => updateItem(index, "secondaryQuantity", event.target.value)} required />
+                      </label>}
+                      {product && <label>
+                        Price basis
+                        <select value={item.pricingUnit} onChange={(event) => updateItem(index, "pricingUnit", event.target.value)}>
+                          <option value="PRIMARY">Per {unit}</option>
+                          {secondaryUnit && <option value="SECONDARY">Per {secondaryUnit.code}</option>}
+                        </select>
+                      </label>}
 
                       <label>
 

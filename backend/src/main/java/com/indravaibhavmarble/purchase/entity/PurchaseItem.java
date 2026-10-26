@@ -27,6 +27,12 @@ public class PurchaseItem {
     @Column(nullable = false, precision = 14, scale = 3)
     private BigDecimal quantity;
 
+    @Column(name = "secondary_quantity", precision = 14, scale = 3)
+    private BigDecimal secondaryQuantity;
+
+    @Column(name = "pricing_unit", nullable = false, length = 10)
+    private String pricingUnit = "PRIMARY";
+
     @Column(name = "purchase_rate", nullable = false, precision = 14, scale = 2)
     private BigDecimal purchaseRate;
 
@@ -61,6 +67,10 @@ public class PurchaseItem {
 
     public BigDecimal getQuantity() { return quantity; }
     public void setQuantity(BigDecimal value) { quantity = value; }
+    public BigDecimal getSecondaryQuantity() { return secondaryQuantity; }
+    public void setSecondaryQuantity(BigDecimal value) { secondaryQuantity = value; }
+    public String getPricingUnit() { return pricingUnit; }
+    public void setPricingUnit(String value) { pricingUnit = value; }
 
     public BigDecimal getPurchaseRate() { return purchaseRate; }
     public void setPurchaseRate(BigDecimal value) { purchaseRate = value; }

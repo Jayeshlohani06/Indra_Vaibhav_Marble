@@ -18,6 +18,7 @@ import {
   getPurchaseBalance,
 } from "../../services/api/paymentApi";
 import CreateProductForm from "./CreateProductForm";
+import { createExpenseCategory, getExpenseCategories } from "../../services/api/expenseApi";
 import "./PurchasesPage.css";
 import { usePermission } from "../../auth/PermissionsContext";
 
@@ -30,6 +31,8 @@ const today = () => {
 const emptyLine = {
   productId: "",
   quantity: "1",
+  secondaryQuantity: "",
+  pricingUnit: "PRIMARY",
   purchaseRate: "0",
   discountAmount: "0",
 };
@@ -59,6 +62,10 @@ function PurchasesPage() {
   const [gstRate, setGstRate] = useState("0");
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState([{ ...emptyLine }]);
+  const [expenseCategories, setExpenseCategories] = useState([]);
+  const [expenses, setExpenses] = useState([]);
+  const [newExpenseCategory, setNewExpenseCategory] = useState("");
+  const [showExpenseCategoryForm, setShowExpenseCategoryForm] = useState(false);
   const [productSearches, setProductSearches] = useState({});
   const [activeProductSearchIndex, setActiveProductSearchIndex] = useState(null);
 
@@ -66,6 +73,7 @@ function PurchasesPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [receivingId, setReceivingId] = useState(null);
+  const [purchaseToReceive, setPurchaseToReceive] = useState(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [paymentPurchase, setPaymentPurchase] = useState(null);
@@ -100,12 +108,14 @@ function PurchasesPage() {
         purchaseData,
         categoryData,
         unitData,
+        expenseCategoryData,
       ] = await Promise.all([
         getSuppliers(),
         getProducts(),
         getPurchases(),
         getCategories(),
         getMeasurementUnits(),
+        getExpenseCategories(),
       ]);
 
       setSuppliers(Array.isArray(supplierData) ? supplierData : []);
@@ -113,6 +123,7 @@ function PurchasesPage() {
       setPurchases(Array.isArray(purchaseData) ? purchaseData : []);
       setCategories(Array.isArray(categoryData) ? categoryData : []);
       setUnits(Array.isArray(unitData) ? unitData : []);
+      setExpenseCategories(Array.isArray(expenseCategoryData) ? expenseCategoryData : []);
     } catch (err) {
       setError(err.message || "Unable to load purchase data.");
     } finally {
@@ -131,12 +142,15 @@ function PurchasesPage() {
 
     const calculatedItems = items.map((item) => {
       const quantity = Number(item.quantity);
+      const secondaryQuantity = Number(item.secondaryQuantity);
       const rate = Number(item.purchaseRate);
       const discount = Number(item.discountAmount);
       const invoiceGstRate = Number(gstRate);
 
+      const billableQuantity = item.pricingUnit === "SECONDARY"
+        ? secondaryQuantity : quantity;
       const gross =
-        quantity > 0 && rate >= 0 ? round2(quantity * rate) : 0;
+        billableQuantity > 0 && rate >= 0 ? round2(billableQuantity * rate) : 0;
 
       const safeDiscount =
         discount >= 0 && discount <= gross ? discount : 0;
@@ -153,6 +167,11 @@ function PurchasesPage() {
     });
 
     const extraDiscount = Math.max(0, Number(invoiceDiscount) || 0);
+    const expensesTotal = expenses.reduce(
+      (sum, expense) => sum + (Number(expense.amount) || 0), 0
+    );
+    const expensesGst = round2(expensesTotal * Number(gstRate || 0) / 100);
+    const totalGst = round2(gstAmount + expensesGst);
 
     return {
       items: calculatedItems,
@@ -160,15 +179,17 @@ function PurchasesPage() {
       lineDiscounts: round2(lineDiscounts),
       invoiceDiscount: round2(extraDiscount),
       totalDiscount: round2(lineDiscounts + extraDiscount),
-      cgstAmount: taxType === "INTRA" ? round2(gstAmount / 2) : 0,
-      sgstAmount: taxType === "INTRA" ? round2(gstAmount / 2) : 0,
-      igstAmount: taxType === "IGST" ? round2(gstAmount) : 0,
-      gstAmount: round2(gstAmount),
+      cgstAmount: taxType === "INTRA" ? round2(totalGst / 2) : 0,
+      sgstAmount: taxType === "INTRA" ? round2(totalGst / 2) : 0,
+      igstAmount: taxType === "IGST" ? round2(totalGst) : 0,
+      gstAmount: totalGst,
+      expensesGst,
+      expensesTotal: round2(expensesTotal),
       totalAmount: round2(
-        subtotal - lineDiscounts - extraDiscount + gstAmount
+        subtotal - lineDiscounts - extraDiscount + totalGst + expensesTotal
       ),
     };
-  }, [gstRate, invoiceDiscount, items, taxType]);
+  }, [expenses, gstRate, invoiceDiscount, items, taxType]);
 
   const filteredPurchases = useMemo(() => {
     const term = purchaseSearch.trim().toLowerCase();
@@ -295,6 +316,7 @@ function PurchasesPage() {
     setGstRate("0");
     setNotes("");
     setItems([{ ...emptyLine }]);
+    setExpenses([]);
     setProductSearches({});
     setActiveProductSearchIndex(null);
     setError("");
@@ -327,11 +349,18 @@ function PurchasesPage() {
     );
     setTaxType(purchase.taxType || "INTRA");
     setGstRate(String(purchase.gstRate ?? purchase.items?.[0]?.gstRate ?? 0));
+    setExpenses((purchase.expenses || []).map((expense) => ({
+      categoryId: String(expense.categoryId),
+      description: expense.description || "",
+      amount: String(expense.amount ?? ""),
+    })));
     setNotes(purchase.notes || "");
     setItems(
       (purchase.items || []).map((item) => ({
         productId: String(item.productId),
         quantity: String(item.quantity ?? ""),
+        secondaryQuantity: String(item.secondaryQuantity ?? ""),
+        pricingUnit: item.pricingUnit || "PRIMARY",
         purchaseRate: String(item.purchaseRate ?? ""),
         discountAmount: String(item.discountAmount ?? "0"),
       }))
@@ -340,6 +369,49 @@ function PurchasesPage() {
     setError("");
     setSuccess("");
     setShowPurchaseForm(true);
+  }
+
+  function addPurchaseExpense() {
+    setExpenses((current) => [
+      ...current,
+      { categoryId: "", description: "", amount: "" },
+    ]);
+  }
+
+  function updatePurchaseExpense(index, field, value) {
+    setExpenses((current) => current.map((expense, expenseIndex) =>
+      expenseIndex === index ? { ...expense, [field]: value } : expense
+    ));
+  }
+
+  function removePurchaseExpense(index) {
+    setExpenses((current) => current.filter((_, expenseIndex) => expenseIndex !== index));
+  }
+
+  async function addPurchaseExpenseCategory() {
+    const name = newExpenseCategory.trim();
+    if (!name) {
+      setError("Enter an expense category name first.");
+      return;
+    }
+    try {
+      const created = await createExpenseCategory({
+        name,
+        categoryType: "OPERATING",
+      });
+      setExpenseCategories((current) =>
+        [...current, created].sort((a, b) => a.name.localeCompare(b.name))
+      );
+      setExpenses((current) => current.map((expense, index) =>
+        index === current.length - 1
+          ? { ...expense, categoryId: String(created.id), description: created.name }
+          : expense
+      ));
+      setNewExpenseCategory("");
+      setShowExpenseCategoryForm(false);
+    } catch (err) {
+      setError(err.message || "Unable to create expense category.");
+    }
   }
 
   async function handleProductCreated(product, settingsSaved) {
@@ -425,6 +497,16 @@ function PurchasesPage() {
       return;
     }
 
+    if (expenses.some(
+      (expense) =>
+        !expense.categoryId ||
+        !Number.isFinite(Number(expense.amount)) ||
+        Number(expense.amount) <= 0
+    )) {
+      setError("Select an expense category and enter a positive amount for every charge.");
+      return;
+    }
+
     if (
       calculations.items.some(
         (item) => Number(item.discountAmount) > item.gross
@@ -453,10 +535,17 @@ function PurchasesPage() {
       discountAmount: Number(invoiceDiscount),
       taxType,
       gstRate: Number(gstRate),
+      expenses: expenses.map((expense) => ({
+        categoryId: Number(expense.categoryId),
+        description: expense.description.trim() || null,
+        amount: Number(expense.amount),
+      })),
       notes: notes.trim() || null,
       items: items.map((item) => ({
         productId: Number(item.productId),
         quantity: Number(item.quantity),
+        secondaryQuantity: item.secondaryQuantity === "" ? null : Number(item.secondaryQuantity),
+        pricingUnit: item.pricingUnit || "PRIMARY",
         purchaseRate: Number(item.purchaseRate),
         discountAmount: Number(item.discountAmount),
       })),
@@ -487,12 +576,6 @@ function PurchasesPage() {
   }
 
   async function handleReceivePurchase(purchase) {
-    const confirmed = window.confirm(
-      `Receive purchase ${purchase.purchaseNumber}? This will add its quantities to inventory.`
-    );
-
-    if (!confirmed) return;
-
     setReceivingId(purchase.id);
     setError("");
     setSuccess("");
@@ -902,6 +985,24 @@ function PurchasesPage() {
                           required
                         />
                       </label>
+                      {product?.secondaryUnitId && <label>
+                        {units.find((unit) => Number(unit.id) === Number(product.secondaryUnitId))?.code || "Secondary quantity"}
+                        <input
+                          type="number"
+                          min="0.001"
+                          step="0.001"
+                          value={item.secondaryQuantity}
+                          onChange={(event) => updateItem(index, "secondaryQuantity", event.target.value)}
+                          required
+                        />
+                      </label>}
+                      <label>
+                        Price basis
+                        <select value={item.pricingUnit} onChange={(event) => updateItem(index, "pricingUnit", event.target.value)}>
+                          <option value="PRIMARY">Primary unit</option>
+                          {product?.secondaryUnitId && <option value="SECONDARY">Secondary unit</option>}
+                        </select>
+                      </label>
 
                       <label>
                         Rate (₹)
@@ -958,6 +1059,37 @@ function PurchasesPage() {
               </div>
             )}
 
+            <div className="purchase-section-heading purchase-items-heading">
+              <div>
+                <h3>Additional purchase charges</h3>
+                <p>Record labour, transport, loading, or other supplier-side costs.</p>
+              </div>
+              {canManagePurchases && <button type="button" className="purchase-secondary-button" onClick={addPurchaseExpense}>+ Add charge</button>}
+            </div>
+            {expenses.length > 0 && <div className="purchase-expenses-list">
+              {expenses.map((expense, index) => (
+                <div className="purchase-expense-row" key={`${index}-${expense.categoryId}`}>
+                  <select value={expense.categoryId} onChange={(event) => {
+                    const selected = expenseCategories.find((category) => String(category.id) === event.target.value);
+                    updatePurchaseExpense(index, "categoryId", event.target.value);
+                    if (selected && !expense.description) updatePurchaseExpense(index, "description", selected.name);
+                  }} required>
+                    <option value="">Select charge category</option>
+                    {expenseCategories.filter((category) => category.active !== false && category.isActive !== false).map((category) => (
+                      <option key={category.id} value={category.id}>{category.name}</option>
+                    ))}
+                  </select>
+                  <input value={expense.description} onChange={(event) => updatePurchaseExpense(index, "description", event.target.value)} placeholder="Description (optional)" maxLength={100} />
+                  <input type="number" min="0.01" step="0.01" value={expense.amount} onChange={(event) => updatePurchaseExpense(index, "amount", event.target.value)} placeholder="Amount" required />
+                  <button type="button" className="purchase-icon-button" onClick={() => removePurchaseExpense(index)} aria-label="Remove charge">×</button>
+                </div>
+              ))}
+              <div className="purchase-inline-category">
+                <button type="button" className="purchase-secondary-button" onClick={() => setShowExpenseCategoryForm((current) => !current)}>+ Add charge category</button>
+                {showExpenseCategoryForm && <div className="purchase-reference-creator"><input value={newExpenseCategory} onChange={(event) => setNewExpenseCategory(event.target.value)} placeholder="New expense category" maxLength={100} /><button type="button" className="purchase-secondary-button" onClick={addPurchaseExpenseCategory}>Create</button></div>}
+              </div>
+            </div>}
+
             <div className="purchase-bottom-grid">
               <div className="purchase-note">
                 <strong>Draft purchase</strong>
@@ -995,6 +1127,10 @@ function PurchasesPage() {
                 <div>
                   <span>Total GST</span>
                   <strong>{money(calculations.gstAmount)}</strong>
+                </div>
+                <div>
+                  <span>Additional charges (including GST)</span>
+                  <strong>{money(calculations.expensesTotal + calculations.expensesGst)}</strong>
                 </div>
                 <div className="purchase-grand-total">
                   <span>Invoice total</span>
@@ -1103,7 +1239,7 @@ function PurchasesPage() {
                                 <button type="button" className="purchase-secondary-button" onClick={() => openEditPurchaseForm(purchase)}>
                                   Edit
                                 </button>
-                                <button type="button" className="purchase-primary-button" disabled={receivingId !== null} onClick={() => handleReceivePurchase(purchase)}>
+                                <button type="button" className="purchase-primary-button" disabled={receivingId !== null} onClick={() => setPurchaseToReceive(purchase)}>
                                   {receivingId === purchase.id ? "Receiving..." : "Receive"}
                                 </button>
                               </>
@@ -1328,15 +1464,21 @@ function PurchasesPage() {
               <div><span>CGST</span><strong>{money(detailsPurchase.cgstAmount)}</strong></div>
               <div><span>SGST</span><strong>{money(detailsPurchase.sgstAmount)}</strong></div>
               <div><span>IGST</span><strong>{money(detailsPurchase.igstAmount)}</strong></div>
-              <div><span>Total GST</span><strong>{money(detailsPurchase.gstAmount)}</strong></div>
+               <div><span>Total GST</span><strong>{money(detailsPurchase.gstAmount)}</strong></div>
+               <div><span>Additional charges (including GST)</span><strong>{money(
+                 (detailsPurchase.expensesTotal
+                   || detailsPurchase.expenses?.reduce((sum, expense) => sum + Number(expense.amount || 0), 0)
+                   || 0) + Number(detailsPurchase.expenseGstAmount || 0)
+               )}</strong></div>
               <div><span>Total</span><strong>{money(detailsPurchase.totalAmount)}</strong></div>
             </div>
             <div className="purchase-detail-items">
               <h3>Items</h3>
               {detailsPurchase.items?.map((item) => <div className="purchase-detail-item" key={item.id}><span>{item.productName}<small>{item.productCode}</small></span><span>{item.quantity} × {money(item.purchaseRate)}</span><strong>{money(item.lineTotal)}</strong></div>)}
+              {detailsPurchase.expenses?.map((expense) => <div className="purchase-detail-item" key={`expense-${expense.id}`}><span>{expense.description}</span><strong>{money(expense.amount)}</strong></div>)}
             </div>
             <div className="purchase-form-actions">
-              {canManagePurchases && detailsPurchase.status === "DRAFT" && <><button type="button" className="purchase-secondary-button" onClick={() => openEditPurchaseForm(detailsPurchase)}>Edit purchase</button><button type="button" className="purchase-primary-button" onClick={() => { setDetailsPurchase(null); handleReceivePurchase(detailsPurchase); }}>Receive purchase</button></>}
+              {canManagePurchases && detailsPurchase.status === "DRAFT" && <><button type="button" className="purchase-secondary-button" onClick={() => openEditPurchaseForm(detailsPurchase)}>Edit purchase</button><button type="button" className="purchase-primary-button" onClick={() => { setDetailsPurchase(null); setPurchaseToReceive(detailsPurchase); }}>Receive purchase</button></>}
               {canManagePurchases && detailsPurchase.status === "RECEIVED" && <button type="button" className="purchase-secondary-button" onClick={() => { setDetailsPurchase(null); openPaymentPanel(detailsPurchase); }}>Open payments</button>}
             </div>
           </section>
@@ -1350,6 +1492,59 @@ function PurchasesPage() {
           onClose={() => setCreateProductForIndex(null)}
           onCreated={handleProductCreated}
         />
+      )}
+
+      {purchaseToReceive && (
+        <div
+          className="purchase-modal-backdrop purchase-confirm-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && receivingId === null) {
+              setPurchaseToReceive(null);
+            }
+          }}
+        >
+          <section
+            className="purchase-modal purchase-confirm-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="receive-purchase-title"
+          >
+            <div className="purchase-confirm-icon" aria-hidden="true">!</div>
+            <div>
+              <p className="purchases-eyebrow">RECEIVE PURCHASE</p>
+              <h2 id="receive-purchase-title">Add purchase to inventory?</h2>
+              <p className="purchase-confirm-message">
+                Receive <strong>{purchaseToReceive.purchaseNumber}</strong> and add
+                its quantities to inventory?
+              </p>
+              <p className="purchase-confirm-note">
+                This action updates stock and cannot be repeated for the same purchase.
+              </p>
+            </div>
+            <div className="purchase-form-actions purchase-confirm-actions">
+              <button
+                type="button"
+                className="purchase-secondary-button"
+                disabled={receivingId !== null}
+                onClick={() => setPurchaseToReceive(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="purchase-primary-button"
+                disabled={receivingId !== null}
+                onClick={() => {
+                  const purchase = purchaseToReceive;
+                  setPurchaseToReceive(null);
+                  handleReceivePurchase(purchase);
+                }}
+              >
+                {receivingId !== null ? "Receiving..." : "Receive purchase"}
+              </button>
+            </div>
+          </section>
+        </div>
       )}
     </section>
   );

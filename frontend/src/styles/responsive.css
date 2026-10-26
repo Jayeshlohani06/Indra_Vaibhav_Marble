@@ -4,3 +4,101 @@
     --sidebar-width: 0px;
   }
 }
+
+@media (max-width: 700px) {
+  .erp-content > * {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .inventory-page,
+  .expenses-page,
+  .reports-page,
+  .purchases-page,
+  .sales-orders-page,
+  .stock-movements-page,
+  .suppliers-page,
+  .users-page {
+    padding-right: 0;
+    padding-left: 0;
+  }
+
+  .inventory-header,
+  .customers-heading,
+  .expenses-page__header,
+  .reports-header,
+  .purchases-header,
+  .sales-orders-header,
+  .stock-movements-header,
+  .suppliers-header,
+  .users-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .inventory-header > div:last-child,
+  .customers-heading > div:last-child,
+  .expenses-actions,
+  .reports-header-actions,
+  .purchases-header-actions,
+  .sales-orders-header-actions,
+  .stock-movements-header-actions,
+  .suppliers-header-actions,
+  .users-header-actions {
+    width: 100%;
+  }
+
+  .inventory-header button,
+  .customers-heading button,
+  .expenses-actions button,
+  .reports-header-actions button,
+  .purchases-header-actions button,
+  .sales-orders-header-actions button,
+  .stock-movements-header-actions button,
+  .suppliers-header-actions button,
+  .users-header-actions button {
+    flex: 1 1 auto;
+  }
+
+  .inventory-table-wrapper,
+  .stock-history-table-wrapper,
+  .customers-table-wrap,
+  .expenses-table-wrapper,
+  .reports-table-wrap,
+  .purchase-table-scroll,
+  .sales-orders-table-wrapper,
+  .stock-movements-table-wrapper,
+  .supplier-table-scroll,
+  .users-table-wrap {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .inventory-table-wrapper > table,
+  .stock-history-table-wrapper > table,
+  .customers-table-wrap > table,
+  .expenses-table-wrapper > table,
+  .reports-table-wrap > table,
+  .purchase-table-scroll > table,
+  .sales-orders-table-wrapper > table,
+  .stock-movements-table-wrapper > table,
+  .supplier-table-scroll > table,
+  .users-table-wrap > table {
+    min-width: 640px;
+  }
+
+  .inventory-modal-backdrop {
+    align-items: flex-end;
+    padding: 8px;
+  }
+
+  .inventory-modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: calc(100vh - 16px);
+    padding: 18px;
+    border-radius: 14px;
+  }
+}

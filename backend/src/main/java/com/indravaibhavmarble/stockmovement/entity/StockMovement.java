@@ -28,11 +28,20 @@ public class StockMovement {
     @Column(name = "quantity_change", nullable = false, precision = 14, scale = 3)
     private BigDecimal quantityChange;
 
+    @Column(name = "secondary_quantity_change", precision = 14, scale = 3)
+    private BigDecimal secondaryQuantityChange;
+
     @Column(name = "stock_before", nullable = false, precision = 14, scale = 3)
     private BigDecimal stockBefore;
 
     @Column(name = "stock_after", nullable = false, precision = 14, scale = 3)
     private BigDecimal stockAfter;
+
+    @Column(name = "secondary_stock_before", precision = 14, scale = 3)
+    private BigDecimal secondaryStockBefore;
+
+    @Column(name = "secondary_stock_after", precision = 14, scale = 3)
+    private BigDecimal secondaryStockAfter;
 
     @Column(name = "reference_type", length = 30)
     private String referenceType;
@@ -92,6 +101,12 @@ public class StockMovement {
     public BigDecimal getQuantityChange() {
         return quantityChange;
     }
+    public BigDecimal getSecondaryQuantityChange() { return secondaryQuantityChange; }
+    public void setSecondaryQuantityChange(BigDecimal value) { secondaryQuantityChange = value; }
+    public BigDecimal getSecondaryStockBefore() { return secondaryStockBefore; }
+    public void setSecondaryStockBefore(BigDecimal value) { secondaryStockBefore = value; }
+    public BigDecimal getSecondaryStockAfter() { return secondaryStockAfter; }
+    public void setSecondaryStockAfter(BigDecimal value) { secondaryStockAfter = value; }
 
     public BigDecimal getStockBefore() {
         return stockBefore;

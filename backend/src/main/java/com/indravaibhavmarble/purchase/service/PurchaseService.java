@@ -13,8 +13,12 @@ import com.indravaibhavmarble.purchase.dto.PurchaseRequest;
 import com.indravaibhavmarble.purchase.dto.PurchaseResponse;
 import com.indravaibhavmarble.purchase.entity.Purchase;
 import com.indravaibhavmarble.purchase.entity.PurchaseItem;
+import com.indravaibhavmarble.purchase.entity.PurchaseExpense;
 import com.indravaibhavmarble.purchase.repository.PurchaseItemRepository;
+import com.indravaibhavmarble.purchase.repository.PurchaseExpenseRepository;
 import com.indravaibhavmarble.purchase.repository.PurchaseRepository;
+import com.indravaibhavmarble.expense.entity.ExpenseCategory;
+import com.indravaibhavmarble.expense.repository.ExpenseCategoryRepository;
 import com.indravaibhavmarble.supplier.entity.Supplier;
 import com.indravaibhavmarble.supplier.repository.SupplierRepository;
 
@@ -26,16 +30,20 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @Transactional
 public class PurchaseService {
+    private record DualQuantities(BigDecimal primary, BigDecimal secondary) {}
 
     private static final BigDecimal ZERO = new BigDecimal("0.00");
     private static final BigDecimal HUNDRED = new BigDecimal("100");
 
     private final PurchaseRepository purchaseRepository;
     private final PurchaseItemRepository itemRepository;
+    private final PurchaseExpenseRepository purchaseExpenseRepository;
+    private final ExpenseCategoryRepository expenseCategoryRepository;
     private final SupplierRepository supplierRepository;
     private final ProductRepository productRepository;
     private final ProductInventorySettingRepository settingRepository;
@@ -45,6 +53,8 @@ public class PurchaseService {
     public PurchaseService(
             PurchaseRepository purchaseRepository,
             PurchaseItemRepository itemRepository,
+            PurchaseExpenseRepository purchaseExpenseRepository,
+            ExpenseCategoryRepository expenseCategoryRepository,
             SupplierRepository supplierRepository,
             ProductRepository productRepository,
             ProductInventorySettingRepository settingRepository,
@@ -52,6 +62,8 @@ public class PurchaseService {
             StockMovementService stockMovementService) {
         this.purchaseRepository = purchaseRepository;
         this.itemRepository = itemRepository;
+        this.purchaseExpenseRepository = purchaseExpenseRepository;
+        this.expenseCategoryRepository = expenseCategoryRepository;
         this.supplierRepository = supplierRepository;
         this.productRepository = productRepository;
         this.settingRepository = settingRepository;
@@ -108,6 +120,9 @@ public class PurchaseService {
             }
 
             BigDecimal quantity = line.quantity();
+            DualQuantities quantities = resolveQuantities(product, quantity,
+                    line.secondaryQuantity());
+            quantity = quantities.primary();
             BigDecimal rate = money(line.purchaseRate());
             BigDecimal discount = money(
                     line.discountAmount() == null
@@ -119,7 +134,9 @@ public class PurchaseService {
 
             validateLine(quantity, rate, discount, gstRate);
 
-            BigDecimal gross = quantity.multiply(rate)
+            BigDecimal billableQuantity = "SECONDARY".equalsIgnoreCase(
+                    line.pricingUnit()) ? quantities.secondary() : quantity;
+            BigDecimal gross = billableQuantity.multiply(rate)
                     .setScale(2, RoundingMode.HALF_UP);
 
             if (discount.compareTo(gross) > 0) {
@@ -139,6 +156,8 @@ public class PurchaseService {
             item.setProductCode(product.getProductCode());
             item.setProductName(product.getName());
             item.setQuantity(quantity);
+            item.setSecondaryQuantity(quantities.secondary());
+            item.setPricingUnit(normalizePricingUnit(line.pricingUnit()));
             item.setPurchaseRate(rate);
             item.setDiscountAmount(discount);
             item.setGstRate(gstRate);
@@ -168,7 +187,13 @@ public class PurchaseService {
         BigDecimal totalDiscount =
                 itemDiscountTotal.add(invoiceDiscount);
 
-        BigDecimal total = subtotal.subtract(totalDiscount).add(gstTotal);
+        BigDecimal expenseAmount = expenseTotal(request.expenses());
+        BigDecimal expenseGst = expenseGstTotal(
+                request.expenses(), invoiceGstRate);
+        gstTotal = gstTotal.add(expenseGst);
+        BigDecimal total = subtotal.subtract(totalDiscount)
+                .add(gstTotal)
+                .add(expenseAmount);
 
         purchase.setSubtotal(subtotal);
         purchase.setDiscountAmount(totalDiscount);
@@ -183,6 +208,7 @@ public class PurchaseService {
         }
 
         itemRepository.saveAll(items);
+        savePurchaseExpenses(savedPurchase.getId(), request.expenses());
 
         return toResponse(savedPurchase, supplier.getName(), items);
     }
@@ -271,6 +297,9 @@ public class PurchaseService {
             }
 
             BigDecimal quantity = line.quantity();
+            DualQuantities quantities = resolveQuantities(product, quantity,
+                    line.secondaryQuantity());
+            quantity = quantities.primary();
             BigDecimal rate = money(line.purchaseRate());
             BigDecimal discount = money(line.discountAmount());
             BigDecimal gstRate = request.gstRate() == null
@@ -279,7 +308,9 @@ public class PurchaseService {
                     : invoiceGstRate;
             validateLine(quantity, rate, discount, gstRate);
 
-            BigDecimal gross = quantity.multiply(rate)
+            BigDecimal billableQuantity = "SECONDARY".equalsIgnoreCase(
+                    line.pricingUnit()) ? quantities.secondary() : quantity;
+            BigDecimal gross = billableQuantity.multiply(rate)
                     .setScale(2, RoundingMode.HALF_UP);
             if (discount.compareTo(gross) > 0) {
                 throw new IllegalArgumentException(
@@ -295,6 +326,8 @@ public class PurchaseService {
             item.setProductCode(product.getProductCode());
             item.setProductName(product.getName());
             item.setQuantity(quantity);
+            item.setSecondaryQuantity(quantities.secondary());
+            item.setPricingUnit(normalizePricingUnit(line.pricingUnit()));
             item.setPurchaseRate(rate);
             item.setDiscountAmount(discount);
             item.setGstRate(gstRate);
@@ -323,14 +356,20 @@ public class PurchaseService {
         purchase.setNotes(normalize(request.notes()));
         purchase.setSubtotal(subtotal);
         purchase.setDiscountAmount(itemDiscountTotal.add(invoiceDiscount));
-        purchase.setGstAmount(gstTotal);
+        BigDecimal expenseAmount = expenseTotal(request.expenses());
+        BigDecimal expenseGst = expenseGstTotal(
+                request.expenses(), invoiceGstRate);
+        purchase.setGstAmount(gstTotal.add(expenseGst));
         purchase.setTotalAmount(
                 subtotal.subtract(itemDiscountTotal.add(invoiceDiscount))
-                        .add(gstTotal));
+                        .add(gstTotal)
+                        .add(expenseAmount));
 
         purchaseRepository.save(purchase);
         itemRepository.deleteByPurchaseId(purchaseId);
         itemRepository.saveAll(items);
+        purchaseExpenseRepository.deleteByPurchaseId(purchaseId);
+        savePurchaseExpenses(purchaseId, request.expenses());
 
         return toResponse(purchase, supplier.getName(), items);
     }
@@ -400,6 +439,7 @@ public class PurchaseService {
                                     ? purchase.getPurchaseNumber()
                                     : purchase.getSupplierInvoiceNumber())
             );
+            movement.setSecondaryQuantityChange(item.getSecondaryQuantity());
 
             stockMovementService.recordMovement(movement);
         }
@@ -429,12 +469,33 @@ public class PurchaseService {
                                         item.getProductCode(),
                                         item.getProductName(),
                                         item.getQuantity(),
+                                        item.getSecondaryQuantity(),
+                                        item.getPricingUnit(),
                                         item.getPurchaseRate(),
                                         item.getDiscountAmount(),
                                         item.getGstRate(),
                                         item.getGstAmount(),
                                         item.getLineTotal()))
                         .toList();
+        List<PurchaseExpense> purchaseExpenses =
+                purchaseExpenseRepository.findByPurchaseIdOrderByIdAsc(
+                        purchase.getId());
+        List<PurchaseResponse.PurchaseExpenseResponse> expenseResponses =
+                purchaseExpenses.stream()
+                        .map(expense -> new PurchaseResponse.PurchaseExpenseResponse(
+                                expense.getId(),
+                                expense.getCategoryId(),
+                                expense.getDescription(),
+                                expense.getAmount()))
+                        .toList();
+        BigDecimal purchaseExpenseAmount = purchaseExpenses.stream()
+                .map(PurchaseExpense::getAmount)
+                .reduce(ZERO, BigDecimal::add);
+        BigDecimal normalizedTotal = purchase.getSubtotal()
+                .subtract(purchase.getDiscountAmount())
+                .add(purchase.getGstAmount())
+                .add(purchaseExpenseAmount)
+                .setScale(2, RoundingMode.HALF_UP);
 
         return new PurchaseResponse(
                 purchase.getId(),
@@ -457,10 +518,20 @@ public class PurchaseService {
                         : ZERO,
                 "IGST".equals(purchase.getTaxType())
                         ? purchase.getGstAmount() : ZERO,
-                purchase.getTotalAmount(),
+                expenseGstTotal(
+                        purchaseExpenseRepository.findByPurchaseIdOrderByIdAsc(
+                                purchase.getId()).stream()
+                                .map(expense -> new PurchaseRequest.PurchaseExpenseRequest(
+                                        expense.getCategoryId(),
+                                        expense.getDescription(),
+                                        expense.getAmount()))
+                                .toList(),
+                        purchase.getGstRate()),
+                normalizedTotal,
                 purchase.getNotes(),
                 purchase.getCreatedAt(),
-                itemResponses);
+                itemResponses,
+                expenseResponses);
     }
 
     private void validateRequest(PurchaseRequest request) {
@@ -487,6 +558,116 @@ public class PurchaseService {
             throw new IllegalArgumentException(
                     "Every item must have a product");
         }
+
+        validatePurchaseExpenses(request.expenses());
+    }
+
+    private DualQuantities resolveQuantities(
+            Product product,
+            BigDecimal primary,
+            BigDecimal secondary) {
+        boolean hasSecondary = product.getSecondaryUnitId() != null;
+        if (!hasSecondary) {
+            if (primary == null || primary.signum() <= 0) {
+                throw new IllegalArgumentException("Quantity must be greater than zero");
+            }
+            return new DualQuantities(primary, null);
+        }
+        BigDecimal resolvedPrimary = primary;
+        BigDecimal resolvedSecondary = secondary;
+        BigDecimal conversion = product.getSecondaryPerPrimary();
+        if (resolvedPrimary == null && resolvedSecondary != null && conversion != null) {
+            resolvedPrimary = resolvedSecondary.divide(conversion, 3, RoundingMode.HALF_UP);
+        }
+        if (resolvedSecondary == null && resolvedPrimary != null && conversion != null) {
+            resolvedSecondary = resolvedPrimary.multiply(conversion)
+                    .setScale(3, RoundingMode.HALF_UP);
+        }
+        if (resolvedPrimary == null || resolvedSecondary == null
+                || resolvedPrimary.signum() <= 0 || resolvedSecondary.signum() <= 0) {
+            throw new IllegalArgumentException(
+                    "Both primary and secondary quantities are required for "
+                            + product.getName());
+        }
+        return new DualQuantities(resolvedPrimary, resolvedSecondary);
+    }
+
+    private String normalizePricingUnit(String pricingUnit) {
+        String normalized = normalize(pricingUnit);
+        if (normalized == null) return "PRIMARY";
+        normalized = normalized.toUpperCase(Locale.ROOT);
+        if (!normalized.equals("PRIMARY") && !normalized.equals("SECONDARY")) {
+            throw new IllegalArgumentException("Pricing unit must be PRIMARY or SECONDARY");
+        }
+        return normalized;
+    }
+
+    private BigDecimal expenseTotal(
+            List<PurchaseRequest.PurchaseExpenseRequest> expenses) {
+        if (expenses == null) {
+            return ZERO;
+        }
+        return expenses.stream()
+                .map(expense -> money(expense.amount()))
+                .reduce(ZERO, BigDecimal::add);
+    }
+
+    private BigDecimal expenseGstTotal(
+            List<PurchaseRequest.PurchaseExpenseRequest> expenses,
+            BigDecimal gstRate) {
+        return expenseTotal(expenses).multiply(money(gstRate))
+                .divide(HUNDRED, 2, RoundingMode.HALF_UP);
+    }
+
+    private void validatePurchaseExpenses(
+            List<PurchaseRequest.PurchaseExpenseRequest> expenses) {
+        if (expenses == null) {
+            return;
+        }
+        if (expenses.size() > 30) {
+            throw new IllegalArgumentException(
+                    "A purchase cannot contain more than 30 additional expenses");
+        }
+        for (PurchaseRequest.PurchaseExpenseRequest expense : expenses) {
+            if (expense == null || expense.categoryId() == null) {
+                throw new IllegalArgumentException(
+                        "Every purchase expense needs a category");
+            }
+            if (expense.amount() == null
+                    || expense.amount().signum() <= 0) {
+                throw new IllegalArgumentException(
+                        "Purchase expense amount must be greater than zero");
+            }
+            expenseCategoryRepository.findById(expense.categoryId())
+                    .filter(ExpenseCategory::isActive)
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Active expense category not found"));
+        }
+    }
+
+    private void savePurchaseExpenses(
+            Long purchaseId,
+            List<PurchaseRequest.PurchaseExpenseRequest> expenses) {
+        if (expenses == null) {
+            return;
+        }
+        List<PurchaseExpense> entities = expenses.stream()
+                .map(expense -> {
+                    PurchaseExpense entity = new PurchaseExpense();
+                    entity.setPurchaseId(purchaseId);
+                    entity.setCategoryId(expense.categoryId());
+                    entity.setDescription(
+                            normalize(expense.description()) == null
+                                    ? expenseCategoryRepository.findById(
+                                            expense.categoryId())
+                                    .map(ExpenseCategory::getName)
+                                    .orElse("Purchase expense")
+                                    : normalize(expense.description()));
+                    entity.setAmount(money(expense.amount()));
+                    return entity;
+                })
+                .toList();
+        purchaseExpenseRepository.saveAll(entities);
     }
 
     private void validateLine(
