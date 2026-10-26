@@ -1,6 +1,8 @@
 
 package com.indravaibhavmarble.salesorder.service;
 
+import com.indravaibhavmarble.common.time.BusinessDate;
+
 import com.indravaibhavmarble.category.entity.ProductCategory;
 import com.indravaibhavmarble.category.repository.ProductCategoryRepository;
 import com.indravaibhavmarble.customer.entity.Customer;
@@ -33,7 +35,11 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 public class SalesOrderService {
@@ -105,7 +111,7 @@ public class SalesOrderService {
         order.setOrderNumber(generateOrderNumber());
         order.setCustomerId(customer.getId());
         order.setOrderDate(request.orderDate() == null
-                ? LocalDate.now()
+                ? BusinessDate.today()
                 : request.orderDate());
         order.setStatus("CONFIRMED");
         order.setTaxType(taxType);
@@ -340,17 +346,45 @@ if (itemRequest.unitPrice() != null
 
     @Transactional(readOnly = true)
     public List<SalesOrderResponse> getAllOrders() {
-        return orderRepository.findAllByOrderByCreatedAtDesc()
+        List<SalesOrder> orders = orderRepository.findAllByOrderByCreatedAtDesc();
+        if (orders.isEmpty()) {
+            return List.of();
+        }
+
+        // Load related rows in bulk instead of three queries per order.
+        List<Long> orderIds = orders.stream().map(SalesOrder::getId).toList();
+
+        Map<Long, Customer> customersById = customerRepository
+                .findAllById(orders.stream()
+                        .map(SalesOrder::getCustomerId)
+                        .distinct()
+                        .toList())
                 .stream()
+                .collect(Collectors.toMap(Customer::getId, Function.identity()));
+
+        Map<Long, List<SalesOrderItem>> itemsByOrder = itemRepository
+                .findBySalesOrderIdInOrderByIdAsc(orderIds)
+                .stream()
+                .collect(Collectors.groupingBy(SalesOrderItem::getSalesOrderId));
+
+        Map<Long, List<SalesOrderCharge>> chargesByOrder = chargeRepository
+                .findBySalesOrderIdInOrderByIdAsc(orderIds)
+                .stream()
+                .collect(Collectors.groupingBy(SalesOrderCharge::getSalesOrderId));
+
+        return orders.stream()
                 .map(order -> {
-                    Customer customer = customerRepository.findById(
-                            order.getCustomerId()).orElseThrow();
+                    Customer customer = customersById.get(order.getCustomerId());
+                    if (customer == null) {
+                        throw new NoSuchElementException(
+                                "Customer not found: " + order.getCustomerId());
+                    }
 
                     return toResponse(
                             order,
                             customer,
-                            itemRepository.findBySalesOrderId(order.getId()),
-                            chargeRepository.findBySalesOrderId(order.getId()));
+                            itemsByOrder.getOrDefault(order.getId(), List.of()),
+                            chargesByOrder.getOrDefault(order.getId(), List.of()));
                 })
                 .toList();
     }
@@ -409,7 +443,7 @@ if (itemRequest.unitPrice() != null
     }
 
     private String generateOrderNumber() {
-        String date = LocalDate.now().format(
+        String date = BusinessDate.today().format(
                 DateTimeFormatter.ofPattern("yyyyMMdd"));
 
         return "SO-" + date + "-"

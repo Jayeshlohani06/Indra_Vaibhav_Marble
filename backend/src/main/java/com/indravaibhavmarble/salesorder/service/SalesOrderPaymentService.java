@@ -1,5 +1,7 @@
 package com.indravaibhavmarble.salesorder.service;
 
+import com.indravaibhavmarble.common.time.BusinessDate;
+
 import com.indravaibhavmarble.customer.repository.CustomerRepository;
 import com.indravaibhavmarble.salesorder.dto.*;
 import com.indravaibhavmarble.salesorder.entity.SalesOrderPayment;
@@ -31,7 +33,7 @@ public class SalesOrderPaymentService {
     @Transactional
     public SalesOrderPaymentResponse recordPayment(Long orderId,
             SalesOrderPaymentRequest request) {
-        if (request.paymentDate().isAfter(LocalDate.now())) {
+        if (request.paymentDate().isAfter(BusinessDate.today())) {
             throw new IllegalArgumentException("Payment date cannot be in the future.");
         }
         if (request.amount().scale() > 2) {
@@ -41,7 +43,8 @@ public class SalesOrderPaymentService {
         if (!METHODS.contains(method)) {
             throw new IllegalArgumentException("Payment method is not supported.");
         }
-        var order = orderRepository.findById(orderId)
+        // Lock the order so concurrent payments cannot exceed the balance.
+        var order = orderRepository.findByIdForUpdate(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Sales order not found: " + orderId));
         if ("CANCELLED".equals(order.getStatus())) {
             throw new IllegalArgumentException("Payments cannot be recorded for a cancelled order.");

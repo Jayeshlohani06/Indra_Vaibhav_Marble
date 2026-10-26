@@ -1,8 +1,12 @@
 
+// The localhost fallback is for development only; production builds must set
+// VITE_API_BASE_URL (vite.config.js fails the build otherwise).
 const API_BASE_URL = (
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8081"
+  import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.DEV ? "http://localhost:8081" : "")
 ).replace(/\/+$/, "");
-const REQUEST_TIMEOUT_MS = 30000;
+// Long enough for the server to wake from a cold start.
+const REQUEST_TIMEOUT_MS = 90000;
 
 const AUTH_TOKEN_KEY = "indra-vaibhav-auth-token";
 let authToken = sessionStorage.getItem(AUTH_TOKEN_KEY);
@@ -36,6 +40,18 @@ async function request(endpoint, options = {}) {
       headers,
       signal: options.signal || controller.signal,
     });
+  } catch (err) {
+    if (err?.name === "AbortError") {
+      throw new Error(
+        "The server took too long to respond. It may be starting up. " +
+          "If you were saving something, refresh and check whether it was saved before trying again.",
+        { cause: err }
+      );
+    }
+    throw new Error(
+      "Unable to reach the server. Check your internet connection and try again.",
+      { cause: err }
+    );
   } finally {
     window.clearTimeout(timeout);
   }
@@ -47,7 +63,9 @@ async function request(endpoint, options = {}) {
     try {
       data = JSON.parse(responseText);
     } catch {
-      data = { message: responseText };
+      // Proxy error pages (e.g. 502) are HTML; never show them as a message.
+      const isHtml = /^\s*</.test(responseText);
+      data = isHtml ? null : { message: responseText };
     }
   }
 

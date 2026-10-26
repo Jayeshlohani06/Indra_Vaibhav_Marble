@@ -41,7 +41,7 @@ public class StockMovementController {
     @ResponseStatus(HttpStatus.CREATED)
     public StockMovementResponse recordMovement(
             @RequestBody StockMovement movement) {
-        return stockMovementService.recordMovement(movement);
+        return stockMovementService.recordManualMovement(movement);
     }
 
     @PostMapping("/{movementId}/reverse")

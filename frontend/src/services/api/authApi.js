@@ -17,6 +17,10 @@ export async function login(email, password) {
   return response;
 }
 
+export function getCurrentUser() {
+  return httpClient.get("/api/auth/me");
+}
+
 export function logout() {
   setAuthToken(null);
 }

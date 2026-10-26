@@ -134,6 +134,14 @@ function CreateProductForm({ onClose, onCreated }) {
       setError("Product name is required.");
       return;
     }
+    // Number("") is 0, so a cleared field would otherwise save as ₹0.
+    if (
+      [form.purchasePrice, form.sellingPrice, form.gstRate]
+        .some((value) => String(value ?? "").trim() === "")
+    ) {
+      setError("Enter the purchase price, selling price, and GST rate.");
+      return;
+    }
     if (!product.categoryId || !product.unitId) {
       setError("Select a category and measurement unit.");
       return;

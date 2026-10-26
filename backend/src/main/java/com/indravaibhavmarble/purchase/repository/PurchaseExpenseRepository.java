@@ -8,5 +8,7 @@ import java.util.List;
 public interface PurchaseExpenseRepository
         extends JpaRepository<PurchaseExpense, Long> {
     List<PurchaseExpense> findByPurchaseIdOrderByIdAsc(Long purchaseId);
+
+    List<PurchaseExpense> findByPurchaseIdInOrderByIdAsc(List<Long> purchaseIds);
     void deleteByPurchaseId(Long purchaseId);
 }

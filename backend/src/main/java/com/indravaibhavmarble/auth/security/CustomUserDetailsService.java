@@ -45,11 +45,11 @@ public class CustomUserDetailsService implements UserDetailsService {
             }
         }
 
-        return org.springframework.security.core.userdetails.User
-                .withUsername(appUser.getEmail())
-                .password(appUser.getPasswordHash())
-                .authorities(authorities)
-                .disabled(!appUser.isActive())
-                .build();
+        return new AppUserDetails(
+                appUser.getEmail(),
+                appUser.getPasswordHash(),
+                appUser.isActive(),
+                authorities,
+                appUser.getPasswordChangedAt());
     }
 }

@@ -1,6 +1,8 @@
 
 package com.indravaibhavmarble.product.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -9,6 +11,7 @@ import java.time.OffsetDateTime;
 @Table(name = "products")
 public class Product {
 
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

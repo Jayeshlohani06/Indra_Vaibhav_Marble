@@ -1,5 +1,7 @@
 
 package com.indravaibhavmarble.purchase.service;
+
+import com.indravaibhavmarble.common.time.BusinessDate;
 import com.indravaibhavmarble.purchase.dto.PurchaseBalanceResponse;
 import com.indravaibhavmarble.purchase.dto.PurchasePaymentRequest;
 import com.indravaibhavmarble.purchase.dto.PurchasePaymentResponse;
@@ -51,7 +53,7 @@ public class PurchasePaymentService {
             throw new IllegalArgumentException("Payment date is required.");
         }
 
-        if (request.paymentDate().isAfter(LocalDate.now())) {
+        if (request.paymentDate().isAfter(BusinessDate.today())) {
             throw new IllegalArgumentException("Payment date cannot be in the future.");
         }
 

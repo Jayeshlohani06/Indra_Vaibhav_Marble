@@ -1,6 +1,8 @@
 
 package com.indravaibhavmarble.purchase.service;
 
+import com.indravaibhavmarble.common.time.BusinessDate;
+
 import com.indravaibhavmarble.inventory.entity.InventoryTrackingType;
 import com.indravaibhavmarble.inventory.entity.ProductInventorySetting;
 import com.indravaibhavmarble.stockmovement.entity.StockMovement;
@@ -31,6 +33,8 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -104,9 +108,9 @@ public class PurchaseService {
 
         BigDecimal subtotal = ZERO;
         BigDecimal itemDiscountTotal = ZERO;
-        BigDecimal gstTotal = ZERO;
 
         List<PurchaseItem> items = new ArrayList<>();
+        List<BigDecimal> taxableAmounts = new ArrayList<>();
 
         for (PurchaseRequest.PurchaseItemRequest line : request.items()) {
             Product product = productRepository.findById(line.productId())
@@ -118,6 +122,7 @@ public class PurchaseService {
                         "Inactive products cannot be purchased: "
                                 + product.getName());
             }
+            rejectSlabTrackedProduct(product);
 
             BigDecimal quantity = line.quantity();
             DualQuantities quantities = resolveQuantities(product, quantity,
@@ -146,11 +151,6 @@ public class PurchaseService {
 
             BigDecimal taxable = gross.subtract(discount);
 
-            BigDecimal gst = taxable.multiply(gstRate)
-                    .divide(HUNDRED, 2, RoundingMode.HALF_UP);
-
-            BigDecimal lineTotal = taxable.add(gst);
-
             PurchaseItem item = new PurchaseItem();
             item.setProductId(product.getId());
             item.setProductCode(product.getProductCode());
@@ -161,13 +161,11 @@ public class PurchaseService {
             item.setPurchaseRate(rate);
             item.setDiscountAmount(discount);
             item.setGstRate(gstRate);
-            item.setGstAmount(gst);
-            item.setLineTotal(lineTotal);
 
             items.add(item);
+            taxableAmounts.add(taxable);
             subtotal = subtotal.add(gross);
             itemDiscountTotal = itemDiscountTotal.add(discount);
-            gstTotal = gstTotal.add(gst);
         }
 
         BigDecimal invoiceDiscount = money(
@@ -186,6 +184,8 @@ public class PurchaseService {
 
         BigDecimal totalDiscount =
                 itemDiscountTotal.add(invoiceDiscount);
+
+        BigDecimal gstTotal = applyGst(items, taxableAmounts, invoiceDiscount);
 
         BigDecimal expenseAmount = expenseTotal(request.expenses());
         BigDecimal expenseGst = expenseGstTotal(
@@ -215,20 +215,47 @@ public class PurchaseService {
 
     @Transactional(readOnly = true)
     public List<PurchaseResponse> getAllPurchases() {
-        return purchaseRepository.findAllByOrderByCreatedAtDesc()
+        List<Purchase> purchases =
+                purchaseRepository.findAllByOrderByCreatedAtDesc();
+        if (purchases.isEmpty()) {
+            return List.of();
+        }
+
+        // Load related rows in bulk instead of several queries per purchase.
+        List<Long> purchaseIds = purchases.stream()
+                .map(Purchase::getId)
+                .toList();
+
+        Map<Long, String> supplierNames = supplierRepository
+                .findAllById(purchases.stream()
+                        .map(Purchase::getSupplierId)
+                        .distinct()
+                        .toList())
                 .stream()
-                .map(purchase -> {
-                    String supplierName = supplierRepository
-                            .findById(purchase.getSupplierId())
-                            .map(Supplier::getName)
-                            .orElse("Unavailable supplier");
+                .collect(Collectors.toMap(Supplier::getId, Supplier::getName));
 
-                    List<PurchaseItem> items =
-                            itemRepository.findByPurchaseIdOrderByIdAsc(
-                                    purchase.getId());
+        Map<Long, List<PurchaseItem>> itemsByPurchase = itemRepository
+                .findByPurchaseIdInOrderByIdAsc(purchaseIds)
+                .stream()
+                .collect(Collectors.groupingBy(PurchaseItem::getPurchaseId));
 
-                    return toResponse(purchase, supplierName, items);
-                })
+        Map<Long, List<PurchaseExpense>> expensesByPurchase =
+                purchaseExpenseRepository
+                        .findByPurchaseIdInOrderByIdAsc(purchaseIds)
+                        .stream()
+                        .collect(Collectors.groupingBy(
+                                PurchaseExpense::getPurchaseId));
+
+        return purchases.stream()
+                .map(purchase -> toResponse(
+                        purchase,
+                        supplierNames.getOrDefault(
+                                purchase.getSupplierId(),
+                                "Unavailable supplier"),
+                        itemsByPurchase.getOrDefault(
+                                purchase.getId(), List.of()),
+                        expensesByPurchase.getOrDefault(
+                                purchase.getId(), List.of())))
                 .toList();
     }
 
@@ -252,7 +279,8 @@ public class PurchaseService {
     public PurchaseResponse updatePurchase(Long purchaseId, PurchaseRequest request) {
         validateRequest(request);
 
-        Purchase purchase = purchaseRepository.findById(purchaseId)
+        // Lock the purchase so it cannot be received while being edited.
+        Purchase purchase = purchaseRepository.findByIdForUpdate(purchaseId)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Purchase not found: " + purchaseId));
 
@@ -280,8 +308,8 @@ public class PurchaseService {
 
         BigDecimal subtotal = ZERO;
         BigDecimal itemDiscountTotal = ZERO;
-        BigDecimal gstTotal = ZERO;
         List<PurchaseItem> items = new ArrayList<>();
+        List<BigDecimal> taxableAmounts = new ArrayList<>();
         String taxType = normalizeTaxType(request.taxType());
         BigDecimal invoiceGstRate = money(request.gstRate());
         validateGstRate(invoiceGstRate);
@@ -295,6 +323,7 @@ public class PurchaseService {
                         "Inactive products cannot be purchased: "
                                 + product.getName());
             }
+            rejectSlabTrackedProduct(product);
 
             BigDecimal quantity = line.quantity();
             DualQuantities quantities = resolveQuantities(product, quantity,
@@ -317,8 +346,6 @@ public class PurchaseService {
                         "Line discount cannot exceed its gross amount");
             }
             BigDecimal taxable = gross.subtract(discount);
-            BigDecimal gst = taxable.multiply(gstRate)
-                    .divide(HUNDRED, 2, RoundingMode.HALF_UP);
 
             PurchaseItem item = new PurchaseItem();
             item.setPurchaseId(purchaseId);
@@ -331,13 +358,11 @@ public class PurchaseService {
             item.setPurchaseRate(rate);
             item.setDiscountAmount(discount);
             item.setGstRate(gstRate);
-            item.setGstAmount(gst);
-            item.setLineTotal(taxable.add(gst));
             items.add(item);
+            taxableAmounts.add(taxable);
 
             subtotal = subtotal.add(gross);
             itemDiscountTotal = itemDiscountTotal.add(discount);
-            gstTotal = gstTotal.add(gst);
         }
 
         BigDecimal invoiceDiscount = money(request.discountAmount());
@@ -347,6 +372,8 @@ public class PurchaseService {
             throw new IllegalArgumentException(
                     "Purchase discount exceeds the amount available");
         }
+
+        BigDecimal gstTotal = applyGst(items, taxableAmounts, invoiceDiscount);
 
         purchase.setSupplierId(supplier.getId());
         purchase.setSupplierInvoiceNumber(invoiceNumber);
@@ -363,6 +390,7 @@ public class PurchaseService {
         purchase.setTotalAmount(
                 subtotal.subtract(itemDiscountTotal.add(invoiceDiscount))
                         .add(gstTotal)
+                        .add(expenseGst)
                         .add(expenseAmount));
 
         purchaseRepository.save(purchase);
@@ -460,6 +488,20 @@ public class PurchaseService {
             String supplierName,
             List<PurchaseItem> items) {
 
+        return toResponse(
+                purchase,
+                supplierName,
+                items,
+                purchaseExpenseRepository.findByPurchaseIdOrderByIdAsc(
+                        purchase.getId()));
+    }
+
+    private PurchaseResponse toResponse(
+            Purchase purchase,
+            String supplierName,
+            List<PurchaseItem> items,
+            List<PurchaseExpense> purchaseExpenses) {
+
         List<PurchaseResponse.PurchaseItemResponse> itemResponses =
                 items.stream()
                         .map(item ->
@@ -477,9 +519,6 @@ public class PurchaseService {
                                         item.getGstAmount(),
                                         item.getLineTotal()))
                         .toList();
-        List<PurchaseExpense> purchaseExpenses =
-                purchaseExpenseRepository.findByPurchaseIdOrderByIdAsc(
-                        purchase.getId());
         List<PurchaseResponse.PurchaseExpenseResponse> expenseResponses =
                 purchaseExpenses.stream()
                         .map(expense -> new PurchaseResponse.PurchaseExpenseResponse(
@@ -514,13 +553,13 @@ public class PurchaseService {
                         ? purchase.getGstAmount().divide(new BigDecimal("2"), 2, RoundingMode.HALF_UP)
                         : ZERO,
                 "INTRA".equals(purchase.getTaxType())
-                        ? purchase.getGstAmount().divide(new BigDecimal("2"), 2, RoundingMode.HALF_UP)
+                        ? purchase.getGstAmount().subtract(purchase.getGstAmount()
+                                .divide(new BigDecimal("2"), 2, RoundingMode.HALF_UP))
                         : ZERO,
                 "IGST".equals(purchase.getTaxType())
                         ? purchase.getGstAmount() : ZERO,
                 expenseGstTotal(
-                        purchaseExpenseRepository.findByPurchaseIdOrderByIdAsc(
-                                purchase.getId()).stream()
+                        purchaseExpenses.stream()
                                 .map(expense -> new PurchaseRequest.PurchaseExpenseRequest(
                                         expense.getCategoryId(),
                                         expense.getDescription(),
@@ -543,7 +582,7 @@ public class PurchaseService {
             throw new IllegalArgumentException("Purchase date is required");
         }
 
-        if (request.purchaseDate().isAfter(LocalDate.now())) {
+        if (request.purchaseDate().isAfter(BusinessDate.today())) {
             throw new IllegalArgumentException(
                     "Purchase date cannot be in the future");
         }
@@ -560,6 +599,23 @@ public class PurchaseService {
         }
 
         validatePurchaseExpenses(request.expenses());
+    }
+
+    /**
+     * SLAB-tracked products are received through the slab workflow, so a
+     * purchase containing one could never be received. Reject it up front
+     * instead of leaving the purchase stuck in DRAFT.
+     */
+    private void rejectSlabTrackedProduct(Product product) {
+        settingRepository.findByProductId(product.getId())
+                .filter(setting -> setting.getTrackingType()
+                        == InventoryTrackingType.SLAB)
+                .ifPresent(setting -> {
+                    throw new IllegalArgumentException(
+                            "Product " + product.getName()
+                                    + " uses SLAB tracking. Register its slabs "
+                                    + "through the slab inventory workflow instead.");
+                });
     }
 
     private DualQuantities resolveQuantities(
@@ -617,6 +673,58 @@ public class PurchaseService {
             BigDecimal gstRate) {
         return expenseTotal(expenses).multiply(money(gstRate))
                 .divide(HUNDRED, 2, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * Spreads the invoice-level discount across the lines in proportion to
+     * their taxable value, then calculates each line's GST on the discounted
+     * value. The line with the largest taxable value absorbs any rounding
+     * remainder of the discount. Returns the total GST of all lines.
+     */
+    private BigDecimal applyGst(
+            List<PurchaseItem> items,
+            List<BigDecimal> taxableAmounts,
+            BigDecimal invoiceDiscount) {
+
+        BigDecimal taxableTotal = taxableAmounts.stream()
+                .reduce(ZERO, BigDecimal::add);
+
+        int largestLine = 0;
+        for (int i = 1; i < taxableAmounts.size(); i++) {
+            if (taxableAmounts.get(i).compareTo(
+                    taxableAmounts.get(largestLine)) > 0) {
+                largestLine = i;
+            }
+        }
+
+        List<BigDecimal> lineDiscounts = new ArrayList<>();
+        BigDecimal allocated = ZERO;
+        for (BigDecimal taxable : taxableAmounts) {
+            BigDecimal lineDiscount = taxableTotal.signum() == 0
+                    ? ZERO
+                    : invoiceDiscount.multiply(taxable)
+                            .divide(taxableTotal, 2, RoundingMode.HALF_UP);
+            lineDiscounts.add(lineDiscount);
+            allocated = allocated.add(lineDiscount);
+        }
+        lineDiscounts.set(largestLine, lineDiscounts.get(largestLine)
+                .add(invoiceDiscount.subtract(allocated)));
+
+        BigDecimal gstTotal = ZERO;
+
+        for (int i = 0; i < items.size(); i++) {
+            PurchaseItem item = items.get(i);
+            BigDecimal discountedTaxable =
+                    taxableAmounts.get(i).subtract(lineDiscounts.get(i));
+            BigDecimal gst = discountedTaxable.multiply(item.getGstRate())
+                    .divide(HUNDRED, 2, RoundingMode.HALF_UP);
+
+            item.setGstAmount(gst);
+            item.setLineTotal(discountedTaxable.add(gst));
+            gstTotal = gstTotal.add(gst);
+        }
+
+        return gstTotal;
     }
 
     private void validatePurchaseExpenses(

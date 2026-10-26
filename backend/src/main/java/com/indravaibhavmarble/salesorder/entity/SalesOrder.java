@@ -1,6 +1,8 @@
 
 package com.indravaibhavmarble.salesorder.entity;
 
+import com.indravaibhavmarble.common.time.BusinessDate;
+
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -70,7 +72,7 @@ public static SalesOrder createNew() {
         updatedAt = now;
 
         if (orderDate == null) {
-            orderDate = LocalDate.now();
+            orderDate = BusinessDate.today();
         }
     }
 

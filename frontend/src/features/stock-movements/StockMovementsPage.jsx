@@ -33,13 +33,28 @@ function formatQuantity(value, unit = "") {
   return unit ? `${formatted} ${unit}` : formatted;
 }
 
+// Local date; toISOString() would shift dates back a day before 05:30 IST.
+function localDate(date) {
+  const local = new Date(date);
+  local.setMinutes(local.getMinutes() - local.getTimezoneOffset());
+  return local.toISOString().slice(0, 10);
+}
+
+// Prefix cells that spreadsheet apps would run as formulas.
+function csvCell(value) {
+  const text = String(value ?? "");
+  const isFormula = /^[=+\-@\t\r]/.test(text) && !/^[+-]?\d+(\.\d+)?$/.test(text);
+  const safe = isFormula ? `'${text}` : text;
+  return `"${safe.replaceAll('"', '""')}"`;
+}
+
 function getDateRange(range) {
   const today = new Date();
-  const end = today.toISOString().slice(0, 10);
+  const end = localDate(today);
   if (range === "TODAY") return { from: end, to: end };
   const start = new Date(today);
   start.setDate(start.getDate() - (range === "WEEK" ? 6 : 29));
-  return { from: start.toISOString().slice(0, 10), to: end };
+  return { from: localDate(start), to: end };
 }
 
 function StockMovementsPage() {
@@ -100,7 +115,7 @@ function StockMovementsPage() {
     const rows = movements.filter((movement) => {
       const product = productMap.get(String(movement.productId));
       const movementDate = movement.createdAt
-        ? new Date(movement.createdAt).toISOString().slice(0, 10)
+        ? localDate(movement.createdAt)
         : "";
       const matchesSearch =
         !query ||
@@ -235,7 +250,7 @@ function StockMovementsPage() {
         movement.referenceType || "",
         movement.referenceNumber || "",
         movement.notes || "",
-      ].map((value) => `"${String(value ?? "").replaceAll('"', '""')}"`);
+      ].map(csvCell);
     });
     const blob = new Blob(
       [[header, ...rows].map((row) => row.join(",")).join("\n")],
@@ -405,7 +420,7 @@ function StockMovementsPage() {
             <p><span>Source type</span><strong>{selectedMovement.referenceType || "—"}</strong></p>
           </div>
           <div className="stock-movement-notes"><span>Notes</span><p>{selectedMovement.notes || "No notes recorded."}</p></div>
-          {canManageInventory && selectedMovement.movementType !== "REVERSAL" && <div className="stock-movement-reversal"><label>Reversal reason<input value={reversalNotes} onChange={(event) => setReversalNotes(event.target.value)} placeholder="Why should this movement be reversed?" /></label><button type="button" className="stock-movements-danger" onClick={handleReverse} disabled={reversing}>{reversing ? "Reversing..." : "Reverse movement"}</button></div>}
+          {canManageInventory && selectedMovement.movementType !== "REVERSAL" && selectedMovement.referenceType !== "SALES_ORDER" && selectedMovement.referenceType !== "PURCHASE" && <div className="stock-movement-reversal"><label>Reversal reason<input value={reversalNotes} onChange={(event) => setReversalNotes(event.target.value)} placeholder="Why should this movement be reversed?" /></label><button type="button" className="stock-movements-danger" onClick={handleReverse} disabled={reversing}>{reversing ? "Reversing..." : "Reverse movement"}</button></div>}
         </section>
       </div>}
 

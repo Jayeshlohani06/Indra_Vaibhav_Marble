@@ -139,13 +139,13 @@ function PurchasesPage() {
     let subtotal = 0;
     let lineDiscounts = 0;
     let gstAmount = 0;
+    const invoiceGstRate = Number(gstRate);
 
-    const calculatedItems = items.map((item) => {
+    const lines = items.map((item) => {
       const quantity = Number(item.quantity);
       const secondaryQuantity = Number(item.secondaryQuantity);
       const rate = Number(item.purchaseRate);
       const discount = Number(item.discountAmount);
-      const invoiceGstRate = Number(gstRate);
 
       const billableQuantity = item.pricingUnit === "SECONDARY"
         ? secondaryQuantity : quantity;
@@ -156,17 +156,44 @@ function PurchasesPage() {
         discount >= 0 && discount <= gross ? discount : 0;
 
       const taxable = round2(gross - safeDiscount);
-      const gst = round2((taxable * invoiceGstRate) / 100);
-      const total = round2(taxable + gst);
 
       subtotal += gross;
       lineDiscounts += safeDiscount;
+
+      return { item, gross, taxable };
+    });
+
+    const extraDiscount = round2(Math.max(0, Number(invoiceDiscount) || 0));
+
+    // Match the backend: spread the invoice discount across lines by taxable
+    // value (the largest line takes the rounding remainder), then charge GST
+    // on the discounted value.
+    const taxableTotal = lines.reduce((sum, line) => sum + line.taxable, 0);
+    const lineInvoiceDiscounts = lines.map((line) =>
+      taxableTotal > 0 ? round2((extraDiscount * line.taxable) / taxableTotal) : 0
+    );
+    if (lines.length > 0) {
+      const largestLine = lines.reduce(
+        (largest, line, index) =>
+          line.taxable > lines[largest].taxable ? index : largest,
+        0
+      );
+      const allocated = lineInvoiceDiscounts.reduce((sum, value) => sum + value, 0);
+      lineInvoiceDiscounts[largestLine] = round2(
+        lineInvoiceDiscounts[largestLine] + extraDiscount - allocated
+      );
+    }
+
+    const calculatedItems = lines.map(({ item, gross, taxable }, index) => {
+      const discountedTaxable = round2(taxable - lineInvoiceDiscounts[index]);
+      const gst = round2((discountedTaxable * invoiceGstRate) / 100);
+      const total = round2(discountedTaxable + gst);
+
       gstAmount += gst;
 
       return { ...item, gross, taxable, gst, total };
     });
 
-    const extraDiscount = Math.max(0, Number(invoiceDiscount) || 0);
     const expensesTotal = expenses.reduce(
       (sum, expense) => sum + (Number(expense.amount) || 0), 0
     );
@@ -180,7 +207,7 @@ function PurchasesPage() {
       invoiceDiscount: round2(extraDiscount),
       totalDiscount: round2(lineDiscounts + extraDiscount),
       cgstAmount: taxType === "INTRA" ? round2(totalGst / 2) : 0,
-      sgstAmount: taxType === "INTRA" ? round2(totalGst / 2) : 0,
+      sgstAmount: taxType === "INTRA" ? round2(totalGst - round2(totalGst / 2)) : 0,
       igstAmount: taxType === "IGST" ? round2(totalGst) : 0,
       gstAmount: totalGst,
       expensesGst,
@@ -494,6 +521,18 @@ function PurchasesPage() {
       )
     ) {
       setError("Check quantity, purchase rate, discount, and GST values.");
+      return;
+    }
+
+    if (
+      items.some(
+        (item) =>
+          item.pricingUnit === "SECONDARY" &&
+          (!Number.isFinite(Number(item.secondaryQuantity)) ||
+            Number(item.secondaryQuantity) <= 0)
+      )
+    ) {
+      setError("Enter the secondary quantity for lines priced per secondary unit.");
       return;
     }
 

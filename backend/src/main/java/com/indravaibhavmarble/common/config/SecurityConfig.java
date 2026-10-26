@@ -138,6 +138,19 @@ public class SecurityConfig {
                             "/api/auth/login"
                     ).permitAll()
 
+                    // Payment rules must precede the broader purchase and
+                    // sales-order rules because the first matching rule wins.
+                    .requestMatchers(
+                            HttpMethod.GET,
+                            "/api/purchases/*/payments/**",
+                            "/api/sales-orders/*/payments/**")
+                    .hasAuthority("PAYMENT_READ")
+                    .requestMatchers(
+                            HttpMethod.POST,
+                            "/api/purchases/*/payments/**",
+                            "/api/sales-orders/*/payments/**")
+                    .hasAuthority("PAYMENT_MANAGE")
+
                     // Reports and read-only workspace access.
                     .requestMatchers(HttpMethod.GET, "/api/reports/**")
                     .hasAuthority("REPORT_READ")
@@ -165,11 +178,6 @@ public class SecurityConfig {
                     .hasAuthority("MASTER_DATA_READ")
                     .requestMatchers(HttpMethod.GET, "/api/users/**")
                     .hasAuthority("USER_READ")
-                    .requestMatchers(
-                            HttpMethod.GET,
-                            "/api/purchases/*/payments/**",
-                            "/api/sales-orders/*/payments/**")
-                    .hasAuthority("PAYMENT_READ")
 
                     // Master-data and product mutations.
                     .requestMatchers(HttpMethod.POST, "/api/categories/**", "/api/units/**", "/api/expense-categories/**")
@@ -200,11 +208,8 @@ public class SecurityConfig {
                     .hasAuthority("SALES_MANAGE")
                     .requestMatchers(HttpMethod.POST, "/api/purchases/**")
                     .hasAuthority("PURCHASE_MANAGE")
-                    .requestMatchers(
-                            HttpMethod.POST,
-                            "/api/purchases/*/payments/**",
-                            "/api/sales-orders/*/payments/**")
-                    .hasAuthority("PAYMENT_MANAGE")
+                    .requestMatchers(HttpMethod.PUT, "/api/purchases/**")
+                    .hasAuthority("PURCHASE_MANAGE")
                     .requestMatchers(HttpMethod.POST, "/api/stock-movements/**")
                     .hasAuthority("INVENTORY_MANAGE")
                     .requestMatchers(HttpMethod.POST, "/api/inventory/slabs/**")

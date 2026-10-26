@@ -25,6 +25,24 @@ function money(value) {
   }).format(Number(value || 0));
 }
 
+function invoiceTitle(order) {
+  return order.status === "DRAFT" ? "DRAFT — NOT A TAX INVOICE" : "TAX INVOICE";
+}
+
+function taxTypeLabel(order) {
+  if (order.taxType === "INTRA") return "CGST + SGST";
+  if (order.taxType === "INTER") return "IGST";
+  return "—";
+}
+
+// The purchaser's state code comes from the first two digits of their
+// GSTIN. Without a GSTIN, an intra-state sale is in the business's state.
+function customerStateCode(order, customer) {
+  const gstinPrefix = String(customer?.gstin || "").trim().slice(0, 2);
+  if (/^\d{2}$/.test(gstinPrefix)) return gstinPrefix;
+  return order.taxType === "INTRA" ? BUSINESS.stateCode : "—";
+}
+
 function escapeHtml(value) {
   return String(value ?? "—")
     .replaceAll("&", "&amp;")
@@ -178,7 +196,7 @@ function printInvoice(order, customer, items) {
     <header class="header">
       <div class="header-topline">
         <span>GSTIN: ${escapeHtml(BUSINESS.gstin)}</span>
-        <div class="invoice-title"><h2>TAX INVOICE</h2></div>
+        <div class="invoice-title"><h2>${escapeHtml(invoiceTitle(order))}</h2></div>
         <span>Mob.: ${escapeHtml(BUSINESS.phone)}</span>
       </div>
       <div class="business">
@@ -197,8 +215,8 @@ function printInvoice(order, customer, items) {
       <div><span class="label">Phone</span><span class="value">${escapeHtml(customer?.phone || "—")}</span></div>
       <div><span class="label">Address</span><span class="value">${escapeHtml(customer?.billingAddress || "—")}</span></div>
       <div><span class="label">GSTIN / Unique ID</span><span class="value">${escapeHtml(customer?.gstin || "—")}</span></div>
-      <div><span class="label">State Code</span><span class="value">${escapeHtml(BUSINESS.stateCode)}</span></div>
-      <div><span class="label">Tax Type</span><span class="value">${order.taxType === "INTRA" ? "CGST + SGST" : "IGST"}</span></div>
+      <div><span class="label">State Code</span><span class="value">${escapeHtml(customerStateCode(order, customer))}</span></div>
+      <div><span class="label">Tax Type</span><span class="value">${escapeHtml(taxTypeLabel(order))}</span></div>
     </section>
 
     <table>
@@ -342,7 +360,7 @@ export default function SalesOrderInvoice({ orderId, onClose }) {
         </span>
         {balance && (
           <span className="sales-invoice-payment-summary">
-            {balance.paymentStatus.replace("_", " ")} · Due {money(balance.outstandingBalance)}
+            {String(balance.paymentStatus || "").replace("_", " ")} · Due {money(balance.outstandingBalance)}
           </span>
         )}
         <div>
@@ -360,7 +378,7 @@ export default function SalesOrderInvoice({ orderId, onClose }) {
         <header className="sales-invoice-header">
           <div className="sales-invoice-header-topline">
             <span>GSTIN: {BUSINESS.gstin}</span>
-            <div className="sales-invoice-title"><h2>TAX INVOICE</h2></div>
+            <div className="sales-invoice-title"><h2>{invoiceTitle(order)}</h2></div>
             <span>Mob.: {BUSINESS.phone}</span>
           </div>
           <div className="sales-invoice-business">
@@ -379,8 +397,8 @@ export default function SalesOrderInvoice({ orderId, onClose }) {
           <div><span>Phone</span><strong>{customer?.phone || "—"}</strong></div>
           <div><span>Address</span><strong>{customer?.billingAddress || "—"}</strong></div>
           <div><span>GSTIN / Unique ID</span><strong>{customer?.gstin || "—"}</strong></div>
-          <div><span>State Code</span><strong>{BUSINESS.stateCode}</strong></div>
-          <div><span>Tax Type</span><strong>{order.taxType === "INTRA" ? "CGST + SGST" : "IGST"}</strong></div>
+          <div><span>State Code</span><strong>{customerStateCode(order, customer)}</strong></div>
+          <div><span>Tax Type</span><strong>{taxTypeLabel(order)}</strong></div>
         </section>
 
         <table className="sales-invoice-items">

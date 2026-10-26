@@ -9,6 +9,7 @@ import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Date;
 
 import javax.crypto.SecretKey;
@@ -56,7 +57,24 @@ public class JwtService {
 
         return claims.getSubject().equals(userDetails.getUsername())
                 && claims.getExpiration().after(new Date())
-                && userDetails.isEnabled();
+                && userDetails.isEnabled()
+                && !issuedBeforePasswordChange(claims, userDetails);
+    }
+
+    private boolean issuedBeforePasswordChange(
+            Claims claims, UserDetails userDetails) {
+
+        if (!(userDetails instanceof AppUserDetails appUserDetails)
+                || appUserDetails.getPasswordChangedAt() == null
+                || claims.getIssuedAt() == null) {
+            return false;
+        }
+
+        // JWT issue times have whole-second precision.
+        Instant changedAt = appUserDetails.getPasswordChangedAt()
+                .truncatedTo(ChronoUnit.SECONDS);
+
+        return claims.getIssuedAt().toInstant().isBefore(changedAt);
     }
 
     private Claims extractClaims(String token) {

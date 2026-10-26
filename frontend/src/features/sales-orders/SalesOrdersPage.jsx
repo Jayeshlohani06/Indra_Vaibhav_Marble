@@ -77,7 +77,10 @@ function calculateTotals(items, taxType, charges = []) {
 
   for (const item of items) {
 
-    const quantity = Number(item.quantity) || 0;
+    // The backend bills the secondary quantity when pricing by secondary unit.
+    const quantity = item.pricingUnit === "SECONDARY"
+      ? Number(item.secondaryQuantity) || 0
+      : Number(item.quantity) || 0;
 
     const unitPrice = Number(item.unitPrice) || 0;
 
@@ -175,6 +178,7 @@ const emptyOrderItem = {
 function SalesOrdersPage() {
   const canManageSales = usePermission("SALES_MANAGE");
   const canManagePayments = usePermission("PAYMENT_MANAGE");
+  const canViewPayments = usePermission("PAYMENT_READ");
 
   const [orders, setOrders] = useState([]);
 
@@ -206,6 +210,8 @@ function SalesOrdersPage() {
   const [detailsOrder, setDetailsOrder] = useState(null);
   const [paymentBalance, setPaymentBalance] = useState(null);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [savingPayment, setSavingPayment] = useState(false);
+  const [paymentError, setPaymentError] = useState("");
   const [paymentForm, setPaymentForm] = useState({
     paymentDate: today(),
     amount: "",
@@ -808,17 +814,22 @@ function SalesOrdersPage() {
   const monthOrders = orders.filter((order) =>
     String(order.orderDate || "").startsWith(monthKey)
   );
-  const totalSales = orders.reduce(
+  // Revenue figures exclude draft and cancelled orders, matching the reports.
+  const billedOrders = orders.filter(
+    (order) => order.status !== "CANCELLED" && order.status !== "DRAFT"
+  );
+  const totalSales = billedOrders.reduce(
     (total, order) => total + Number(order.grandTotal || 0), 0
   );
-  const totalTax = orders.reduce(
+  const totalTax = billedOrders.reduce(
     (total, order) => total + Number(order.totalTax || 0), 0
   );
-  const averageOrder = orders.length ? totalSales / orders.length : 0;
+  const averageOrder = billedOrders.length ? totalSales / billedOrders.length : 0;
 
   async function openOrderDetails(order) {
     setDetailsOrder(order);
     setPaymentBalance(null);
+    if (!canViewPayments) return;
     try {
       setPaymentBalance(await getSalesOrderBalance(order.id));
     } catch (err) {
@@ -828,7 +839,9 @@ function SalesOrdersPage() {
 
   async function handlePaymentSubmit(event) {
     event.preventDefault();
-    if (!detailsOrder) return;
+    if (!detailsOrder || savingPayment) return;
+    setSavingPayment(true);
+    setPaymentError("");
     try {
       await recordSalesOrderPayment(detailsOrder.id, {
         ...paymentForm,
@@ -839,7 +852,9 @@ function SalesOrdersPage() {
       setPaymentBalance(await getSalesOrderBalance(detailsOrder.id));
       setSuccess("Payment recorded successfully.");
     } catch (err) {
-      setError(err.message || "Unable to record payment.");
+      setPaymentError(err.message || "Unable to record payment.");
+    } finally {
+      setSavingPayment(false);
     }
   }
 
@@ -2089,7 +2104,7 @@ function SalesOrdersPage() {
               {detailsOrder.charges?.map((charge) => <div className="sales-order-detail-item" key={`charge-${charge.id}`}><span>{charge.description}</span><strong>{formatCurrency(charge.amount)}</strong></div>)}
             </div>
             <div className="sales-order-form-actions">
-              {canManagePayments && paymentBalance?.outstandingBalance > 0 && <button type="button" className="sales-orders-secondary" onClick={() => setShowPaymentForm(true)}>Record payment</button>}
+              {canManagePayments && paymentBalance?.outstandingBalance > 0 && <button type="button" className="sales-orders-secondary" onClick={() => { setPaymentError(""); setShowPaymentForm(true); }}>Record payment</button>}
               <button type="button" className="sales-orders-secondary" onClick={() => { setInvoiceOrderId(detailsOrder.id); setDetailsOrder(null); }}>View / Print Invoice</button>
               <button type="button" className="sales-orders-primary" onClick={() => setDetailsOrder(null)}>Done</button>
             </div>
@@ -2108,7 +2123,8 @@ function SalesOrdersPage() {
               <label>Reference number<input value={paymentForm.referenceNumber} onChange={(event) => setPaymentForm({ ...paymentForm, referenceNumber: event.target.value })} maxLength={100} /></label>
               <label className="sales-payment-full-width">Notes<textarea rows="3" value={paymentForm.notes} onChange={(event) => setPaymentForm({ ...paymentForm, notes: event.target.value })} maxLength={1000} /></label>
             </div>
-            <div className="sales-order-form-actions"><button type="button" className="sales-orders-secondary" onClick={() => setShowPaymentForm(false)}>Cancel</button><button type="submit" className="sales-orders-primary">Save payment</button></div>
+            {paymentError && <div className="sales-orders-error" role="alert">{paymentError}</div>}
+            <div className="sales-order-form-actions"><button type="button" className="sales-orders-secondary" onClick={() => setShowPaymentForm(false)}>Cancel</button><button type="submit" className="sales-orders-primary" disabled={savingPayment}>{savingPayment ? "Saving..." : "Save payment"}</button></div>
           </form>
         </div>
       )}
