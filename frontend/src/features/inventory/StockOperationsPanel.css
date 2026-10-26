@@ -2,10 +2,10 @@
 .stock-operations-panel {
   margin: 24px 0;
   padding: 24px;
-  border: 1px solid var(--border-color, #e2e8f0);
+  border: 1px solid var(--border-color, #e7e1d8);
   border-radius: 12px;
   background: var(--card-bg, #fff);
-  color: var(--text-color, #1e293b);
+  color: var(--text-color, #1f1b16);
 }
 
 .stock-operations-heading,
@@ -23,7 +23,7 @@
 
 .stock-operations-heading p {
   margin: 0 0 20px;
-  color: var(--muted-text, #64748b);
+  color: var(--muted-text, #6b6359);
 }
 
 .stock-product-selector,
@@ -51,7 +51,7 @@
   width: 100%;
   min-width: 0;
   padding: 10px 12px;
-  border: 1px solid var(--input-border, #cbd5e1);
+  border: 1px solid var(--input-border, #d4cabc);
   border-radius: 7px;
   background: var(--input-bg, #fff);
   color: inherit;
@@ -67,7 +67,7 @@
   padding: 16px;
   margin-bottom: 20px;
   border-radius: 8px;
-  background: var(--surface-muted, #f1f5f9);
+  background: var(--surface-muted, #f3efe9);
 }
 
 .stock-current-balance strong {
@@ -92,12 +92,12 @@
 
 .stock-submit-button {
   margin-top: 18px;
-  background: var(--primary-color, #1d4ed8);
+  background: var(--color-primary);
   color: #fff;
 }
 
 .stock-refresh-button {
-  background: var(--surface-muted, #e2e8f0);
+  background: var(--surface-muted, #e7e1d8);
   color: inherit;
 }
 
@@ -109,7 +109,7 @@
 
 .stock-form-note {
   margin: 12px 0 0;
-  color: var(--muted-text, #64748b);
+  color: var(--muted-text, #6b6359);
   font-size: 13px;
   line-height: 1.5;
 }
@@ -153,13 +153,13 @@
 .stock-history-table th,
 .stock-history-table td {
   padding: 11px 12px;
-  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  border-bottom: 1px solid var(--border-color, #e7e1d8);
   text-align: left;
   white-space: nowrap;
 }
 
 .stock-history-table th {
-  background: var(--surface-muted, #f1f5f9);
+  background: var(--surface-muted, #f3efe9);
   font-weight: 600;
 }
 

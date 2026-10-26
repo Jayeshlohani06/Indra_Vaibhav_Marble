@@ -23,6 +23,18 @@ public interface SalesOrderRepository
     @Query("SELECT o FROM SalesOrder o WHERE o.id = :id")
     Optional<SalesOrder> findByIdForUpdate(@Param("id") Long id);
 
+    @Query(value = "SELECT nextval('sales_order_number_seq')", nativeQuery = true)
+    Long nextOrderNumber();
+
+    /** Rows of [customerId, orderCount, billedTotal] for billed (non-draft, non-cancelled) orders. */
+    @Query("""
+            SELECT o.customerId, COUNT(o), COALESCE(SUM(o.grandTotal), 0)
+            FROM SalesOrder o
+            WHERE o.status NOT IN ('DRAFT', 'CANCELLED')
+            GROUP BY o.customerId
+            """)
+    List<Object[]> getBilledTotalsByCustomer();
+
     List<SalesOrder> findAllByOrderByCreatedAtDesc();
 
     List<SalesOrder> findByCustomerIdOrderByCreatedAtDesc(

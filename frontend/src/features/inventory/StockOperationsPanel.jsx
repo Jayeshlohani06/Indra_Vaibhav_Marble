@@ -5,6 +5,7 @@ import {
   recordStockMovement,
 } from "../../services/api/inventoryApi";
 import "./StockOperationsPanel.css";
+import { label } from "../../utils/format";
 
 const EMPTY_FORM = {
   movementType: "PURCHASE",
@@ -228,7 +229,7 @@ export default function StockOperationsPanel({ products = [], units = [], onStoc
       <form className="stock-movement-form" onSubmit={handleSubmit}>
         <div className="stock-form-grid">
           <div className="stock-form-field">
-            <label htmlFor="movementType">Movement type</label>
+            <label htmlFor="movementType">What happened?</label>
             <select
               id="movementType"
               name="movementType"
@@ -236,10 +237,9 @@ export default function StockOperationsPanel({ products = [], units = [], onStoc
               onChange={handleMovementTypeChange}
               disabled={submitting}
             >
-              <option value="PURCHASE">Stock In — Purchase</option>
-              <option value="SALE">Stock Out — Sale</option>
-              <option value="ADJUSTMENT">Stock Adjustment</option>
-              <option value="REVERSAL">Reversal</option>
+              <option value="PURCHASE">Stock came in</option>
+              <option value="SALE">Stock went out</option>
+              <option value="ADJUSTMENT">Correction after counting</option>
             </select>
           </div>
 
@@ -331,13 +331,13 @@ export default function StockOperationsPanel({ products = [], units = [], onStoc
           type="submit"
           disabled={submitting || !selectedProduct}
         >
-          {submitting ? "Recording movement..." : "Record Stock Movement"}
+          {submitting ? "Saving..." : "Save stock change"}
         </button>
 
         <p className="stock-form-note">
-          Stock is updated by the backend. A sale reduces stock; purchases and
-          positive adjustments increase it. Check the movement type carefully
-          before submitting.
+          Use this only for changes that did not come from a bill or a supplier
+          purchase, for example after counting the stock. Bills and purchases
+          update stock by themselves.
         </p>
       </form>
 
@@ -376,7 +376,7 @@ export default function StockOperationsPanel({ products = [], units = [], onStoc
                 {movements.map((movement) => (
                   <tr key={movement.id}>
                     <td>{formatDate(movement.createdAt)}</td>
-                    <td>{movement.movementType}</td>
+                    <td>{label(movement.movementType)}</td>
                     <td>
                       {Number(movement.quantityChange) > 0 ? "+" : ""}
                       {Number(movement.quantityChange).toLocaleString(

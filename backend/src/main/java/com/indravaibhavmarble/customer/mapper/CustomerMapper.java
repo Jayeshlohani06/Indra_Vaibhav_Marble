@@ -5,6 +5,8 @@ import com.indravaibhavmarble.customer.dto.CustomerRequest;
 import com.indravaibhavmarble.customer.dto.CustomerResponse;
 import com.indravaibhavmarble.customer.entity.Customer;
 
+import java.math.BigDecimal;
+
 public final class CustomerMapper {
 
     private CustomerMapper() {
@@ -31,7 +33,8 @@ public final class CustomerMapper {
         customer.setCreditLimit(request.creditLimit());
     }
 
-    public static CustomerResponse toResponse(Customer customer) {
+    public static CustomerResponse toResponse(
+            Customer customer, BigDecimal balanceDue) {
         return new CustomerResponse(
                 customer.getId(),
                 customer.getCustomerCode(),
@@ -44,7 +47,8 @@ public final class CustomerMapper {
                 customer.getCreditLimit(),
                 customer.isActive(),
                 customer.getCreatedAt(),
-                customer.getUpdatedAt()
+                customer.getUpdatedAt(),
+                balanceDue == null ? BigDecimal.ZERO : balanceDue
         );
     }
 }

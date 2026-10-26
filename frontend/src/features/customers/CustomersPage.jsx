@@ -8,6 +8,8 @@ import {
 } from "../../services/api/customerApi";
 import "./CustomersPage.css";
 import { usePermission } from "../../auth/PermissionsContext";
+import RowMenu from "../../components/RowMenu";
+import { formatDate } from "../../utils/format";
 
 const emptyForm = {
   customerCode: "",
@@ -89,6 +91,9 @@ function CustomersPage() {
       if (sort === "creditLimit") {
         return Number(first.creditLimit || 0) - Number(second.creditLimit || 0);
       }
+      if (sort === "balanceDue") {
+        return Number(second.balanceDue || 0) - Number(first.balanceDue || 0);
+      }
       return String(first[sort] || "").localeCompare(
         String(second[sort] || "")
       );
@@ -104,12 +109,13 @@ function CustomersPage() {
     page * PAGE_SIZE
   );
   const activeCount = customers.filter((customer) => customer.active).length;
-  const inactiveCount = customers.length - activeCount;
-  const totalCredit = customers.reduce(
-    (total, customer) => total + Number(customer.creditLimit || 0),
+  const owingCustomers = customers.filter(
+    (customer) => Number(customer.balanceDue || 0) > 0
+  );
+  const totalDue = owingCustomers.reduce(
+    (total, customer) => total + Number(customer.balanceDue || 0),
     0
   );
-  const gstRegisteredCount = customers.filter((customer) => customer.gstin).length;
 
   function openCreateForm() {
     setEditingId(null);
@@ -237,19 +243,15 @@ function CustomersPage() {
   return (
     <section className="customers-page">
       <div className="customers-heading">
-        <div>
-          <p className="customers-eyebrow">CUSTOMER MANAGEMENT</p>
-          <h2>Customers</h2>
-          <p className="customers-subtitle">
-            Manage customer profiles, contact details, and approved credit.
-          </p>
-        </div>
+        <p className="customers-subtitle">
+          Everyone you sell to, and how much each of them owes you.
+        </p>
         <div className="customer-header-actions">
           <button type="button" className="customer-secondary-button" onClick={exportCsv} disabled={!filteredCustomers.length}>
             Export CSV
           </button>
           {canManageCustomers && <button type="button" className="customer-primary-button" onClick={openCreateForm}>
-            <span aria-hidden="true">+</span> Add Customer
+            <span aria-hidden="true">+</span> Add customer
           </button>}
         </div>
       </div>
@@ -258,33 +260,23 @@ function CustomersPage() {
       {error && <div className="customer-alert customer-alert-error" role="alert">{error}<button type="button" onClick={() => setError("")}>Dismiss</button></div>}
 
       <div className="customer-summary" aria-label="Customer overview">
-        <div className="customer-summary-card is-blue">
-          <div className="customer-summary-top"><span className="customer-summary-label">Active customers</span><span className="customer-summary-icon">A</span></div>
-          <strong>{activeCount}</strong>
-          <span className="customer-summary-note">Available for new sales</span>
-        </div>
-        <div className="customer-summary-card is-slate">
-          <div className="customer-summary-top"><span className="customer-summary-label">Inactive customers</span><span className="customer-summary-icon">I</span></div>
-          <strong>{inactiveCount}</strong>
-          <span className="customer-summary-note">Retained for history</span>
-        </div>
-        <div className="customer-summary-card is-green">
-          <div className="customer-summary-top"><span className="customer-summary-label">Approved credit</span><span className="customer-summary-icon">₹</span></div>
-          <strong>{money(totalCredit)}</strong>
-          <span className="customer-summary-note">Combined configured limits</span>
-        </div>
         <div className="customer-summary-card is-amber">
-          <div className="customer-summary-top"><span className="customer-summary-label">GST registered</span><span className="customer-summary-icon">G</span></div>
-          <strong>{gstRegisteredCount}</strong>
-          <span className="customer-summary-note">Profiles with a GSTIN</span>
+          <span className="customer-summary-label">Customers owe you</span>
+          <strong>{money(totalDue)}</strong>
+          <span className="customer-summary-note">From {owingCustomers.length} {owingCustomers.length === 1 ? "customer" : "customers"}</span>
+        </div>
+        <div className="customer-summary-card is-blue">
+          <span className="customer-summary-label">Customers</span>
+          <strong>{activeCount}</strong>
+          <span className="customer-summary-note">Active customers you can bill</span>
         </div>
       </div>
 
       <div className="customers-panel">
         <div className="customers-toolbar">
-          <div><h3>Customer directory</h3><p>Search by name, code, phone, email, or GSTIN.</p></div>
+          <div><h3>All customers</h3><p>Tap a customer to see their details.</p></div>
           <div className="customer-toolbar-controls">
-            <input type="search" className="customer-search" placeholder="Search customers..." aria-label="Search customers" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} />
+            <input type="search" className="customer-search" placeholder="Search name or phone" aria-label="Search customers" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} />
             <select value={status} aria-label="Customer status" onChange={(event) => { setStatus(event.target.value); setPage(1); }}>
               <option value="ACTIVE">Active customers</option>
               <option value="INACTIVE">Inactive customers</option>
@@ -292,9 +284,8 @@ function CustomersPage() {
             </select>
             <select value={sort} aria-label="Sort customers" onChange={(event) => setSort(event.target.value)}>
               <option value="name">Sort: Name</option>
+              <option value="balanceDue">Sort: Owes the most</option>
               <option value="customerCode">Sort: Code</option>
-              <option value="phone">Sort: Phone</option>
-              <option value="creditLimit">Sort: Credit limit</option>
             </select>
             <button type="button" className="customer-secondary-button" onClick={() => { setSearch(""); setStatus("ACTIVE"); setSort("name"); setPage(1); }}>Clear</button>
           </div>
@@ -303,18 +294,37 @@ function CustomersPage() {
         {loading ? <div className="customer-empty-state">Loading customers...</div> : !visibleCustomers.length ? (
           <div className="customer-empty-state"><div className="customer-empty-icon" aria-hidden="true">♙</div><h3>{search ? "No matching customers" : "No customers found"}</h3><p>{search ? "Try a different search term." : "Add your first customer to get started."}</p>{!search && canManageCustomers && <button type="button" className="customer-primary-button" onClick={openCreateForm}>Add your first customer</button>}</div>
         ) : (
-          <div className="customers-table-wrap">
-            <table className="customers-table">
-              <thead><tr><th>Customer</th><th>Contact</th><th>GSTIN</th><th>Credit limit</th><th>Status</th><th>Actions</th></tr></thead>
+          <div className="customers-table-wrap has-mobile-cards">
+            <table className="customers-table desktop-table">
+              <thead><tr><th>Customer</th><th>Contact</th><th>Owes you</th><th>Status</th><th><span className="visually-hidden">Actions</span></th></tr></thead>
               <tbody>{visibleCustomers.map((customer) => <tr key={customer.id} onClick={() => setSelectedCustomer(customer)}>
                 <td><div className="customer-name-cell"><span className="customer-avatar">{(customer.name || "C").charAt(0).toUpperCase()}</span><div><strong>{customer.name}</strong><span>{customer.customerCode}</span></div></div></td>
                 <td><div className="customer-contact-cell"><span>{customer.phone}</span><span>{customer.email || "—"}</span></div></td>
-                <td>{customer.gstin || "—"}</td>
-                <td className="customer-money">{money(customer.creditLimit)}</td>
+                <td className={`customer-money ${Number(customer.balanceDue) > 0 ? "is-due" : ""}`}>{Number(customer.balanceDue) > 0 ? money(customer.balanceDue) : "—"}</td>
                 <td><span className={`customer-status ${customer.active ? "is-active" : "is-inactive"}`}>{customer.active ? "Active" : "Inactive"}</span></td>
-                <td><div className="customer-row-actions"><button type="button" className="customer-text-button" onClick={(event) => { event.stopPropagation(); setSelectedCustomer(customer); }}>View</button>{canManageCustomers && <><button type="button" className="customer-text-button" onClick={(event) => { event.stopPropagation(); openEditForm(customer); }}>Edit</button><button type="button" className={`customer-text-button ${customer.active ? "customer-danger-button" : ""}`} onClick={(event) => { event.stopPropagation(); changeStatus(customer); }}>{customer.active ? "Deactivate" : "Reactivate"}</button></>}</div></td>
+                <td><div className="customer-row-actions"><button type="button" className="customer-secondary-button customer-view-button" onClick={(event) => { event.stopPropagation(); setSelectedCustomer(customer); }}>View</button>{canManageCustomers && <RowMenu label={`More actions for ${customer.name}`} items={[
+                  { label: "Edit details", onClick: () => openEditForm(customer) },
+                  { label: customer.active ? "Deactivate customer" : "Reactivate customer", onClick: () => changeStatus(customer), danger: customer.active },
+                ]} />}</div></td>
               </tr>)}</tbody>
             </table>
+
+            <div className="mobile-cards">
+              {visibleCustomers.map((customer) => (
+                <button type="button" key={customer.id} className="mobile-card" onClick={() => setSelectedCustomer(customer)}>
+                  <span className="mobile-card__row">
+                    <span className="mobile-card__title">{customer.name}</span>
+                    {Number(customer.balanceDue) > 0
+                      ? <span className="mobile-card__amount customer-card-due">{money(customer.balanceDue)} due</span>
+                      : <span className="mobile-card__meta">Nothing due</span>}
+                  </span>
+                  <span className="mobile-card__row">
+                    <span className="mobile-card__meta">{customer.phone}</span>
+                    {!customer.active && <span className="customer-status is-inactive">Inactive</span>}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -323,7 +333,7 @@ function CustomersPage() {
 
       {showForm && <div className="customer-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && !saving && setShowForm(false)}>
         <section className="customer-modal" role="dialog" aria-modal="true" aria-labelledby="customer-form-title">
-          <div className="customer-modal-heading"><div><p className="customers-eyebrow">CUSTOMER INFORMATION</p><h2 id="customer-form-title">{editingId !== null ? "Edit customer" : "Add customer"}</h2></div><button type="button" className="customer-close-button" onClick={() => !saving && setShowForm(false)} disabled={saving} aria-label="Close form">×</button></div>
+          <div className="customer-modal-heading"><div><h2 id="customer-form-title">{editingId !== null ? "Edit customer" : "Add customer"}</h2></div><button type="button" className="customer-close-button" onClick={() => !saving && setShowForm(false)} disabled={saving} aria-label="Close form">×</button></div>
           <form onSubmit={handleSubmit}><div className="customer-form-grid">
             <label>Customer code {editingId !== null && "*"}<input name="customerCode" value={form.customerCode} onChange={handleChange} maxLength={30} disabled={editingId === null} placeholder={editingId === null ? "Generated automatically" : ""} required={editingId !== null} /><small>{editingId === null ? "A unique code will be generated when you save." : "Customer codes cannot be changed."}</small></label>
             <label>Customer name *<input name="name" value={form.name} onChange={handleChange} maxLength={150} required autoFocus /></label>
@@ -339,10 +349,10 @@ function CustomersPage() {
 
       {selectedCustomer && <div className="customer-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setSelectedCustomer(null)}>
         <section className="customer-modal customer-details-modal" role="dialog" aria-modal="true" aria-labelledby="customer-details-title">
-          <div className="customer-modal-heading"><div><p className="customers-eyebrow">CUSTOMER PROFILE</p><h2 id="customer-details-title">{selectedCustomer.name}</h2><p>{selectedCustomer.customerCode}</p></div><button type="button" className="customer-close-button" onClick={() => setSelectedCustomer(null)} aria-label="Close customer details">×</button></div>
-          <div className="customer-detail-grid"><p><span>Phone</span><strong>{selectedCustomer.phone}</strong></p><p><span>Email</span><strong>{selectedCustomer.email || "—"}</strong></p><p><span>GSTIN</span><strong>{selectedCustomer.gstin || "Unregistered"}</strong></p><p><span>Credit limit</span><strong>{money(selectedCustomer.creditLimit)}</strong></p><p><span>Status</span><strong>{selectedCustomer.active ? "Active" : "Inactive"}</strong></p><p><span>Created</span><strong>{selectedCustomer.createdAt ? new Date(selectedCustomer.createdAt).toLocaleDateString("en-IN") : "—"}</strong></p></div>
+          <div className="customer-modal-heading"><div><h2 id="customer-details-title">{selectedCustomer.name}</h2><p>{selectedCustomer.customerCode}</p></div><button type="button" className="customer-close-button" onClick={() => setSelectedCustomer(null)} aria-label="Close customer details">×</button></div>
+          <div className="customer-detail-grid"><p><span>Phone</span><strong>{selectedCustomer.phone}</strong></p><p><span>Email</span><strong>{selectedCustomer.email || "—"}</strong></p><p><span>GSTIN</span><strong>{selectedCustomer.gstin || "Unregistered"}</strong></p><p><span>Owes you</span><strong>{money(selectedCustomer.balanceDue)}</strong></p><p><span>Credit limit</span><strong>{money(selectedCustomer.creditLimit)}</strong></p><p><span>Status</span><strong>{selectedCustomer.active ? "Active" : "Inactive"}</strong></p><p><span>Created</span><strong>{formatDate(selectedCustomer.createdAt)}</strong></p></div>
           <div className="customer-address-grid"><div><span>Billing address</span><p>{selectedCustomer.billingAddress || "Not provided"}</p></div><div><span>Shipping address</span><p>{selectedCustomer.shippingAddress || "Not provided"}</p></div></div>
-          <div className="customer-form-actions">{canManageCustomers && <button type="button" className="customer-secondary-button" onClick={() => { setSelectedCustomer(null); openEditForm(selectedCustomer); }}>Edit customer</button>}{canManageSales && <button type="button" className="customer-primary-button" onClick={() => { window.location.hash = "billing"; }}>Create sales order</button>}</div>
+          <div className="customer-form-actions">{canManageCustomers && <button type="button" className="customer-secondary-button" onClick={() => { setSelectedCustomer(null); openEditForm(selectedCustomer); }}>Edit customer</button>}{canManageSales && <button type="button" className="customer-primary-button" onClick={() => { window.location.hash = "billing"; }}>New sale</button>}</div>
         </section>
       </div>}
     </section>

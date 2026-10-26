@@ -6,6 +6,7 @@ import com.indravaibhavmarble.customer.dto.CustomerResponse;
 import com.indravaibhavmarble.customer.entity.Customer;
 import com.indravaibhavmarble.customer.mapper.CustomerMapper;
 import com.indravaibhavmarble.customer.repository.CustomerRepository;
+import com.indravaibhavmarble.salesorder.service.CustomerBalanceService;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,15 +14,20 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 @Service
 @Transactional
 public class CustomerService {
 
     private final CustomerRepository customerRepository;
+    private final CustomerBalanceService customerBalanceService;
 
-    public CustomerService(CustomerRepository customerRepository) {
+    public CustomerService(
+            CustomerRepository customerRepository,
+            CustomerBalanceService customerBalanceService) {
         this.customerRepository = customerRepository;
+        this.customerBalanceService = customerBalanceService;
     }
 
     @Transactional(readOnly = true)
@@ -37,16 +43,22 @@ public class CustomerService {
             case "INACTIVE" -> customerRepository.findByActiveFalseOrderByNameAsc();
             default -> customerRepository.findByActiveTrueOrderByNameAsc();
         };
+        Map<Long, CustomerBalanceService.CustomerBalance> balances =
+                customerBalanceService.balancesByCustomer();
         return customers
                 .stream()
-                .map(CustomerMapper::toResponse)
+                .map(customer -> CustomerMapper.toResponse(
+                        customer,
+                        balances.containsKey(customer.getId())
+                                ? balances.get(customer.getId()).balanceDue()
+                                : BigDecimal.ZERO))
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public CustomerResponse getCustomerById(Long id) {
         Customer customer = findCustomerById(id);
-        return CustomerMapper.toResponse(customer);
+        return toResponse(customer);
     }
 
     public CustomerResponse createCustomer(CustomerRequest request) {
@@ -64,7 +76,7 @@ public class CustomerService {
         customer.setCustomerCode(customerCode);
 
         Customer savedCustomer = customerRepository.save(customer);
-        return CustomerMapper.toResponse(savedCustomer);
+        return toResponse(savedCustomer);
     }
 
     public CustomerResponse updateCustomer(
@@ -92,7 +104,7 @@ public class CustomerService {
         existing.setCustomerCode(customerCode);
 
         Customer savedCustomer = customerRepository.save(existing);
-        return CustomerMapper.toResponse(savedCustomer);
+        return toResponse(savedCustomer);
     }
 
     public void deactivateCustomer(Long id) {
@@ -104,7 +116,7 @@ public class CustomerService {
     public CustomerResponse reactivateCustomer(Long id) {
         Customer customer = findCustomerById(id);
         customer.setActive(true);
-        return CustomerMapper.toResponse(customerRepository.save(customer));
+        return toResponse(customerRepository.save(customer));
     }
 
     @Transactional(readOnly = true)
@@ -123,6 +135,12 @@ public class CustomerService {
                         || (customer.gstin() != null
                         && customer.gstin().toLowerCase(Locale.ROOT).contains(term)))
                 .toList();
+    }
+
+    private CustomerResponse toResponse(Customer customer) {
+        return CustomerMapper.toResponse(
+                customer,
+                customerBalanceService.balanceDue(customer.getId()));
     }
 
     private Customer findCustomerById(Long id) {

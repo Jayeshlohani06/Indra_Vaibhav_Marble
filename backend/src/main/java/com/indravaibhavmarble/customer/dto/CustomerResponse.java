@@ -16,6 +16,7 @@ public record CustomerResponse(
         BigDecimal creditLimit,
         boolean active,
         OffsetDateTime createdAt,
-        OffsetDateTime updatedAt
+        OffsetDateTime updatedAt,
+        BigDecimal balanceDue
 ) {
 }

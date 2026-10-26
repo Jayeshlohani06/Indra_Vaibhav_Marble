@@ -23,6 +23,9 @@ public record SalesOrderResponse(
         String notes,
         OffsetDateTime createdAt,
         List<SalesOrderItemResponse> items,
-        List<SalesOrderChargeResponse> charges
+        List<SalesOrderChargeResponse> charges,
+        BigDecimal amountPaid,
+        BigDecimal balanceDue,
+        String paymentStatus
 ) {
 }

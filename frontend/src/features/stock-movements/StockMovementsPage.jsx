@@ -9,6 +9,7 @@ import { getProducts, getMeasurementUnits } from "../../services/api/inventoryAp
 
 import "./StockMovementsPage.css";
 import { usePermission } from "../../auth/PermissionsContext";
+import { label } from "../../utils/format";
 
 const PAGE_SIZE = 25;
 
@@ -181,17 +182,14 @@ function StockMovementsPage() {
 
   const metrics = movements.reduce(
     (result, movement) => {
-      const quantity = Number(movement.quantityChange || 0);
-      result.net += quantity;
-      if (movement.movementType === "PURCHASE") result.received += quantity;
-      if (movement.movementType === "SALE") result.sold += Math.abs(quantity);
+      if (movement.movementType === "PURCHASE") result.received += 1;
+      if (movement.movementType === "SALE") result.sold += 1;
       if (movement.movementType === "ADJUSTMENT") result.adjustments += 1;
       if (movement.movementType === "REVERSAL") result.reversals += 1;
       result.products.add(String(movement.productId));
       return result;
     },
     {
-      net: 0,
       received: 0,
       sold: 0,
       adjustments: 0,
@@ -313,54 +311,48 @@ function StockMovementsPage() {
   return (
     <section className="stock-movements-page">
       <div className="stock-movements-header">
-        <div>
-          <p className="stock-movements-eyebrow">INVENTORY / AUDIT</p>
-          <h2>Stock Movements</h2>
-          <p className="stock-movements-description">
-            Track every stock increase, sale, adjustment, and reversal.
-          </p>
-        </div>
+        <p className="stock-movements-description">
+          Every time stock went in or out, and why.
+        </p>
         <div className="stock-movements-header-actions">
-          {canManageInventory && <button type="button" className="stock-movements-secondary" onClick={() => setShowAdjustment(true)}>
-            Record adjustment
+          {canManageInventory && <button type="button" className="stock-movements-primary" onClick={() => setShowAdjustment(true)}>
+            Correct stock
           </button>}
           <button type="button" className="stock-movements-refresh" onClick={loadMovements} disabled={loading}>
             {loading ? "Loading..." : "Refresh"}
           </button>
-          <button type="button" className="stock-movements-primary" onClick={exportCsv} disabled={!filteredMovements.length}>
+          <button type="button" className="stock-movements-secondary" onClick={exportCsv} disabled={!filteredMovements.length}>
             Export CSV
           </button>
         </div>
       </div>
 
       <div className="stock-movements-stats">
-        <article><span>Net stock change</span><strong>{formatQuantity(metrics.net)}</strong></article>
-        <article><span>Stock received</span><strong>{formatQuantity(metrics.received)}</strong></article>
-        <article><span>Stock sold</span><strong>{formatQuantity(metrics.sold)}</strong></article>
-        <article><span>Adjustments</span><strong>{metrics.adjustments}</strong></article>
-        <article><span>Reversals</span><strong>{metrics.reversals}</strong></article>
+        <article><span>Times stock came in</span><strong>{metrics.received}</strong></article>
+        <article><span>Times stock was sold</span><strong>{metrics.sold}</strong></article>
+        <article><span>Manual corrections</span><strong>{metrics.adjustments + metrics.reversals}</strong></article>
         <article><span>Products affected</span><strong>{metrics.products.size}</strong></article>
       </div>
 
       <div className="stock-movements-toolbar">
-        <input type="search" aria-label="Search stock movements" placeholder="Search product, code, reference, notes..." value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} />
+        <input type="search" aria-label="Search stock movements" placeholder="Search product or bill number" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} />
         <select aria-label="Filter by product" value={productId} onChange={(event) => { setProductId(event.target.value); setPage(1); }}>
           <option value="ALL">All products</option>
           {products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
         </select>
         <select aria-label="Filter by movement type" value={movementType} onChange={(event) => { setMovementType(event.target.value); setPage(1); }}>
-          <option value="ALL">All movements</option>
-          <option value="SALE">Sales</option>
-          <option value="PURCHASE">Purchases</option>
-          <option value="ADJUSTMENT">Adjustments</option>
-          <option value="REVERSAL">Reversals</option>
+          <option value="ALL">In and out</option>
+          <option value="SALE">Sold</option>
+          <option value="PURCHASE">Came in</option>
+          <option value="ADJUSTMENT">Manual corrections</option>
+          <option value="REVERSAL">Undone entries</option>
         </select>
         <select aria-label="Filter by source" value={referenceType} onChange={(event) => { setReferenceType(event.target.value); setPage(1); }}>
-          <option value="ALL">All sources</option>
-          <option value="SALES_ORDER">Sales orders</option>
-          <option value="PURCHASE">Purchases</option>
-          <option value="MANUAL">Manual</option>
-          <option value="REVERSAL">Reversals</option>
+          <option value="ALL">From anywhere</option>
+          <option value="SALES_ORDER">From bills</option>
+          <option value="PURCHASE">From purchases</option>
+          <option value="MANUAL">Entered by hand</option>
+          <option value="REVERSAL">Undone entries</option>
         </select>
         <select aria-label="Filter by date" value={dateRange} onChange={(event) => { setDateRange(event.target.value); setPage(1); }}>
           <option value="ALL">All dates</option>
@@ -381,25 +373,45 @@ function StockMovementsPage() {
 
       {loading ? <div className="stock-movements-message">Loading stock movement history...</div> : !filteredMovements.length ? <div className="stock-movements-message">{movements.length ? "No movements match your filters." : "No stock movements have been recorded yet."}</div> : (
         <>
-          <div className="stock-movements-table-wrapper">
-            <table className="stock-movements-table">
-              <thead><tr><th>Date</th><th>Product</th><th>Movement</th><th>Quantity</th><th>Stock before</th><th>Stock after</th><th>Source</th><th>Actions</th></tr></thead>
+          <div className="stock-movements-table-wrapper has-mobile-cards">
+            <table className="stock-movements-table desktop-table">
+              <thead><tr><th>Date</th><th>Product</th><th>What happened</th><th>Change</th><th>Stock after</th><th>From</th><th><span className="visually-hidden">Actions</span></th></tr></thead>
               <tbody>
                 {visibleMovements.map((movement) => {
                   const product = productMap.get(String(movement.productId));
                   return <tr key={movement.id} onClick={() => setSelectedMovement(movement)}>
                     <td>{formatDate(movement.createdAt)}</td>
                     <td><strong>{product?.name || `Product #${movement.productId}`}</strong><small>{product?.productCode || `ID: ${movement.productId}`}</small></td>
-                    <td><span className={`stock-movement-badge stock-movement-${String(movement.movementType || "unknown").toLowerCase()}`}>{movement.movementType || "Unknown"}</span></td>
+                    <td><span className={`stock-movement-badge stock-movement-${String(movement.movementType || "unknown").toLowerCase()}`}>{label(movement.movementType)}</span></td>
                     <td className={Number(movement.quantityChange) < 0 ? "stock-quantity-negative" : "stock-quantity-positive"}>{Number(movement.quantityChange) > 0 ? "+" : ""}{formatMovementQuantity(movement, movement.quantityChange, movement.secondaryQuantityChange)}</td>
-                    <td>{formatMovementQuantity(movement, movement.stockBefore, movement.secondaryStockBefore)}</td>
                     <td>{formatMovementQuantity(movement, movement.stockAfter, movement.secondaryStockAfter)}</td>
-                    <td><strong>{movement.referenceNumber || "Manual"}</strong><small>{movement.referenceType || "—"}</small></td>
+                    <td><strong>{movement.referenceNumber || "Entered by hand"}</strong><small>{label(movement.referenceType)}</small></td>
                     <td><button type="button" className="stock-row-action" onClick={(event) => { event.stopPropagation(); setSelectedMovement(movement); }}>View</button></td>
                   </tr>;
                 })}
               </tbody>
             </table>
+
+            <div className="mobile-cards">
+              {visibleMovements.map((movement) => {
+                const product = productMap.get(String(movement.productId));
+                const negative = Number(movement.quantityChange) < 0;
+                return (
+                  <button type="button" key={movement.id} className="mobile-card" onClick={() => setSelectedMovement(movement)}>
+                    <span className="mobile-card__row">
+                      <span className="mobile-card__title">{product?.name || `Product #${movement.productId}`}</span>
+                      <span className={negative ? "stock-quantity-negative" : "stock-quantity-positive"}>
+                        {negative ? "" : "+"}{formatMovementQuantity(movement, movement.quantityChange, movement.secondaryQuantityChange)}
+                      </span>
+                    </span>
+                    <span className="mobile-card__row">
+                      <span className="mobile-card__meta">{formatDate(movement.createdAt)} · {movement.referenceNumber || "Entered by hand"}</span>
+                      <span className={`stock-movement-badge stock-movement-${String(movement.movementType || "unknown").toLowerCase()}`}>{label(movement.movementType)}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
           <div className="stock-movements-pagination">
             <span>Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filteredMovements.length)} of {filteredMovements.length}</span>
@@ -410,14 +422,14 @@ function StockMovementsPage() {
 
       {selectedMovement && <div className="stock-movement-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setSelectedMovement(null)}>
         <section className="stock-movement-modal" role="dialog" aria-modal="true" aria-labelledby="movement-detail-heading">
-          <div className="stock-movement-modal-heading"><div><p className="stock-movements-eyebrow">MOVEMENT DETAIL</p><h3 id="movement-detail-heading">{selectedMovement.movementType}</h3><p>{formatDate(selectedMovement.createdAt)}</p></div><button type="button" onClick={() => setSelectedMovement(null)} aria-label="Close details">×</button></div>
+          <div className="stock-movement-modal-heading"><div><h3 id="movement-detail-heading">{label(selectedMovement.movementType)}</h3><p>{formatDate(selectedMovement.createdAt)}</p></div><button type="button" onClick={() => setSelectedMovement(null)} aria-label="Close details">×</button></div>
           <div className="stock-movement-detail-grid">
             <p><span>Product</span><strong>{productMap.get(String(selectedMovement.productId))?.name || `Product #${selectedMovement.productId}`}</strong></p>
             <p><span>Quantity change</span><strong>{formatMovementQuantity(selectedMovement, selectedMovement.quantityChange, selectedMovement.secondaryQuantityChange)}</strong></p>
             <p><span>Stock before</span><strong>{formatMovementQuantity(selectedMovement, selectedMovement.stockBefore, selectedMovement.secondaryStockBefore)}</strong></p>
             <p><span>Stock after</span><strong>{formatMovementQuantity(selectedMovement, selectedMovement.stockAfter, selectedMovement.secondaryStockAfter)}</strong></p>
-            <p><span>Reference</span><strong>{selectedMovement.referenceNumber || "Manual"}</strong></p>
-            <p><span>Source type</span><strong>{selectedMovement.referenceType || "—"}</strong></p>
+            <p><span>Bill or purchase no.</span><strong>{selectedMovement.referenceNumber || "Entered by hand"}</strong></p>
+            <p><span>From</span><strong>{label(selectedMovement.referenceType)}</strong></p>
           </div>
           <div className="stock-movement-notes"><span>Notes</span><p>{selectedMovement.notes || "No notes recorded."}</p></div>
           {canManageInventory && selectedMovement.movementType !== "REVERSAL" && selectedMovement.referenceType !== "SALES_ORDER" && selectedMovement.referenceType !== "PURCHASE" && <div className="stock-movement-reversal"><label>Reversal reason<input value={reversalNotes} onChange={(event) => setReversalNotes(event.target.value)} placeholder="Why should this movement be reversed?" /></label><button type="button" className="stock-movements-danger" onClick={handleReverse} disabled={reversing}>{reversing ? "Reversing..." : "Reverse movement"}</button></div>}

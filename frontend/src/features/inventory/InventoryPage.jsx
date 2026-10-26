@@ -1,5 +1,6 @@
 
 import { useEffect, useRef, useState } from "react";
+import RowMenu from "../../components/RowMenu";
 import InventorySettingsPanel from "./InventorySettingsPanel";
 import StockOperationsPanel from "./StockOperationsPanel";
 
@@ -26,10 +27,10 @@ const initialForm = {
   unitId: "",
   secondaryUnitId: "",
   secondaryPerPrimary: "",
-  purchasePrice: "0",
-  sellingPrice: "0",
+  purchasePrice: "",
+  sellingPrice: "",
   gstRate: "18",
-  lowStockThreshold: "0",
+  lowStockThreshold: "",
 };
 
 function buildProductCode(name, products = []) {
@@ -93,8 +94,6 @@ function InventoryPage() {
   const [statusFilter, setStatusFilter] = useState("ACTIVE");
   const [sortBy, setSortBy] = useState("name");
   const [sortDirection, setSortDirection] = useState("asc");
-  const [stockOverviewSearch, setStockOverviewSearch] = useState("");
-  const [stockOverviewFilter, setStockOverviewFilter] = useState("ALL");
 
   async function loadInventory() {
     try {
@@ -312,6 +311,15 @@ function InventoryPage() {
       return;
     }
 
+    // Number("") is 0, so a blank price would otherwise save as ₹0.
+    if (
+      [form.purchasePrice, form.sellingPrice, form.gstRate]
+        .some((value) => String(value ?? "").trim() === "")
+    ) {
+      setError("Enter the purchase price, selling price, and GST rate.");
+      return;
+    }
+
     if (
       !product.categoryId ||
       !product.unitId ||
@@ -417,6 +425,23 @@ function InventoryPage() {
     return product.active ?? product.isActive ?? true;
   }
 
+  // Stock shown with its units, e.g. "8,824 SQFT + 2,206 PCS".
+  function formatStock(product) {
+    const amount = (value) =>
+      Number(value ?? 0).toLocaleString("en-IN", { maximumFractionDigits: 3 });
+    const primary = `${amount(product.stockQuantity)} ${getUnitCode(product.unitId)}`;
+    return product.secondaryUnitId
+      ? `${primary} + ${amount(product.secondaryStockQuantity)} ${getUnitCode(product.secondaryUnitId)}`
+      : primary;
+  }
+
+  function stockStatus(product) {
+    if (!isActive(product)) return { label: "Inactive", alert: true };
+    if (Number(product.stockQuantity ?? 0) <= 0) return { label: "Out of stock", alert: true };
+    if (isLowStock(product)) return { label: "Running low", alert: true };
+    return { label: "In stock", alert: false };
+  }
+
   function isLowStock(product) {
     return (
       Number(product.stockQuantity ?? 0) <=
@@ -438,7 +463,8 @@ function InventoryPage() {
     const matchesStock =
       stockFilter === "ALL" ||
       (stockFilter === "LOW" && isLowStock(product)) ||
-      (stockFilter === "IN_STOCK" && !isLowStock(product));
+      (stockFilter === "IN_STOCK" && !isLowStock(product)) ||
+      (stockFilter === "NO_PRICE" && Number(product.sellingPrice ?? 0) <= 0);
 
     const active = isActive(product);
 
@@ -474,36 +500,9 @@ function InventoryPage() {
           Number(product.purchasePrice ?? 0),
       0
     );
-  const inventorySalesValue = products
-    .filter(isActive)
-    .reduce(
-      (total, product) =>
-        total +
-        Number(product.stockQuantity ?? 0) *
-          Number(product.sellingPrice ?? 0),
-      0
-    );
-
-  const stockOverviewProducts = products
-    .filter(isActive)
-    .filter((product) => {
-      const search = stockOverviewSearch.trim().toLowerCase();
-      const matchesSearch =
-        !search ||
-        String(product.name || "").toLowerCase().includes(search) ||
-        String(product.productCode || "").toLowerCase().includes(search);
-      const quantity = Number(product.stockQuantity ?? 0);
-      const matchesStock =
-        stockOverviewFilter === "ALL" ||
-        (stockOverviewFilter === "OUT" && quantity <= 0) ||
-        (stockOverviewFilter === "LOW" && quantity > 0 && isLowStock(product)) ||
-        (stockOverviewFilter === "AVAILABLE" && quantity > 0 && !isLowStock(product));
-
-      return matchesSearch && matchesStock;
-    })
-    .sort((first, second) =>
-      String(first.name || "").localeCompare(String(second.name || ""))
-    );
+  const unpricedProducts = products.filter(
+    (product) => isActive(product) && Number(product.sellingPrice ?? 0) <= 0
+  );
 
   const sortedProducts = [...filteredProducts].sort((first, second) => {
     const firstValue =
@@ -538,20 +537,34 @@ function InventoryPage() {
   return (
     <main className="inventory-page">
       <header className="inventory-header">
-        <div>
-          <p className="inventory-eyebrow">WORKSPACE / INVENTORY</p>
-          <h1>Inventory Management</h1>
-          <p>Manage your marble, granite, tiles and sanitaryware.</p>
-        </div>
+        <p className="inventory-intro">
+          Your products, how much is in stock, and what needs reordering.
+        </p>
 
-        {canManageProducts && <button
-          className="inventory-primary-button"
-          type="button"
-          onClick={openCreateForm}
-          disabled={loading}
-        >
-          + Create Product
-        </button>}
+        <div className="inventory-header-actions">
+          {canManageInventory && <button
+            className="inventory-secondary-button"
+            type="button"
+            onClick={() => setShowStockOperations(true)}
+          >
+            Adjust stock
+          </button>}
+          {canManageInventory && <button
+            className="inventory-secondary-button"
+            type="button"
+            onClick={() => setShowInventorySettings(true)}
+          >
+            Stock settings
+          </button>}
+          {canManageProducts && <button
+            className="inventory-primary-button"
+            type="button"
+            onClick={openCreateForm}
+            disabled={loading}
+          >
+            + Add product
+          </button>}
+        </div>
       </header>
 
       <section
@@ -559,144 +572,22 @@ function InventoryPage() {
         aria-label="Inventory summaries"
       >
         <article className="inventory-stat-card">
-          <span>Active SKUs</span>
+          <span>Products</span>
           <strong>{activeProductCount}</strong>
-          <small>Products currently available for sale</small>
+          <small>Items you currently sell</small>
         </article>
 
         <article className="inventory-stat-card inventory-stat-warning">
-          <span>Needs Reorder</span>
-          <strong>{lowStockProducts.length}</strong>
-          <small>Below the configured stock threshold</small>
-        </article>
-
-        <article className="inventory-stat-card inventory-stat-danger">
-          <span>Out of Stock</span>
-          <strong>{outOfStockProducts.length}</strong>
-          <small>Active products with no available stock</small>
+          <span>Running low or out</span>
+          <strong>{lowStockProducts.length + outOfStockProducts.length}</strong>
+          <small>{outOfStockProducts.length} out of stock · {lowStockProducts.length} running low</small>
         </article>
 
         <article className="inventory-stat-card">
-          <span>Stock Cost Value</span>
+          <span>Value of stock</span>
           <strong>{formatCurrency(inventoryCostValue)}</strong>
-          <small>Based on current purchase prices</small>
+          <small>At the price you bought it</small>
         </article>
-
-        <article className="inventory-stat-card inventory-stat-success">
-          <span>Potential Sales Value</span>
-          <strong>{formatCurrency(inventorySalesValue)}</strong>
-          <small>Based on current selling prices</small>
-        </article>
-      </section>
-
-      <section className="inventory-panel inventory-stock-overview" aria-labelledby="current-stock-heading">
-        <div className="inventory-panel-heading">
-          <div>
-            <p className="inventory-eyebrow">LIVE STOCK POSITION</p>
-            <h2 id="current-stock-heading">Current Stock Overview</h2>
-            <p>See the available quantity of every active item at a glance.</p>
-          </div>
-          <span className="inventory-overview-count">
-            {stockOverviewProducts.length} of {activeProductCount} active items
-          </span>
-        </div>
-
-        <div className="inventory-stock-overview-toolbar">
-          <input
-            type="search"
-            value={stockOverviewSearch}
-            onChange={(event) => setStockOverviewSearch(event.target.value)}
-            placeholder="Search stock by product or code..."
-            aria-label="Search current stock"
-          />
-          <select
-            value={stockOverviewFilter}
-            onChange={(event) => setStockOverviewFilter(event.target.value)}
-            aria-label="Filter current stock"
-          >
-            <option value="ALL">All stock</option>
-            <option value="AVAILABLE">Available</option>
-            <option value="LOW">Low stock</option>
-            <option value="OUT">Out of stock</option>
-          </select>
-        </div>
-
-        {stockOverviewProducts.length === 0 ? (
-          <div className="inventory-empty inventory-overview-empty">
-            <h3>No stock records match your filter</h3>
-            <p>Try another product name or stock status.</p>
-          </div>
-        ) : (
-          <div className="inventory-table-wrapper">
-            <table className="inventory-table inventory-stock-table">
-              <thead>
-                <tr>
-                  <th>Product</th>
-                  <th>Category</th>
-                  <th>Current Stock</th>
-                  <th>Reorder Level</th>
-                  <th>Stock Value</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stockOverviewProducts.map((product) => {
-                  const quantity = Number(product.stockQuantity ?? 0);
-                  const secondaryQuantity = Number(product.secondaryStockQuantity ?? 0);
-                  const primaryUnit = getUnitCode(product.unitId);
-                  const secondaryUnit = product.secondaryUnitId
-                    ? getUnitCode(product.secondaryUnitId)
-                    : "";
-                  const lowStock = isLowStock(product);
-                  const outOfStock = quantity <= 0;
-
-                  return (
-                    <tr key={product.id} className={outOfStock || lowStock ? "inventory-low-stock-row" : ""}>
-                      <td>
-                        <div className="inventory-stock-product">
-                          <strong>{product.name}</strong>
-                          <span>
-                            {product.productCode || "No code"} · {primaryUnit}
-                            {secondaryUnit && ` + ${secondaryUnit}`}
-                          </span>
-                        </div>
-                      </td>
-                      <td>{getCategoryName(product.categoryId)}</td>
-                      <td>
-                        <strong>
-                          {quantity.toLocaleString("en-IN", { maximumFractionDigits: 3 })}
-                        </strong>{" "}
-                        {primaryUnit}
-                        {secondaryUnit && (
-                          <span className="inventory-secondary-stock">
-                            {" "}+ {secondaryQuantity.toLocaleString("en-IN", { maximumFractionDigits: 3 })} {secondaryUnit}
-                          </span>
-                        )}
-                      </td>
-                      <td>
-                        {Number(product.lowStockThreshold ?? 0).toLocaleString("en-IN", {
-                          maximumFractionDigits: 3,
-                        })}{" "}
-                        {primaryUnit}
-                        {secondaryUnit && (
-                          <span className="inventory-secondary-stock">
-                            {" "}+ {secondaryUnit}
-                          </span>
-                        )}
-                      </td>
-                      <td>{formatCurrency(quantity * Number(product.purchasePrice ?? 0))}</td>
-                      <td>
-                        <span className={`inventory-stock-badge ${outOfStock || lowStock ? "inventory-stock-badge-low" : "inventory-stock-badge-ok"}`}>
-                          {outOfStock ? "Out of stock" : lowStock ? "Low stock" : "Available"}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
       </section>
 
       {success && (
@@ -724,23 +615,6 @@ function InventoryPage() {
           </button>
         </div>
       )}
-
-      <div className="inventory-quick-actions" aria-label="Inventory actions">
-        {canManageInventory && <button
-          className="inventory-secondary-button"
-          type="button"
-          onClick={() => setShowStockOperations(true)}
-        >
-          Stock Operations
-        </button>}
-        {canManageInventory && <button
-          className="inventory-secondary-button"
-          type="button"
-          onClick={() => setShowInventorySettings(true)}
-        >
-          Inventory Settings
-        </button>}
-      </div>
 
       {showStockOperations && (
         <div
@@ -805,8 +679,8 @@ function InventoryPage() {
             <div>
               <h2 id="inventory-product-form-heading">
                 {editingProductId !== null
-                  ? "Edit Product"
-                  : "Create Product"}
+                  ? "Edit product"
+                  : "Add product"}
               </h2>
               <p>
                 {editingProductId !== null
@@ -822,7 +696,7 @@ function InventoryPage() {
           <form onSubmit={handleSubmit} className="inventory-form">
             <div className="inventory-form-grid">
               <label>
-                Product Code
+                Product code
                 <input
                   name="productCode"
                   value={form.productCode}
@@ -834,7 +708,7 @@ function InventoryPage() {
               </label>
 
               <label>
-                Product Name *
+                Product name *
                 <input
                   name="name"
                   value={form.name}
@@ -846,6 +720,7 @@ function InventoryPage() {
               </label>
 
               <label>
+                Category *
                 <div className="inventory-inline-field">
                   <select
                     name="categoryId"
@@ -892,7 +767,7 @@ function InventoryPage() {
               </label>
 
               <label>
-                Measurement Unit *
+                Unit you sell in *
                 <div className="inventory-inline-field">
                   <select
                     name="unitId"
@@ -953,7 +828,7 @@ function InventoryPage() {
               </label>
 
               <label>
-                Secondary Unit (optional)
+                Second unit (optional)
                 <select
                   name="secondaryUnitId"
                   value={form.secondaryUnitId}
@@ -967,7 +842,7 @@ function InventoryPage() {
               </label>
 
               {form.secondaryUnitId && <label>
-                Secondary Units per Primary (optional)
+                Second units in one main unit (optional)
                 <input
                   name="secondaryPerPrimary"
                   type="number"
@@ -980,7 +855,7 @@ function InventoryPage() {
               </label>}
 
               <label>
-                Purchase Price (₹) *
+                Purchase price (₹) *
                 <input
                   name="purchasePrice"
                   type="number"
@@ -988,12 +863,13 @@ function InventoryPage() {
                   step="0.01"
                   value={form.purchasePrice}
                   onChange={handleChange}
+                  placeholder="What you pay, e.g. 450"
                   required
                 />
               </label>
 
               <label>
-                Selling Price (₹) *
+                Selling price (₹) *
                 <input
                   name="sellingPrice"
                   type="number"
@@ -1001,12 +877,13 @@ function InventoryPage() {
                   step="0.01"
                   value={form.sellingPrice}
                   onChange={handleChange}
+                  placeholder="What you charge, e.g. 600"
                   required
                 />
               </label>
 
               <label>
-                GST Rate (%) *
+                GST rate (%) *
                 <input
                   name="gstRate"
                   type="number"
@@ -1020,7 +897,7 @@ function InventoryPage() {
               </label>
 
               <label>
-                Low-Stock Threshold *
+                Warn me when stock falls below
                 <input
                   name="lowStockThreshold"
                   type="number"
@@ -1028,7 +905,7 @@ function InventoryPage() {
                   step="0.001"
                   value={form.lowStockThreshold}
                   onChange={handleChange}
-                  required
+                  placeholder="e.g. 20 (optional)"
                 />
               </label>
 
@@ -1063,7 +940,7 @@ function InventoryPage() {
                   ? "Saving..."
                   : editingProductId !== null
                     ? "Update Product"
-                    : "Save Product"}
+                    : "Save product"}
               </button>
             </div>
           </form>
@@ -1125,11 +1002,11 @@ function InventoryPage() {
               <strong>Unit:</strong> {getUnitCode(selectedProduct.unitId)}
             </p>
             <p>
-              <strong>Purchase Price:</strong>{" "}
+              <strong>Purchase price:</strong>{" "}
               ₹{Number(selectedProduct.purchasePrice ?? 0).toFixed(2)}
             </p>
             <p>
-              <strong>Selling Price:</strong>{" "}
+              <strong>Selling price:</strong>{" "}
               ₹{Number(selectedProduct.sellingPrice ?? 0).toFixed(2)}
             </p>
             <p><strong>GST:</strong> {selectedProduct.gstRate}%</p>
@@ -1138,7 +1015,7 @@ function InventoryPage() {
               {selectedProduct.stockQuantity ?? 0}
             </p>
             <p>
-              <strong>Low-Stock Threshold:</strong>{" "}
+              <strong>Reorder when below:</strong>{" "}
               {selectedProduct.lowStockThreshold ?? 0}
             </p>
             <p>
@@ -1158,7 +1035,7 @@ function InventoryPage() {
                 type="button"
                 onClick={() => openEditForm(selectedProduct.id)}
               >
-                Edit Product
+                Edit product
               </button>
             </div>
           )}
@@ -1176,29 +1053,47 @@ function InventoryPage() {
             <div className="inventory-panel-heading">
               <div>
                 <h2>Products</h2>
-                <p>Search, filter and manage your current inventory.</p>
+                <p>Tap a product to see its full details.</p>
               </div>
             </div>
+
+            {unpricedProducts.length > 0 && (
+              <section className="inventory-reorder-panel inventory-price-warning" aria-label="Products without a selling price">
+                <div>
+                  <h3>
+                    {unpricedProducts.length}{" "}
+                    {unpricedProducts.length === 1 ? "product has" : "products have"} no selling price
+                  </h3>
+                  <p>Set a selling price so it fills in automatically when you make a bill.</p>
+                </div>
+                <button
+                  className="inventory-secondary-button"
+                  type="button"
+                  onClick={() => setStockFilter("NO_PRICE")}
+                >
+                  Show them
+                </button>
+              </section>
+            )}
 
             {(outOfStockProducts.length > 0 || lowStockProducts.length > 0) && (
               <section className="inventory-reorder-panel" aria-labelledby="inventory-reorder-heading">
                 <div>
-                  <p className="inventory-reorder-eyebrow">ACTION REQUIRED</p>
-                  <h3 id="inventory-reorder-heading">Replenishment queue</h3>
-                  <p>
-                    {outOfStockProducts.length + lowStockProducts.length} active{" "}
+                  <h3 id="inventory-reorder-heading">
+                    {outOfStockProducts.length + lowStockProducts.length}{" "}
                     {outOfStockProducts.length + lowStockProducts.length === 1
                       ? "product needs"
                       : "products need"}{" "}
-                    attention before the next sale.
-                  </p>
+                    reordering
+                  </h3>
+                  <p>They are out of stock or below the level you set.</p>
                 </div>
                 <button
                   className="inventory-secondary-button"
                   type="button"
                   onClick={() => setStockFilter("LOW")}
                 >
-                  Review low stock
+                  Show them
                 </button>
               </section>
             )}
@@ -1208,7 +1103,7 @@ function InventoryPage() {
                 type="search"
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Search product name or code..."
+                placeholder="Search product name"
                 aria-label="Search products"
               />
 
@@ -1233,8 +1128,9 @@ function InventoryPage() {
                 aria-label="Filter by stock status"
               >
                 <option value="ALL">All stock levels</option>
-                <option value="LOW">Low stock</option>
-                <option value="IN_STOCK">Above threshold</option>
+                <option value="LOW">Running low or out</option>
+                <option value="IN_STOCK">Enough stock</option>
+                <option value="NO_PRICE">No selling price</option>
               </select>
 
               <select
@@ -1244,7 +1140,7 @@ function InventoryPage() {
               >
                 <option value="ACTIVE">Active products</option>
                 <option value="INACTIVE">Inactive products</option>
-                <option value="ALL">All product statuses</option>
+                <option value="ALL">Active and inactive</option>
               </select>
 
               <button
@@ -1257,7 +1153,7 @@ function InventoryPage() {
                   setStatusFilter("ACTIVE");
                 }}
               >
-                Clear Filters
+                Clear filters
               </button>
               <select
                 value={`${sortBy}:${sortDirection}`}
@@ -1294,63 +1190,64 @@ function InventoryPage() {
                 </p>
               </div>
             ) : (
-              <div className="inventory-table-wrapper">
-                <table className="inventory-table">
+              <div className="inventory-table-wrapper has-mobile-cards">
+                <table className="inventory-table inventory-products-table desktop-table">
                   <thead>
                     <tr>
-                      <th>Product Code</th>
                       <th>
                         <button type="button" className="inventory-sort-button" onClick={() => changeSort("name")}>
-                          Product Name {sortBy === "name" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
+                          Product {sortBy === "name" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
                         </button>
                       </th>
                       <th>Category</th>
-                      <th>Unit</th>
-                      <th>Selling Price</th>
                       <th>
                         <button type="button" className="inventory-sort-button" onClick={() => changeSort("stock")}>
-                          Available Stock {sortBy === "stock" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
+                          In stock {sortBy === "stock" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
                         </button>
                       </th>
-                      <th>Stock Value</th>
-                      <th>GST</th>
+                      <th>Selling price</th>
+                      <th>Stock value</th>
                       <th>Status</th>
-                      <th>Actions</th>
+                      <th><span className="visually-hidden">Actions</span></th>
                     </tr>
                   </thead>
 
                   <tbody>
                     {sortedProducts.map((product) => {
-                      const lowStock = isLowStock(product);
                       const active = isActive(product);
+                      const status = stockStatus(product);
                       const deactivating =
                         deactivatingProductId === product.id;
+                      const menuItems = active && canManageProducts
+                        ? [
+                          { label: "Edit product", onClick: () => openEditForm(product.id) },
+                          {
+                            label: deactivating ? "Deactivating..." : "Deactivate product",
+                            onClick: () => handleDeactivate(product),
+                            danger: true,
+                          },
+                        ]
+                        : [];
 
                       return (
                         <tr
                           key={product.id}
-                          className={
-                            active && lowStock
-                              ? "inventory-low-stock-row"
-                              : ""
-                          }
+                          className={status.alert ? "inventory-low-stock-row" : ""}
                         >
-                          <td>{product.productCode}</td>
-                          <td>{product.name}</td>
+                          <td>
+                            <div className="inventory-stock-product">
+                              <strong>{product.name}</strong>
+                              <span>{product.productCode}</span>
+                            </div>
+                          </td>
                           <td>{getCategoryName(product.categoryId)}</td>
                           <td>
-                            {getUnitCode(product.unitId)}
-                            {product.secondaryUnitId && ` + ${getUnitCode(product.secondaryUnitId)}`}
+                            <strong>{formatStock(product)}</strong>
                           </td>
                           <td>
-                            ₹
-                            {Number(product.sellingPrice ?? 0).toFixed(2)}
-                          </td>
-                          <td>
-                            <strong>
-                              {product.stockQuantity ?? 0}
-                              {product.secondaryUnitId && ` + ${product.secondaryStockQuantity ?? 0}`}
-                            </strong>
+                            {Number(product.sellingPrice ?? 0) > 0
+                              ? formatCurrency(product.sellingPrice)
+                              : <span className="inventory-missing-price">Not set</span>}
                           </td>
                           <td>
                             {formatCurrency(
@@ -1358,26 +1255,13 @@ function InventoryPage() {
                                 Number(product.purchasePrice ?? 0)
                             )}
                           </td>
-                          <td>{product.gstRate}%</td>
                           <td>
-                            <span
-                              className={
-                                !active
-                                  ? "inventory-stock-badge inventory-stock-badge-low"
-                                  : lowStock
-                                    ? "inventory-stock-badge inventory-stock-badge-low"
-                                    : "inventory-stock-badge inventory-stock-badge-ok"
-                              }
-                            >
-                              {!active
-                                ? "Inactive"
-                                : lowStock
-                                  ? "Low Stock"
-                                  : "In Stock"}
+                            <span className={`inventory-stock-badge ${status.alert ? "inventory-stock-badge-low" : "inventory-stock-badge-ok"}`}>
+                              {status.label}
                             </span>
                           </td>
                           <td>
-                            <div className="inventory-form-actions">
+                            <div className="inventory-row-actions">
                               <button
                                 className="inventory-secondary-button"
                                 type="button"
@@ -1385,29 +1269,7 @@ function InventoryPage() {
                               >
                                 View
                               </button>
-
-                              {active && (
-                                <>
-                                  <button
-                                    className="inventory-secondary-button"
-                                    type="button"
-                                    onClick={() => openEditForm(product.id)}
-                                  >
-                                    Edit
-                                  </button>
-
-                                  {canManageProducts && <button
-                                    className="inventory-secondary-button"
-                                    type="button"
-                                    disabled={deactivating}
-                                    onClick={() => handleDeactivate(product)}
-                                  >
-                                    {deactivating
-                                      ? "Deactivating..."
-                                      : "Deactivate"}
-                                  </button>}
-                                </>
-                              )}
+                              <RowMenu label={`More actions for ${product.name}`} items={menuItems} />
                             </div>
                           </td>
                         </tr>
@@ -1415,6 +1277,35 @@ function InventoryPage() {
                     })}
                   </tbody>
                 </table>
+
+                <div className="mobile-cards">
+                  {sortedProducts.map((product) => {
+                    const status = stockStatus(product);
+                    return (
+                      <button
+                        type="button"
+                        key={product.id}
+                        className="mobile-card"
+                        onClick={() => openProductDetails(product.id)}
+                      >
+                        <span className="mobile-card__row">
+                          <span className="mobile-card__title">{product.name}</span>
+                          <span className={`inventory-stock-badge ${status.alert ? "inventory-stock-badge-low" : "inventory-stock-badge-ok"}`}>
+                            {status.label}
+                          </span>
+                        </span>
+                        <span className="mobile-card__row">
+                          <span className="mobile-card__meta">In stock: {formatStock(product)}</span>
+                          <span className="mobile-card__meta">
+                            {Number(product.sellingPrice ?? 0) > 0
+                              ? formatCurrency(product.sellingPrice)
+                              : <span className="inventory-missing-price">No price</span>}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </section>

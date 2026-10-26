@@ -84,8 +84,25 @@ async function request(endpoint, options = {}) {
   return data;
 }
 
+// Several parts of a page often ask for the same list at the same moment.
+// Identical GETs that are still in flight share one request; each caller gets
+// its own copy so one part of the page cannot change another part's data.
+const inFlightGets = new Map();
+
+function getOnce(endpoint) {
+  const key = `${authToken || ""} ${endpoint}`;
+  let pending = inFlightGets.get(key);
+
+  if (!pending) {
+    pending = request(endpoint).finally(() => inFlightGets.delete(key));
+    inFlightGets.set(key, pending);
+  }
+
+  return pending.then((data) => (data === null ? null : structuredClone(data)));
+}
+
 const httpClient = {
-  get: (endpoint) => request(endpoint),
+  get: (endpoint) => getOnce(endpoint),
 
   post: (endpoint, body) =>
     request(endpoint, {

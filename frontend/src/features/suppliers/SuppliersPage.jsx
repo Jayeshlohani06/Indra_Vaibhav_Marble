@@ -8,6 +8,7 @@ import {
   updateSupplier,
 } from "../../services/api/supplierApi";
 import "./SuppliersPage.css";
+import RowMenu from "../../components/RowMenu";
 import { usePermission } from "../../auth/PermissionsContext";
 
 const emptyForm = {
@@ -260,16 +261,12 @@ async function handleSubmit(event) {
   return (
     <section className="suppliers-page">
       <div className="suppliers-heading">
-        <div>
-          <p className="suppliers-eyebrow">PURCHASE MANAGEMENT</p>
-          <h2>Suppliers</h2>
-          <p className="suppliers-subtitle">
-            Manage supplier companies and their contact information.
-          </p>
-        </div>
+        <p className="suppliers-subtitle">
+          The companies you buy from and how to reach them.
+        </p>
 
         {canManageSuppliers && <button className="supplier-primary-button" onClick={openAddForm}>
-          + Add Supplier
+          + Add supplier
         </button>}
       </div>
 
@@ -286,17 +283,16 @@ async function handleSubmit(event) {
       )}
 
       <div className="supplier-summary">
-        <div className="supplier-summary-card is-blue"><span>Active suppliers</span><strong>{activeCount}</strong><small>Available for purchases</small></div>
-        <div className="supplier-summary-card is-slate"><span>Inactive suppliers</span><strong>{inactiveCount}</strong><small>Retained for history</small></div>
-        <div className="supplier-summary-card is-green"><span>GST registered</span><strong>{gstCount}</strong><small>Suppliers with GSTIN</small></div>
-        <div className="supplier-summary-card is-purple"><span>Matching results</span><strong>{filteredSuppliers.length}</strong><small>Current filters</small></div>
+        <div className="supplier-summary-card is-blue"><span>Suppliers</span><strong>{activeCount}</strong><small>Active suppliers you buy from</small></div>
+        <div className="supplier-summary-card is-green"><span>With GSTIN</span><strong>{gstCount}</strong><small>Registered for GST</small></div>
+        <div className="supplier-summary-card is-slate"><span>Inactive</span><strong>{inactiveCount}</strong><small>Kept for old records</small></div>
       </div>
 
       {showForm && (
         <div className="supplier-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && !saving && setShowForm(false)}>
         <form className="supplier-form-card supplier-modal" onSubmit={handleSubmit}>
           <div className="supplier-form-heading">
-            <h3>{editingId !== null ? "Edit Supplier" : "Add Supplier"}</h3>
+            <h3>{editingId !== null ? "Edit supplier" : "Add supplier"}</h3>
             {canManageSuppliers && <button
               type="button"
               className="supplier-text-button"
@@ -378,8 +374,8 @@ async function handleSubmit(event) {
       <div className="supplier-table-card">
         <div className="supplier-table-toolbar">
           <div>
-            <h3>Supplier Directory</h3>
-            <p>Contact details for your business suppliers.</p>
+            <h3>All suppliers</h3>
+            <p>Tap a supplier to see their full details.</p>
           </div>
 
           <input
@@ -415,15 +411,15 @@ async function handleSubmit(event) {
             </p>
           </div>
         ) : (
-          <div className="supplier-table-scroll">
-            <table className="supplier-table">
+          <div className="supplier-table-scroll has-mobile-cards">
+            <table className="supplier-table desktop-table">
               <thead>
                 <tr>
                   <th>Supplier</th>
                   <th>Contact</th>
                   <th>GSTIN</th>
                   <th>Location</th>
-                  <th>Actions</th>
+                  <th><span className="visually-hidden">Actions</span></th>
                 </tr>
               </thead>
 
@@ -450,24 +446,38 @@ async function handleSubmit(event) {
                         <button
                           type="button"
                           className="supplier-action-button"
-                          onClick={(event) => { event.stopPropagation(); openEditForm(supplier); }}
+                          onClick={(event) => { event.stopPropagation(); setDetailsSupplier(supplier); }}
                         >
-                          Edit
+                          View
                         </button>
-
-                        {canManageSuppliers && <button
-                          type="button"
-                          className="supplier-action-button supplier-danger-button"
-                          onClick={(event) => { event.stopPropagation(); handleStatusChange(supplier); }}
-                        >
-                          {supplier.active ? "Deactivate" : "Reactivate"}
-                        </button>}
+                        {canManageSuppliers && <RowMenu label={`More actions for ${supplier.name}`} items={[
+                          { label: "Edit details", onClick: () => openEditForm(supplier) },
+                          {
+                            label: supplier.active ? "Deactivate supplier" : "Reactivate supplier",
+                            onClick: () => handleStatusChange(supplier),
+                            danger: supplier.active,
+                          },
+                        ]} />}
                       </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+
+            <div className="mobile-cards">
+              {visibleSuppliers.map((supplier) => (
+                <button type="button" key={supplier.id} className="mobile-card" onClick={() => setDetailsSupplier(supplier)}>
+                  <span className="mobile-card__row">
+                    <span className="mobile-card__title">{supplier.name}</span>
+                    {!supplier.active && <span className="mobile-card__meta">Inactive</span>}
+                  </span>
+                  <span className="mobile-card__meta">
+                    {[supplier.phone, [supplier.city, supplier.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ") || "No contact details"}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
         <div className="supplier-pagination"><span>Showing {filteredSuppliers.length ? (page - 1) * PAGE_SIZE + 1 : 0}–{Math.min(page * PAGE_SIZE, filteredSuppliers.length)} of {filteredSuppliers.length}</span><div><button type="button" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>Previous</button><strong>Page {page} of {pageCount}</strong><button type="button" disabled={page >= pageCount} onClick={() => setPage((current) => current + 1)}>Next</button></div></div>
@@ -476,7 +486,7 @@ async function handleSubmit(event) {
       {detailsSupplier && (
         <div className="supplier-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setDetailsSupplier(null)}>
           <section className="supplier-details-modal" role="dialog" aria-modal="true" aria-labelledby="supplier-details-title">
-            <div className="supplier-form-heading"><div><p className="suppliers-eyebrow">SUPPLIER PROFILE</p><h2 id="supplier-details-title">{detailsSupplier.name}</h2><p>{detailsSupplier.supplierCode || "No supplier code"}</p></div><button type="button" className="supplier-secondary-button" onClick={() => setDetailsSupplier(null)}>Close</button></div>
+            <div className="supplier-form-heading"><div><h2 id="supplier-details-title">{detailsSupplier.name}</h2><p>{detailsSupplier.supplierCode || "No supplier code"}</p></div><button type="button" className="supplier-secondary-button" onClick={() => setDetailsSupplier(null)}>Close</button></div>
             <div className="supplier-detail-grid"><p><span>Contact person</span><strong>{detailsSupplier.contactPerson || "—"}</strong></p><p><span>Phone</span><strong>{detailsSupplier.phone || "—"}</strong></p><p><span>Email</span><strong>{detailsSupplier.email || "—"}</strong></p><p><span>GSTIN</span><strong>{detailsSupplier.gstin || "Unregistered"}</strong></p><p><span>Location</span><strong>{[detailsSupplier.city, detailsSupplier.state, detailsSupplier.postalCode].filter(Boolean).join(", ") || "—"}</strong></p><p><span>Status</span><strong>{detailsSupplier.active ? "Active" : "Inactive"}</strong></p></div>
             <div className="supplier-detail-address"><span>Address</span><p>{detailsSupplier.addressLine || "Not provided"}</p></div>
             <div className="supplier-form-actions">{canManageSuppliers && <button type="button" className="supplier-secondary-button" onClick={() => { setDetailsSupplier(null); openEditForm(detailsSupplier); }}>Edit supplier</button>}{canManageSuppliers && <button type="button" className={`supplier-primary-button ${detailsSupplier.active ? "supplier-danger-button" : ""}`} onClick={() => { setDetailsSupplier(null); handleStatusChange(detailsSupplier); }}>{detailsSupplier.active ? "Deactivate" : "Reactivate"}</button>}</div>

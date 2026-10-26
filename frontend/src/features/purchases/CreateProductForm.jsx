@@ -15,10 +15,10 @@ const initialForm = {
   unitId: "",
   secondaryUnitId: "",
   secondaryPerPrimary: "",
-  purchasePrice: "0",
-  sellingPrice: "0",
+  purchasePrice: "",
+  sellingPrice: "",
   gstRate: "18",
-  lowStockThreshold: "0",
+  lowStockThreshold: "",
 };
 
 function buildProductCode(name) {
@@ -289,7 +289,7 @@ function CreateProductForm({ onClose, onCreated }) {
                 {addingReference === "unit-form" && <div className="purchase-reference-creator"><input value={newUnitName} onChange={(event) => setNewUnitName(event.target.value)} placeholder="Unit name" maxLength={50} /><input value={newUnitCode} onChange={(event) => setNewUnitCode(event.target.value)} placeholder="Code" maxLength={20} /><button type="button" className="purchase-secondary-button" onClick={addUnit} disabled={addingReference === "unit"}>Add unit</button></div>}
               </label>
               <label>
-                Secondary unit (optional)
+                Second unit (optional)
                 <select name="secondaryUnitId" value={form.secondaryUnitId} onChange={handleChange}>
                   <option value="">No second unit</option>
                   {units.filter((item) => String(item.id) !== String(form.unitId) && item.active !== false && item.isActive !== false).map((item) => (
@@ -298,25 +298,25 @@ function CreateProductForm({ onClose, onCreated }) {
                 </select>
               </label>
               {form.secondaryUnitId && <label>
-                Secondary units per primary unit (optional)
+                Second units in one main unit (optional)
                 <input name="secondaryPerPrimary" type="number" min="0.000001" step="0.000001" value={form.secondaryPerPrimary} onChange={handleChange} placeholder="Example: 4" />
                 <small>Used to calculate a missing quantity when possible.</small>
               </label>}
               <label>
                 Purchase price (₹) *
-                <input name="purchasePrice" type="number" min="0" step="0.01" value={form.purchasePrice} onChange={handleChange} required />
+                <input name="purchasePrice" type="number" min="0" step="0.01" value={form.purchasePrice} onChange={handleChange} placeholder="What you pay, e.g. 450" required />
               </label>
               <label>
                 Selling price (₹) *
-                <input name="sellingPrice" type="number" min="0" step="0.01" value={form.sellingPrice} onChange={handleChange} required />
+                <input name="sellingPrice" type="number" min="0" step="0.01" value={form.sellingPrice} onChange={handleChange} placeholder="What you charge, e.g. 600" required />
               </label>
               <label>
-                GST (%) *
+                GST rate (%) *
                 <input name="gstRate" type="number" min="0" max="100" step="0.01" value={form.gstRate} onChange={handleChange} required />
               </label>
               <label>
-                Low-stock threshold *
-                <input name="lowStockThreshold" type="number" min="0" step="0.001" value={form.lowStockThreshold} onChange={handleChange} required />
+                Warn me when stock falls below
+                <input name="lowStockThreshold" type="number" min="0" step="0.001" value={form.lowStockThreshold} onChange={handleChange} placeholder="e.g. 20 (optional)" />
               </label>
               <label>
                 Inventory tracking type *

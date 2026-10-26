@@ -1,0 +1,70 @@
+.row-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.row-menu__button {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid #e7e1d8;
+  border-radius: 8px;
+  background: #fff;
+  color: #4f463b;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.row-menu__button:hover,
+.row-menu__button[aria-expanded="true"] {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.row-menu__button:focus-visible,
+.row-menu__item:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.row-menu__list {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 4px);
+  right: 0;
+  display: flex;
+  min-width: 160px;
+  flex-direction: column;
+  padding: 4px;
+  border: 1px solid #e7e1d8;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 12px 30px rgb(40 30 20 / 14%);
+}
+
+.row-menu__item {
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #1f1b16;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.row-menu__item:hover {
+  background: #f3efe9;
+}
+
+.row-menu__item.is-danger {
+  color: #b91c1c;
+}
+
+.row-menu__item.is-danger:hover {
+  background: #fef2f2;
+}

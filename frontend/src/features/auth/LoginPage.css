@@ -8,8 +8,8 @@
   isolation: isolate;
   background:
     radial-gradient(circle at 12% 18%, rgb(212 181 132 / 42%), transparent 28%),
-    radial-gradient(circle at 88% 82%, rgb(94 117 145 / 30%), transparent 32%),
-    linear-gradient(135deg, #e8e1d8 0%, #c9d0d6 48%, #ede8e1 100%);
+    radial-gradient(circle at 88% 82%, rgb(160 132 96 / 26%), transparent 32%),
+    linear-gradient(135deg, #e8e1d8 0%, #d9d0c4 48%, #ede8e1 100%);
   color: #25221f;
 }
 
@@ -40,7 +40,7 @@
   height: 520px;
   border: 1px solid rgb(255 255 255 / 45%);
   background: linear-gradient(145deg, rgb(255 255 255 / 30%), transparent);
-  box-shadow: -80px -90px 100px rgb(67 85 107 / 14%);
+  box-shadow: -80px -90px 100px rgb(107 84 57 / 14%);
 }
 
 .login-shell {
@@ -489,7 +489,7 @@
     padding: 0;
     background:
       radial-gradient(circle at 10% 10%, rgb(212 181 132 / 35%), transparent 34%),
-      linear-gradient(145deg, #e8e1d8, #d5dce0 70%, #eee9e2);
+      linear-gradient(145deg, #e8e1d8, #ddd5c9 70%, #eee9e2);
   }
 
   .login-shell {

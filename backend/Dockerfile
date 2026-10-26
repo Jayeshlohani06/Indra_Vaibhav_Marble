@@ -29,4 +29,6 @@ ENV JAVA_OPTS=""
 
 EXPOSE 8080
 
-ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar --server.port=${PORT:-8080}"]
+# Let the JVM use most of the container memory (the default is only 25%).
+# JAVA_OPTS comes later, so it can still override this.
+ENTRYPOINT ["sh", "-c", "exec java -XX:MaxRAMPercentage=75.0 $JAVA_OPTS -jar app.jar --server.port=${PORT:-8080}"]
