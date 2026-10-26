@@ -1,27 +1,25 @@
 
 package com.indravaibhavmarble.purchase.service;
 
-import com.indravaibhavmarble.common.time.BusinessDate;
+import jakarta.persistence.EntityManager;
 
 import org.springframework.stereotype.Component;
-
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.UUID;
 
 @Component
 public class PurchaseNumberGenerator {
 
+    private final EntityManager entityManager;
+
+    public PurchaseNumberGenerator(EntityManager entityManager) {
+        this.entityManager = entityManager;
+    }
+
+    /** Returns the next purchase number, e.g. PUR-0017. */
     public String generate() {
-        String date = BusinessDate.today()
-                .format(DateTimeFormatter.BASIC_ISO_DATE);
+        Number next = (Number) entityManager
+                .createNativeQuery("SELECT nextval('purchase_number_seq')")
+                .getSingleResult();
 
-        String suffix = UUID.randomUUID()
-                .toString()
-                .replace("-", "")
-                .substring(0, 8)
-                .toUpperCase();
-
-        return "PUR-" + date + "-" + suffix;
+        return String.format("PUR-%04d", next.longValue());
     }
 }

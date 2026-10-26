@@ -31,6 +31,16 @@ public interface PurchasePaymentRepository
     BigDecimal getTotalPaidForPurchases(
             @Param("purchaseIds") List<Long> purchaseIds);
 
+    /** Rows of [purchaseId, totalPaid] for the given purchases. */
+    @Query("""
+            SELECT p.purchaseId, COALESCE(SUM(p.amount), 0)
+            FROM PurchasePayment p
+            WHERE p.purchaseId IN :purchaseIds
+            GROUP BY p.purchaseId
+            """)
+    List<Object[]> getTotalPaidByPurchase(
+            @Param("purchaseIds") List<Long> purchaseIds);
+
     @Query("""
             SELECT p.paymentDate, COUNT(p), COALESCE(SUM(p.amount), 0)
             FROM PurchasePayment p

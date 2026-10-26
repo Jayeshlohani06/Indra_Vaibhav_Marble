@@ -14,6 +14,10 @@ export async function getSupplierOutstanding() {
   return httpClient.get("/api/reports/supplier-outstanding");
 }
 
+export async function getCustomerOutstanding() {
+  return httpClient.get("/api/reports/customer-outstanding");
+}
+
 export async function getPaymentDateSummary() {
   return httpClient.get("/api/reports/payment-date-summary");
 }

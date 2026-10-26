@@ -30,6 +30,9 @@ import {
 import "./SalesOrdersPage.css";
 import { usePermission } from "../../auth/PermissionsContext";
 import SalesOrderInvoice from "./SalesOrderInvoice";
+import SearchSelect from "../../components/SearchSelect";
+import { taxTypeForGstin } from "../../utils/business";
+import { formatDate, label, paymentBadgeClass } from "../../utils/format";
 
 function formatCurrency(value) {
 
@@ -340,7 +343,7 @@ function SalesOrdersPage() {
 
       setError(
         err.message === "An unexpected error occurred"
-          ? "Sales orders could not be loaded. Restart the backend so the latest database migrations can run, then refresh."
+          ? "Bills could not be loaded. Check your internet connection and press Refresh."
           : err.message || "Unable to load sales orders."
       );
 
@@ -434,6 +437,14 @@ function SalesOrdersPage() {
 
     );
 
+  }
+
+  // Picking a customer also sets the tax type from their GSTIN state code.
+  function handleCustomerChange(value) {
+    setCustomerId(value);
+    const customer = customers.find((entry) => String(entry.id) === String(value));
+    const autoTaxType = taxTypeForGstin(customer?.gstin);
+    setTaxType(autoTaxType || "INTRA");
   }
 
   function addItem() {
@@ -788,10 +799,10 @@ function SalesOrdersPage() {
       const matchesSearch = !term || [
         order.orderNumber,
         order.customerName,
-        order.status,
+        label(order.paymentStatus),
       ].some((value) => String(value || "").toLowerCase().includes(term));
       const matchesStatus = statusFilter === "ALL"
-        || order.status === statusFilter;
+        || order.paymentStatus === statusFilter;
       let matchesDate = true;
       if (dateFilter !== "ALL" && order.orderDate) {
         const orderDate = new Date(`${order.orderDate}T00:00:00`);
@@ -808,23 +819,24 @@ function SalesOrdersPage() {
     (orderPage - 1) * PAGE_SIZE,
     orderPage * PAGE_SIZE
   );
-  const confirmedOrders = orders.filter((order) => order.status === "CONFIRMED");
-  const cancelledOrders = orders.filter((order) => order.status === "CANCELLED");
-  const monthKey = today().slice(0, 7);
-  const monthOrders = orders.filter((order) =>
-    String(order.orderDate || "").startsWith(monthKey)
-  );
   // Revenue figures exclude draft and cancelled orders, matching the reports.
   const billedOrders = orders.filter(
     (order) => order.status !== "CANCELLED" && order.status !== "DRAFT"
   );
-  const totalSales = billedOrders.reduce(
+  const sumTotals = (list) => list.reduce(
     (total, order) => total + Number(order.grandTotal || 0), 0
   );
-  const totalTax = billedOrders.reduce(
-    (total, order) => total + Number(order.totalTax || 0), 0
+  const monthKey = today().slice(0, 7);
+  const monthOrders = billedOrders.filter((order) =>
+    String(order.orderDate || "").startsWith(monthKey)
   );
-  const averageOrder = billedOrders.length ? totalSales / billedOrders.length : 0;
+  const todayOrders = billedOrders.filter((order) => order.orderDate === today());
+  const monthSales = sumTotals(monthOrders);
+  const todaySales = sumTotals(todayOrders);
+  const unpaidOrders = billedOrders.filter((order) => Number(order.balanceDue || 0) > 0);
+  const toCollect = unpaidOrders.reduce(
+    (total, order) => total + Number(order.balanceDue || 0), 0
+  );
 
   async function openOrderDetails(order) {
     setDetailsOrder(order);
@@ -850,6 +862,8 @@ function SalesOrdersPage() {
       setPaymentForm({ paymentDate: today(), amount: "", paymentMethod: "CASH", referenceNumber: "", notes: "" });
       setShowPaymentForm(false);
       setPaymentBalance(await getSalesOrderBalance(detailsOrder.id));
+      // Refresh the list so the bill's Paid / Part-paid badge updates.
+      await refreshOrders();
       setSuccess("Payment recorded successfully.");
     } catch (err) {
       setPaymentError(err.message || "Unable to record payment.");
@@ -864,13 +878,9 @@ function SalesOrdersPage() {
 
       <div className="sales-orders-heading">
 
-        <div>
-
-          <h1>Sales &amp; Billing</h1>
-
-          <p>Manage sales orders and track their status.</p>
-
-        </div>
+        <p className="sales-orders-intro">
+          Create bills, collect payments and print invoices.
+        </p>
 
         <div className="sales-orders-actions">
 
@@ -900,7 +910,7 @@ function SalesOrdersPage() {
 
           >
 
-            + Create Sales Order
+            + New sale
           </button>}
 
         </div>
@@ -1265,9 +1275,9 @@ function SalesOrdersPage() {
 
             <div>
 
-              <h2>Create Sales Order</h2>
+              <h2>New sale</h2>
 
-              <p>Select a customer and add the products being sold.</p>
+              <p>Choose the customer, add what they are buying, then save.</p>
 
             </div>
 
@@ -1341,41 +1351,20 @@ function SalesOrdersPage() {
 
                   </div>
 
-                  <select
-
+                  <SearchSelect
                     id="sales-order-customer"
-
+                    options={customers.map((customer) => ({
+                      value: customer.id,
+                      label: customer.name,
+                      hint: [customer.phone, customer.gstin && `GSTIN ${customer.gstin}`]
+                        .filter(Boolean).join(" · "),
+                    }))}
                     value={customerId}
-
-                    onChange={(event) =>
-
-                      setCustomerId(event.target.value)
-
-                    }
-
+                    onChange={handleCustomerChange}
+                    placeholder="Search customer by name or phone"
+                    emptyText="No customer found. Use “+ Add New Customer”."
                     required
-
-                  >
-
-                    <option value="">Select customer</option>
-
-                    {customers.map((customer) => (
-
-                      <option
-
-                        key={customer.id}
-
-                        value={customer.id}
-
-                      >
-
-                        {customer.name} ({customer.customerCode})
-
-                      </option>
-
-                    ))}
-
-                  </select>
+                  />
 
                   {customers.length === 0 && (
 
@@ -1415,35 +1404,19 @@ function SalesOrdersPage() {
 
                 <label>
 
-                  Tax type <span className="required">*</span>
+                  Customer location <span className="required">*</span>
 
                   <select
-
                     value={taxType}
-
-                    onChange={(event) =>
-
-                      setTaxType(event.target.value)
-
-                    }
-
+                    onChange={(event) => setTaxType(event.target.value)}
                     required
-
                   >
-
-                    <option value="INTRA">
-
-                      Intra-state (CGST + SGST)
-
-                    </option>
-
-                    <option value="INTER">
-
-                      Inter-state (IGST)
-
-                    </option>
-
+                    <option value="INTRA">Same state as us (CGST + SGST)</option>
+                    <option value="INTER">Other state (IGST)</option>
                   </select>
+                  <small className="sales-order-field-hint">
+                    Filled in from the customer&apos;s GSTIN. Change it only if needed.
+                  </small>
 
                 </label>
 
@@ -1490,7 +1463,11 @@ function SalesOrdersPage() {
 
                   const unitPrice = Number(item.unitPrice) || 0;
 
-                  const lineTotal = quantity * unitPrice;
+                  // Billed on the second unit when pricing by it (e.g. per sq.ft).
+                  const billableQuantity = item.pricingUnit === "SECONDARY"
+                    ? Number(item.secondaryQuantity) || 0
+                    : quantity;
+                  const lineTotal = billableQuantity * unitPrice;
 
                   return (
 
@@ -1500,59 +1477,23 @@ function SalesOrdersPage() {
 
                         Product <span className="required">*</span>
 
-                        <select
-
+                        <SearchSelect
+                          options={products.map((entry) => {
+                            const entrySecondary = measurementUnits.find(
+                              (unitEntry) => Number(unitEntry.id) === Number(entry.secondaryUnitId)
+                            );
+                            return {
+                              value: entry.id,
+                              label: entry.name,
+                              hint: `In stock: ${Number(entry.stockQuantity || 0)} ${getProductUnit(entry)}`
+                                + (entrySecondary ? ` + ${Number(entry.secondaryStockQuantity || 0)} ${entrySecondary.code}` : ""),
+                            };
+                          })}
                           value={item.productId}
-
-                          onChange={(event) =>
-
-                            updateItem(
-
-                              index,
-
-                              "productId",
-
-                              event.target.value
-
-                            )
-
-                          }
-
+                          onChange={(value) => updateItem(index, "productId", value)}
+                          placeholder="Search product by name"
                           required
-
-                        >
-
-                          <option value="">Select product</option>
-
-                          {products.map((entry) => (
-
-                            <option
-
-                              key={entry.id}
-
-                              value={entry.id}
-
-                            >
-
-                              {entry.name} — {entry.productCode} (
-
-                              {getProductUnit(entry)})
-
-                            </option>
-
-                          ))}
-
-                        </select>
-
-                        {product && (
-
-                          <small>
-                              Available stock: {product.stockQuantity} {unit}
-                              {secondaryUnit && ` + ${product.secondaryStockQuantity || 0} ${secondaryUnit.code}`}
-
-                          </small>
-
-                        )}
+                        />
 
                       </label>
                       {secondaryUnit && <label>
@@ -1873,7 +1814,12 @@ function SalesOrdersPage() {
 
               </div>
 
-              <div className="sales-order-form-actions">
+              <div className="sales-order-form-actions sales-order-sticky-actions">
+
+                <div className="sales-order-sticky-total">
+                  <span>Total</span>
+                  <strong>{formatCurrency(totals.grandTotal)}</strong>
+                </div>
 
                 <button
 
@@ -1887,7 +1833,7 @@ function SalesOrdersPage() {
 
                 >
 
-                  Clear form
+                  Clear
 
                 </button>
 
@@ -1911,7 +1857,7 @@ function SalesOrdersPage() {
 
                 >
 
-                  {saving ? "Saving..." : "Confirm & Create Order"}
+                  {saving ? "Saving..." : "Save order"}
 
                 </button>
 
@@ -1926,12 +1872,9 @@ function SalesOrdersPage() {
       )}
 
       <div className="sales-orders-summary">
-        <div className="sales-orders-summary-card is-blue"><span>Total sales value</span><strong>{formatCurrency(totalSales)}</strong><small>All recorded orders</small></div>
-        <div className="sales-orders-summary-card is-green"><span>Orders this month</span><strong>{monthOrders.length}</strong><small>Based on order date</small></div>
-        <div className="sales-orders-summary-card is-purple"><span>Confirmed orders</span><strong>{confirmedOrders.length}</strong><small>Stock has been deducted</small></div>
-        <div className="sales-orders-summary-card is-amber"><span>Average order value</span><strong>{formatCurrency(averageOrder)}</strong><small>{orders.length} total orders</small></div>
-        <div className="sales-orders-summary-card is-red"><span>Cancelled orders</span><strong>{cancelledOrders.length}</strong><small>Requires review</small></div>
-        <div className="sales-orders-summary-card is-slate"><span>Total tax collected</span><strong>{formatCurrency(totalTax)}</strong><small>CGST, SGST and IGST</small></div>
+        <div className="sales-orders-summary-card is-green"><span>Sales today</span><strong>{formatCurrency(todaySales)}</strong><small>{todayOrders.length} {todayOrders.length === 1 ? "bill" : "bills"}</small></div>
+        <div className="sales-orders-summary-card is-blue"><span>Sales this month</span><strong>{formatCurrency(monthSales)}</strong><small>{monthOrders.length} {monthOrders.length === 1 ? "bill" : "bills"}</small></div>
+        <div className="sales-orders-summary-card is-amber"><span>To collect from customers</span><strong>{formatCurrency(toCollect)}</strong><small>{unpaidOrders.length} {unpaidOrders.length === 1 ? "bill" : "bills"} not fully paid</small></div>
       </div>
 
       {loading && (
@@ -1948,25 +1891,25 @@ function SalesOrdersPage() {
         <div className="sales-orders-directory">
           <div className="sales-orders-filters">
             <div>
-              <h2>Sales order directory</h2>
-              <p>Search orders and review their invoice details.</p>
+              <h2>Bills</h2>
+              <p>Tap a bill to see details, take a payment or print it.</p>
             </div>
             <div className="sales-orders-filter-controls">
               <input
                 type="search"
                 value={orderSearch}
-                placeholder="Search order, customer..."
+                placeholder="Search bill number or customer"
                 aria-label="Search sales orders"
                 onChange={(event) => {
                   setOrderSearch(event.target.value);
                   setOrderPage(1);
                 }}
               />
-              <select value={statusFilter} aria-label="Filter order status" onChange={(event) => { setStatusFilter(event.target.value); setOrderPage(1); }}>
-                <option value="ALL">All statuses</option>
-                <option value="CONFIRMED">Confirmed</option>
-                <option value="DRAFT">Draft</option>
-                <option value="CANCELLED">Cancelled</option>
+              <select value={statusFilter} aria-label="Filter by payment" onChange={(event) => { setStatusFilter(event.target.value); setOrderPage(1); }}>
+                <option value="ALL">All payments</option>
+                <option value="UNPAID">Unpaid</option>
+                <option value="PARTIALLY_PAID">Part-paid</option>
+                <option value="PAID">Paid</option>
               </select>
               <select value={dateFilter} aria-label="Filter order date" onChange={(event) => { setDateFilter(event.target.value); setOrderPage(1); }}>
                 <option value="ALL">All dates</option>
@@ -1977,24 +1920,24 @@ function SalesOrdersPage() {
               <button type="button" className="sales-orders-secondary" onClick={() => { setOrderSearch(""); setStatusFilter("ALL"); setDateFilter("ALL"); setOrderPage(1); }}>Clear</button>
             </div>
           </div>
-        <div className="sales-orders-table-wrapper">
+        <div className="sales-orders-table-wrapper has-mobile-cards">
 
-          <table className="sales-orders-table">
+          <table className="sales-orders-table desktop-table">
 
             <thead>
 
               <tr>
 
-                <th>Order Number</th>
+                <th>Bill no.</th>
 
                 <th>Date</th>
 
                 <th>Customer</th>
 
-                <th>Status</th>
+                <th>Payment</th>
 
                 <th className="sales-orders-amount">Total</th>
-                <th>Actions</th>
+                <th><span className="visually-hidden">Actions</span></th>
 
               </tr>
 
@@ -2008,7 +1951,7 @@ function SalesOrdersPage() {
 
                   <td colSpan="6" className="sales-orders-empty">
 
-                    No sales orders found.
+                    No bills found. Use “+ New sale” to create one.
 
                   </td>
 
@@ -2020,34 +1963,30 @@ function SalesOrdersPage() {
 
                   <tr key={order.id}>
 
-                    <td>{order.orderNumber}</td>
+                    <td>
+                      <strong>{order.orderNumber}</strong>
+                      {order.status !== "CONFIRMED" && (
+                        <span className={`sales-orders-status sales-orders-status-${String(order.status).toLowerCase()}`}>
+                          {label(order.status)}
+                        </span>
+                      )}
+                    </td>
 
-                    <td>{order.orderDate}</td>
+                    <td>{formatDate(order.orderDate)}</td>
 
                     <td>{order.customerName}</td>
 
                     <td>
-
-                      <span
-
-                        className={`sales-orders-status sales-orders-status-${String(
-
-                          order.status
-
-                        ).toLowerCase()}`}
-
-                      >
-
-                        {order.status}
-
+                      <span className={paymentBadgeClass(order.paymentStatus)}>
+                        {label(order.paymentStatus)}
                       </span>
-
                     </td>
 
                     <td className="sales-orders-amount">
-
                       {formatCurrency(order.grandTotal)}
-
+                      {Number(order.balanceDue) > 0 && Number(order.balanceDue) < Number(order.grandTotal) && (
+                        <span className="amount-due">{formatCurrency(order.balanceDue)} due</span>
+                      )}
                     </td>
                     <td>
                       <button
@@ -2069,6 +2008,28 @@ function SalesOrdersPage() {
 
           </table>
 
+          <div className="mobile-cards">
+            {visibleOrders.length === 0 ? (
+              <p className="sales-orders-empty">No bills found.</p>
+            ) : visibleOrders.map((order) => (
+              <button
+                type="button"
+                key={order.id}
+                className="mobile-card"
+                onClick={() => openOrderDetails(order)}
+              >
+                <span className="mobile-card__row">
+                  <span className="mobile-card__title">{order.customerName}</span>
+                  <span className="mobile-card__amount">{formatCurrency(order.grandTotal)}</span>
+                </span>
+                <span className="mobile-card__row">
+                  <span className="mobile-card__meta">{order.orderNumber} · {formatDate(order.orderDate)}</span>
+                  <span className={paymentBadgeClass(order.paymentStatus)}>{label(order.paymentStatus)}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+
         </div>
         <div className="sales-orders-pagination">
           <span>Showing {filteredOrders.length ? (orderPage - 1) * PAGE_SIZE + 1 : 0}–{Math.min(orderPage * PAGE_SIZE, filteredOrders.length)} of {filteredOrders.length}</span>
@@ -2085,18 +2046,18 @@ function SalesOrdersPage() {
         <div className="sales-order-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setDetailsOrder(null)}>
           <section className="sales-order-details-modal" role="dialog" aria-modal="true" aria-labelledby="sales-order-details-title">
             <div className="sales-order-form-heading">
-              <div><p className="sales-orders-overline">ORDER DETAILS</p><h2 id="sales-order-details-title">{detailsOrder.orderNumber}</h2><p>{detailsOrder.customerName} · {detailsOrder.orderDate}</p></div>
+              <div><h2 id="sales-order-details-title">Bill {detailsOrder.orderNumber}</h2><p>{detailsOrder.customerName} · {formatDate(detailsOrder.orderDate)}</p></div>
               <button type="button" className="sales-orders-refresh" onClick={() => setDetailsOrder(null)} aria-label="Close order details">Close</button>
             </div>
             <div className="sales-order-detail-summary">
-              <div><span>Status</span><strong>{detailsOrder.status}</strong></div>
-              <div><span>Tax type</span><strong>{detailsOrder.taxType}</strong></div>
+              <div><span>Status</span><strong>{label(detailsOrder.status)}</strong></div>
+              <div><span>Customer location</span><strong>{label(detailsOrder.taxType)}</strong></div>
               <div><span>Subtotal</span><strong>{formatCurrency(detailsOrder.subtotal)}</strong></div>
               <div><span>Total tax</span><strong>{formatCurrency(detailsOrder.totalTax)}</strong></div>
               {detailsOrder.charges?.length > 0 && <div><span>Additional charges</span><strong>{formatCurrency(detailsOrder.charges.reduce((sum, charge) => sum + Number(charge.amount || 0), 0))}</strong></div>}
               <div><span>Grand total</span><strong>{formatCurrency(detailsOrder.grandTotal)}</strong></div>
-              {paymentBalance && <div><span>Payment status</span><strong>{paymentBalance.paymentStatus}</strong></div>}
-              {paymentBalance && <div><span>Outstanding</span><strong>{formatCurrency(paymentBalance.outstandingBalance)}</strong></div>}
+              {paymentBalance && <div><span>Payment</span><strong><span className={paymentBadgeClass(paymentBalance.paymentStatus)}>{label(paymentBalance.paymentStatus)}</span></strong></div>}
+              {paymentBalance && <div><span>Still to collect</span><strong>{formatCurrency(paymentBalance.outstandingBalance)}</strong></div>}
             </div>
             <div className="sales-order-detail-items">
               <h3>Products</h3>
@@ -2104,9 +2065,9 @@ function SalesOrdersPage() {
               {detailsOrder.charges?.map((charge) => <div className="sales-order-detail-item" key={`charge-${charge.id}`}><span>{charge.description}</span><strong>{formatCurrency(charge.amount)}</strong></div>)}
             </div>
             <div className="sales-order-form-actions">
-              {canManagePayments && paymentBalance?.outstandingBalance > 0 && <button type="button" className="sales-orders-secondary" onClick={() => { setPaymentError(""); setShowPaymentForm(true); }}>Record payment</button>}
-              <button type="button" className="sales-orders-secondary" onClick={() => { setInvoiceOrderId(detailsOrder.id); setDetailsOrder(null); }}>View / Print Invoice</button>
-              <button type="button" className="sales-orders-primary" onClick={() => setDetailsOrder(null)}>Done</button>
+              <button type="button" className="sales-orders-secondary" onClick={() => setDetailsOrder(null)}>Close</button>
+              <button type="button" className="sales-orders-secondary" onClick={() => { setInvoiceOrderId(detailsOrder.id); setDetailsOrder(null); }}>Print invoice</button>
+              {canManagePayments && paymentBalance?.outstandingBalance > 0 && <button type="button" className="sales-orders-primary" onClick={() => { setPaymentError(""); setShowPaymentForm(true); }}>Take payment</button>}
             </div>
           </section>
         </div>
@@ -2115,7 +2076,7 @@ function SalesOrdersPage() {
       {showPaymentForm && detailsOrder && (
         <div className="sales-order-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setShowPaymentForm(false)}>
           <form className="sales-order-details-modal sales-payment-modal" onSubmit={handlePaymentSubmit}>
-            <div className="sales-order-form-heading"><div><p className="sales-orders-overline">PAYMENT COLLECTION</p><h2>Record payment</h2><p>{detailsOrder.orderNumber} · Balance {formatCurrency(paymentBalance?.outstandingBalance)}</p></div><button type="button" className="sales-orders-refresh" onClick={() => setShowPaymentForm(false)}>Close</button></div>
+            <div className="sales-order-form-heading"><div><h2>Take payment</h2><p>Bill {detailsOrder.orderNumber} · {formatCurrency(paymentBalance?.outstandingBalance)} still to collect</p></div><button type="button" className="sales-orders-refresh" onClick={() => setShowPaymentForm(false)}>Close</button></div>
             <div className="sales-payment-grid">
               <label>Payment date<input type="date" max={today()} value={paymentForm.paymentDate} onChange={(event) => setPaymentForm({ ...paymentForm, paymentDate: event.target.value })} required /></label>
               <label>Amount (₹)<input type="number" min="0.01" step="0.01" max={paymentBalance?.outstandingBalance} value={paymentForm.amount} onChange={(event) => setPaymentForm({ ...paymentForm, amount: event.target.value })} required /></label>
@@ -2137,7 +2098,6 @@ function SalesOrdersPage() {
           <form className="sales-customer-modal sales-charge-category-modal" onSubmit={addChargeCategory}>
             <div className="sales-customer-modal-heading">
               <div>
-                <p className="sales-orders-overline">BILLING SETUP</p>
                 <h2>Add charge category</h2>
                 <p>Use this category in future bills and expense records.</p>
               </div>

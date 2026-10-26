@@ -27,7 +27,10 @@ public record PurchaseResponse(
         String notes,
         OffsetDateTime createdAt,
         List<PurchaseItemResponse> items,
-        List<PurchaseExpenseResponse> expenses
+        List<PurchaseExpenseResponse> expenses,
+        BigDecimal amountPaid,
+        BigDecimal balanceDue,
+        String paymentStatus
 ) {
     public record PurchaseItemResponse(
             Long id,

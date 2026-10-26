@@ -19,6 +19,8 @@ import com.indravaibhavmarble.salesorder.entity.SalesOrder;
 import com.indravaibhavmarble.salesorder.entity.SalesOrderItem;
 import com.indravaibhavmarble.salesorder.entity.SalesOrderCharge;
 import com.indravaibhavmarble.salesorder.repository.SalesOrderItemRepository;
+import com.indravaibhavmarble.salesorder.repository.SalesOrderPaymentRepository;
+import com.indravaibhavmarble.common.payment.PaymentStatus;
 import com.indravaibhavmarble.salesorder.repository.SalesOrderChargeRepository;
 import com.indravaibhavmarble.salesorder.repository.SalesOrderRepository;
 import com.indravaibhavmarble.stockmovement.service.StockMovementService;
@@ -31,13 +33,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -55,6 +55,7 @@ public class SalesOrderService {
     private final MeasurementUnitRepository unitRepository;
     private final ProductCategoryRepository categoryRepository;
     private final StockMovementService stockMovementService;
+    private final SalesOrderPaymentRepository paymentRepository;
 
     public SalesOrderService(
             SalesOrderRepository orderRepository,
@@ -64,7 +65,8 @@ public class SalesOrderService {
             ProductRepository productRepository,
             MeasurementUnitRepository unitRepository,
             ProductCategoryRepository categoryRepository,
-            StockMovementService stockMovementService) {
+            StockMovementService stockMovementService,
+            SalesOrderPaymentRepository paymentRepository) {
 
         this.orderRepository = orderRepository;
         this.itemRepository = itemRepository;
@@ -74,6 +76,7 @@ public class SalesOrderService {
         this.unitRepository = unitRepository;
         this.categoryRepository = categoryRepository;
         this.stockMovementService = stockMovementService;
+        this.paymentRepository = paymentRepository;
     }
 
     private record StockChange(
@@ -341,7 +344,8 @@ if (itemRequest.unitPrice() != null
                     change.secondaryStockAfter());
         }
 
-        return toResponse(savedOrder, customer, savedItems, savedCharges);
+        return toResponse(savedOrder, customer, savedItems, savedCharges,
+                BigDecimal.ZERO);
     }
 
     @Transactional(readOnly = true)
@@ -372,6 +376,12 @@ if (itemRequest.unitPrice() != null
                 .stream()
                 .collect(Collectors.groupingBy(SalesOrderCharge::getSalesOrderId));
 
+        Map<Long, BigDecimal> paidByOrder = paymentRepository
+                .getTotalPaidByOrder(orderIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        row -> (Long) row[0], row -> (BigDecimal) row[1]));
+
         return orders.stream()
                 .map(order -> {
                     Customer customer = customersById.get(order.getCustomerId());
@@ -384,7 +394,8 @@ if (itemRequest.unitPrice() != null
                             order,
                             customer,
                             itemsByOrder.getOrDefault(order.getId(), List.of()),
-                            chargesByOrder.getOrDefault(order.getId(), List.of()));
+                            chargesByOrder.getOrDefault(order.getId(), List.of()),
+                            paidByOrder.getOrDefault(order.getId(), BigDecimal.ZERO));
                 })
                 .toList();
     }
@@ -403,7 +414,8 @@ if (itemRequest.unitPrice() != null
                 order,
                 customer,
                 itemRepository.findBySalesOrderId(order.getId()),
-                chargeRepository.findBySalesOrderId(order.getId()));
+                chargeRepository.findBySalesOrderId(order.getId()),
+                paymentRepository.getTotalPaid(order.getId()));
     }
 
     private void validateRequest(SalesOrderRequest request) {
@@ -442,20 +454,17 @@ if (itemRequest.unitPrice() != null
         }
     }
 
+    /** Returns the next invoice number, e.g. INV-0042. */
     private String generateOrderNumber() {
-        String date = BusinessDate.today().format(
-                DateTimeFormatter.ofPattern("yyyyMMdd"));
-
-        return "SO-" + date + "-"
-                + UUID.randomUUID().toString()
-                        .substring(0, 8).toUpperCase(Locale.ROOT);
+        return String.format("INV-%04d", orderRepository.nextOrderNumber());
     }
 
     private SalesOrderResponse toResponse(
             SalesOrder order,
             Customer customer,
             List<SalesOrderItem> items,
-            List<SalesOrderCharge> charges) {
+            List<SalesOrderCharge> charges,
+            BigDecimal amountPaid) {
 
         List<SalesOrderItemResponse> itemResponses = items.stream()
                 .map(item -> new SalesOrderItemResponse(
@@ -497,6 +506,9 @@ if (itemRequest.unitPrice() != null
                 order.getNotes(),
                 order.getCreatedAt(),
                 itemResponses,
-                chargeResponses);
+                chargeResponses,
+                amountPaid,
+                order.getGrandTotal().subtract(amountPaid),
+                PaymentStatus.of(order.getGrandTotal(), amountPaid));
     }
 }

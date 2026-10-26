@@ -1,15 +1,63 @@
 
 :root {
-  --color-primary: #1f4e79;
-  --color-primary-hover: #173a5c;
-  --color-background: #f7f8fa;
+  /* Brand brown, used for every primary action. */
+  --color-primary: #806443;
+  --color-primary-hover: #694f32;
+  --color-primary-soft: #f4eee6;
+  --color-background: #ebe9e5;
   --color-surface: #ffffff;
-  --color-text: #1f2937;
-  --color-text-muted: #6b7280;
-  --color-border: #e5e7eb;
+  --color-text: #1f1b16;
+  --color-text-muted: #6b6359;
+  --color-border: #e2ddd5;
   --color-success: #15803d;
-  --color-danger: #dc2626;
+  --color-danger: #b91c1c;
   --radius-md: 10px;
-  --sidebar-width: 240px;
+  --sidebar-width: 248px;
   --topbar-height: 64px;
+
+  /* One type scale for every page. */
+  --font-sans: "Manrope", "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-md: 16px;
+  --text-lg: 18px;
+  --text-xl: 22px;
+  --text-stat: 26px;
+
+  /* Controls and corners. */
+  --control-height: 40px;
+  --control-height-sm: 34px;
+  --radius-sm: 8px;
+  --radius-card: 14px;
+  --radius-panel: 18px;
+
+  /* Frosted glass laid over the marble background. */
+  --glass-bg: rgb(255 255 255 / 62%);
+  --glass-bg-strong: rgb(255 255 255 / 86%);
+  --glass-border: rgb(255 255 255 / 70%);
+  --glass-edge: rgb(94 74 48 / 12%);
+  --glass-blur: blur(18px) saturate(140%);
+  --shadow-soft: 0 1px 2px rgb(60 44 24 / 6%), 0 8px 24px rgb(60 44 24 / 7%);
+  --shadow-raised: 0 2px 6px rgb(60 44 24 / 8%), 0 24px 60px rgb(40 28 14 / 22%);
+  --focus-ring: 0 0 0 3px rgb(128 100 67 / 28%);
+
+  /* Neumorphism: soft controls pressed out of (or into) the stone surface. */
+  --neu-surface: #f6f3ee;
+  --neu-raised: 3px 3px 8px rgb(150 128 100 / 24%), -3px -3px 8px rgb(255 255 255 / 90%);
+  --neu-pressed: inset 2px 2px 5px rgb(150 128 100 / 26%), inset -2px -2px 5px rgb(255 255 255 / 90%);
+  --neu-well: inset 1px 2px 4px rgb(150 128 100 / 16%), inset -1px -1px 3px rgb(255 255 255 / 80%);
+
+  /* Skeuomorphism: polished bronze for the main action and the brand plate. */
+  --bronze: linear-gradient(180deg, #a98863 0%, #8c6f4d 48%, #74583a 100%);
+  --bronze-hover: linear-gradient(180deg, #9a7a56 0%, #7d6142 48%, #654c31 100%);
+  --bronze-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 35%), inset 0 -1px 0 rgb(0 0 0 / 22%),
+    0 1px 2px rgb(80 58 32 / 30%), 0 6px 14px rgb(105 79 50 / 22%);
+  --bronze-pressed: inset 0 2px 5px rgb(0 0 0 / 30%);
+
+  /* Claymorphism: puffy, soft cards for friendly highlights. */
+  --clay-shadow:
+    8px 10px 22px rgb(150 128 100 / 22%), inset -5px -5px 12px rgb(160 135 105 / 16%),
+    inset 5px 5px 12px rgb(255 255 255 / 85%);
 }

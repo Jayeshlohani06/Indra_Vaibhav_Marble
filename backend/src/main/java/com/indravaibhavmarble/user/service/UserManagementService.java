@@ -1,5 +1,6 @@
 package com.indravaibhavmarble.user.service;
 
+import com.indravaibhavmarble.auth.security.AuthenticatedUserCache;
 import com.indravaibhavmarble.role.entity.Role;
 import com.indravaibhavmarble.role.repository.RoleRepository;
 import com.indravaibhavmarble.user.dto.UserRequest;
@@ -20,19 +21,24 @@ import java.util.Locale;
 @Service
 @Transactional
 public class UserManagementService {
+    private static final String ADMIN_ROLE = "ADMIN";
+
     private final AppUserRepository users;
     private final RoleRepository roles;
     private final PasswordEncoder passwordEncoder;
     private final EntityManager entityManager;
+    private final AuthenticatedUserCache userCache;
     private final boolean dataResetEnabled;
 
     public UserManagementService(AppUserRepository users, RoleRepository roles,
             PasswordEncoder passwordEncoder, EntityManager entityManager,
+            AuthenticatedUserCache userCache,
             @Value("${app.data-reset.enabled:false}") boolean dataResetEnabled) {
         this.users = users;
         this.roles = roles;
         this.passwordEncoder = passwordEncoder;
         this.entityManager = entityManager;
+        this.userCache = userCache;
         this.dataResetEnabled = dataResetEnabled;
     }
 
@@ -50,6 +56,7 @@ public class UserManagementService {
         user.setEmail(email);
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.getRoles().addAll(resolveRoles(request.roles()));
+        userCache.evictAllAfterCommit();
         return toResponse(users.save(user));
     }
 
@@ -65,8 +72,13 @@ public class UserManagementService {
         if (request.password() != null && !request.password().isBlank()) {
             user.setPasswordHash(passwordEncoder.encode(request.password()));
         }
+        HashSet<Role> newRoles = resolveRoles(request.roles());
+        if (newRoles.stream().noneMatch(role -> ADMIN_ROLE.equals(role.getName()))) {
+            ensureNotLastActiveAdmin(user);
+        }
         user.getRoles().clear();
-        user.getRoles().addAll(resolveRoles(request.roles()));
+        user.getRoles().addAll(newRoles);
+        userCache.evictAllAfterCommit();
         return toResponse(users.save(user));
     }
 
@@ -75,7 +87,11 @@ public class UserManagementService {
         if (!active && user.getEmail().equalsIgnoreCase(actorEmail)) {
             throw new IllegalArgumentException("You cannot deactivate your own account");
         }
+        if (!active) {
+            ensureNotLastActiveAdmin(user);
+        }
         user.setActive(active);
+        userCache.evictAllAfterCommit();
         return toResponse(users.save(user));
     }
 
@@ -129,10 +145,22 @@ public class UserManagementService {
                 "All business data was removed. Users, roles, permissions, settings, and database structure were preserved.");
     }
 
+    // Without an active admin nobody can manage users, so the last one must
+    // keep the ADMIN role and stay active.
+    private void ensureNotLastActiveAdmin(AppUser user) {
+        boolean isActiveAdmin = user.isActive() && user.getRoles().stream()
+                .anyMatch(role -> ADMIN_ROLE.equals(role.getName()));
+        if (isActiveAdmin && users.countByActiveTrueAndRolesName(ADMIN_ROLE) <= 1) {
+            throw new IllegalArgumentException(
+                    "At least one active ADMIN is required. Make another user an ADMIN first.");
+        }
+    }
+
     private HashSet<Role> resolveRoles(List<String> names) {
         if (names == null || names.isEmpty()) throw new IllegalArgumentException("At least one role is required");
         HashSet<Role> resolved = new HashSet<>();
         for (String name : names) {
+            if (name == null || name.isBlank()) throw new IllegalArgumentException("Role names cannot be empty");
             Role role = roles.findByName(name.trim().toUpperCase(Locale.ROOT))
                     .orElseThrow(() -> new IllegalArgumentException("Unknown role: " + name));
             resolved.add(role);

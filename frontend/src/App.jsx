@@ -1,18 +1,21 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 
 import LoginPage from "./features/auth/LoginPage";
 import DashboardPage from "./features/dashboard/DashboardPage";
-import InventoryPage from "./features/inventory/InventoryPage";
-import CustomersPage from "./features/customers/CustomersPage";
-import SalesOrdersPage from "./features/sales-orders/SalesOrdersPage";
-import StockMovementsPage from "./features/stock-movements/StockMovementsPage";
-import SuppliersPage from "./features/suppliers/SuppliersPage";
-import PurchasesPage from "./features/purchases/PurchasesPage";
-import ExpensesPage from "./features/expenses/ExpensesPage";
-import ReportsPage from "./features/reports/ReportsPage";
-import UserManagementPage from "./features/users/UserManagementPage";
+
+// Pages load on first visit, so opening the app downloads only what it shows.
+const InventoryPage = lazy(() => import("./features/inventory/InventoryPage"));
+const CustomersPage = lazy(() => import("./features/customers/CustomersPage"));
+const SalesOrdersPage = lazy(() => import("./features/sales-orders/SalesOrdersPage"));
+const StockMovementsPage = lazy(() => import("./features/stock-movements/StockMovementsPage"));
+const SuppliersPage = lazy(() => import("./features/suppliers/SuppliersPage"));
+const PurchasesPage = lazy(() => import("./features/purchases/PurchasesPage"));
+const ExpensesPage = lazy(() => import("./features/expenses/ExpensesPage"));
+const ReportsPage = lazy(() => import("./features/reports/ReportsPage"));
+const UserManagementPage = lazy(() => import("./features/users/UserManagementPage"));
 import { getCurrentUser, logout } from "./services/api/authApi";
 import { PermissionsProvider } from "./auth/PermissionsContext";
+import { label } from "./utils/format";
 
 import "./App.css";
 
@@ -43,6 +46,58 @@ const PAGE_PERMISSIONS = {
 
 const PERMISSION_REFRESH_MS = 5 * 60 * 1000;
 
+const PAGE_TITLES = {
+  dashboard: "Dashboard",
+  inventory: "Inventory",
+  customers: "Customers",
+  billing: "Sales & Billing",
+  "stock-movements": "Stock History",
+  suppliers: "Suppliers",
+  purchases: "Purchases",
+  expenses: "Expenses",
+  reports: "Reports",
+  users: "Users",
+};
+
+// Line icons, drawn on a 24px grid.
+const ICON_PATHS = {
+  dashboard: "M4 4h6.5v8H4zM13.5 4H20v4.5h-6.5zM13.5 11.5H20V20h-6.5zM4 15h6.5v5H4z",
+  billing: "M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6M9 16h3",
+  inventory: "M12 3 3 7.5l9 4.5 9-4.5zM3 12l9 4.5 9-4.5M3 16.5 12 21l9-4.5",
+  customers: "M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM2.5 20c.8-3.5 3.3-5.5 6.5-5.5s5.7 2 6.5 5.5M16 4.3a3.5 3.5 0 0 1 0 6.4M18 14.8c1.8.7 3 2.4 3.5 5.2",
+  purchases: "M2.5 6h11v10h-11zM13.5 9.5h4l3 3.5v3h-7M7 19.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM17 19.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4z",
+  suppliers: "M3 20.5V10l5.5 3.5V10l5.5 3.5V4h7v16.5zM17 8h1M17 12h1M17 16h1",
+  expenses: "M3 7.5A1.5 1.5 0 0 1 4.5 6h15A1.5 1.5 0 0 1 21 7.5v11a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5zM3 10.5h18M16 15h2",
+  "stock-movements": "M7 20V4M3 8l4-4 4 4M17 4v16M13 16l4 4 4-4",
+  reports: "M4 20V11M10 20V5M16 20v-6M21.5 20h-19",
+  users: "M12 3 4.5 6v5.5c0 4.5 3.2 8.2 7.5 9.5 4.3-1.3 7.5-5 7.5-9.5V6zM9 12l2.2 2.2L15.5 10",
+  more: "M4 7h16M4 12h16M4 17h16",
+};
+
+function NavIcon({ name }) {
+  return (
+    <svg className="erp-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d={ICON_PATHS[name]} />
+    </svg>
+  );
+}
+
+const NAV_ITEMS = [
+  { page: "dashboard", label: "Dashboard", shortLabel: "Home" },
+  { page: "billing", label: "Sales & Billing", shortLabel: "Sell" },
+  { page: "inventory", label: "Inventory", shortLabel: "Stock" },
+  { page: "customers", label: "Customers" },
+  { page: "purchases", label: "Purchases" },
+  { page: "suppliers", label: "Suppliers" },
+  { page: "expenses", label: "Expenses" },
+  { page: "stock-movements", label: "Stock History" },
+  { page: "reports", label: "Reports" },
+  { page: "users", label: "Users" },
+];
+
+// Phones show these as bottom tabs; the rest sit under "More".
+const MOBILE_TABS = ["dashboard", "billing", "inventory"];
+
 function getCurrentPage() {
   const page = window.location.hash.replace("#", "");
 
@@ -58,10 +113,12 @@ function App() {
     }
   });
   const [currentPage, setCurrentPage] = useState(getCurrentPage);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   useEffect(() => {
     function handleHashChange() {
       setCurrentPage(getCurrentPage());
+      setMoreOpen(false);
     }
 
     window.addEventListener("hashchange", handleHashChange);
@@ -70,6 +127,15 @@ function App() {
       window.removeEventListener("hashchange", handleHashChange);
     };
   }, []);
+
+  useEffect(() => {
+    if (!moreOpen) return undefined;
+    function handleKeyDown(event) {
+      if (event.key === "Escape") setMoreOpen(false);
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [moreOpen]);
 
   useEffect(() => {
     function handleAuthExpired() {
@@ -151,183 +217,102 @@ function App() {
     return <LoginPage onLoginSuccess={handleLoginSuccess} />;
   }
 
-  const pageTitles = {
-    dashboard: {
-      breadcrumb: "Dashboard",
-      title: "Business Overview",
-    },
-    inventory: {
-      breadcrumb: "Inventory",
-      title: "Inventory Management",
-    },
-    customers: {
-      breadcrumb: "Customers",
-      title: "Customer Management",
-    },
-    billing: {
-      breadcrumb: "Sales & Billing",
-      title: "Sales & Billing",
-    },
-    "stock-movements": {
-      breadcrumb: "Stock Movement History",
-      title: "Stock Movement History",
-    },
-    suppliers: {
-      breadcrumb: "Suppliers",
-      title: "Supplier Management",
-    },
-    purchases: {
-      breadcrumb: "Purchases",
-      title: "Purchase Management",
-    },
-    expenses: {
-      breadcrumb: "Expenses",
-      title: "Expense Management",
-    },
-    reports: {
-      breadcrumb: "Reports",
-      title: "Financial Reports",
-    },
-    users: {
-      breadcrumb: "User Management",
-      title: "User Management",
-    },
-  };
-
-  const currentTitle = pageTitles[currentPage] || pageTitles.dashboard;
+  const currentTitle = PAGE_TITLES[currentPage] || PAGE_TITLES.dashboard;
+  const navItems = NAV_ITEMS.filter((item) => canAccessPage(item.page));
+  const mobileTabs = navItems.filter((item) => MOBILE_TABS.includes(item.page));
+  const moreItems = navItems.filter((item) => !MOBILE_TABS.includes(item.page));
+  const moreIsActive = moreItems.some((item) => item.page === currentPage);
 
   return (
     <div className="erp-layout">
-      {/* Sidebar */}
+      {/* Sidebar (desktop and tablet) */}
       <aside className="erp-sidebar">
         <a className="erp-brand" href="#dashboard">
           <div className="erp-brand-icon">IV</div>
 
           <div>
             <h2>Indra Vaibhav</h2>
-            <p>MARBLE ERP</p>
+            <p>Marble</p>
           </div>
         </a>
 
-        <p className="erp-nav-label">WORKSPACE</p>
-
-        <nav className="erp-nav">
-          {/* Dashboard */}
-          <a
-            className={`erp-nav-item ${
-              currentPage === "dashboard" ? "active" : ""
-            }`}
-            href="#dashboard"
-          >
-            <span className="erp-nav-icon">▦</span>
-            <span>Dashboard</span>
-          </a>
-
-          {canAccessPage("inventory") && <a
-            className={`erp-nav-item ${
-              currentPage === "inventory" ? "active" : ""
-            }`}
-            href="#inventory"
-          >
-            <span className="erp-nav-icon">▤</span>
-            <span>Inventory</span>
-          </a>}
-
-          {canAccessPage("stock-movements") && <a
-            className={`erp-nav-item ${
-              currentPage === "stock-movements" ? "active" : ""
-            }`}
-            href="#stock-movements"
-          >
-            <span className="erp-nav-icon">↕</span>
-            <span>Stock Movements</span>
-          </a>}
-
-          {canAccessPage("customers") && <a
-            className={`erp-nav-item ${
-              currentPage === "customers" ? "active" : ""
-            }`}
-            href="#customers"
-          >
-            <span className="erp-nav-icon">♙</span>
-            <span>Customers</span>
-          </a>}
-
-          {canAccessPage("billing") && <a
-            className={`erp-nav-item ${
-              currentPage === "billing" ? "active" : ""
-            }`}
-            href="#billing"
-          >
-            <span className="erp-nav-icon">₹</span>
-            <span>Sales &amp; Billing</span>
-          </a>}
-
-          {canAccessPage("purchases") && <a
-            className={`erp-nav-item ${
-              currentPage === "purchases" ? "active" : ""
-            }`}
-            href="#purchases"
-          >
-            <span className="erp-nav-icon">⇄</span>
-            <span>Purchases</span>
-          </a>}
-
-          {canAccessPage("suppliers") && <a
-            className={`erp-nav-item ${
-              currentPage === "suppliers" ? "active" : ""
-            }`}
-            href="#suppliers"
-          >
-            <span className="erp-nav-icon">♧</span>
-            <span>Suppliers</span>
-          </a>}
-
-          {canAccessPage("expenses") && <a
-            className={`erp-nav-item ${
-              currentPage === "expenses" ? "active" : ""
-            }`}
-            href="#expenses"
-          >
-            <span className="erp-nav-icon">₹</span>
-            <span>Expenses</span>
-          </a>}
-
-          {canAccessPage("reports") && <a
-            className={`erp-nav-item ${
-              currentPage === "reports" ? "active" : ""
-            }`}
-            href="#reports"
-          >
-            <span className="erp-nav-icon">▥</span>
-            <span>Reports</span>
-          </a>}
-          {canAccessPage("users") && <a className={`erp-nav-item ${currentPage === "users" ? "active" : ""}`} href="#users"><span className="erp-nav-icon">♙</span><span>User Management</span></a>}
+        <nav className="erp-nav" aria-label="Main menu">
+          {navItems.map((item) => (
+            <a
+              key={item.page}
+              className={`erp-nav-item ${currentPage === item.page ? "active" : ""}`}
+              href={`#${item.page}`}
+              aria-current={currentPage === item.page ? "page" : undefined}
+            >
+              <NavIcon name={item.page} />
+              <span>{item.label}</span>
+            </a>
+          ))}
         </nav>
-
-        {/* Sidebar Footer */}
-        <div className="erp-sidebar-footer">
-          <span className="erp-status-dot" />
-          <span>Backend connected</span>
-          <small>Indra Vaibhav Marble</small>
-        </div>
       </aside>
+
+      {/* Bottom tabs (phones) */}
+      <nav className="erp-bottom-nav" aria-label="Main menu">
+        {mobileTabs.map((item) => (
+          <a
+            key={item.page}
+            className={`erp-bottom-tab ${currentPage === item.page ? "active" : ""}`}
+            href={`#${item.page}`}
+            aria-current={currentPage === item.page ? "page" : undefined}
+            onClick={() => setMoreOpen(false)}
+          >
+            <NavIcon name={item.page} />
+            <span>{item.shortLabel || item.label}</span>
+          </a>
+        ))}
+        {moreItems.length > 0 && (
+          <button
+            type="button"
+            className={`erp-bottom-tab ${moreOpen || moreIsActive ? "active" : ""}`}
+            aria-expanded={moreOpen}
+            onClick={() => setMoreOpen((open) => !open)}
+          >
+            <NavIcon name="more" />
+            <span>More</span>
+          </button>
+        )}
+      </nav>
+
+      {moreOpen && (
+        <div className="erp-more-backdrop" onClick={() => setMoreOpen(false)}>
+          <div
+            className="erp-more-sheet"
+            role="dialog"
+            aria-label="More pages"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {moreItems.map((item) => (
+              <a
+                key={item.page}
+                className={`erp-more-item ${currentPage === item.page ? "active" : ""}`}
+                href={`#${item.page}`}
+                onClick={() => setMoreOpen(false)}
+              >
+                <NavIcon name={item.page} />
+                <span>{item.label}</span>
+              </a>
+            ))}
+            <button type="button" className="erp-more-logout" onClick={handleLogout}>
+              Log out
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main Workspace */}
       <div className="erp-workspace">
         {/* Topbar */}
         <header className="erp-topbar">
-          <div>
-            <p className="erp-breadcrumb">
-              Workspace / {currentTitle.breadcrumb}
-            </p>
+          <h1>{currentTitle}</h1>
 
-            <h1>{currentTitle.title}</h1>
-          </div>
-
-          {/* Logged-in Administrator */}
+          {/* Logged-in user */}
           <div className="erp-admin">
-            <div className="erp-avatar">
+            <div className="erp-avatar" aria-hidden="true">
               {(session.fullName || session.name || session.email || "A")
                 .charAt(0)
                 .toUpperCase()}
@@ -335,7 +320,7 @@ function App() {
 
             <div>
               <strong>{session.fullName || session.name || "User"}</strong>
-              <span>{(session.roles || []).join(", ") || "USER"}</span>
+              <span>{(session.roles || []).map(label).join(", ") || "User"}</span>
             </div>
             <button type="button" className="erp-logout-button" onClick={handleLogout}>
               Log out
@@ -346,6 +331,7 @@ function App() {
         {/* Page Content */}
         <main className="erp-content">
           <PermissionsProvider permissions={session.permissions}>
+          <Suspense fallback={<p className="erp-page-loading">Loading…</p>}>
           {currentPage === "inventory" ? (
             <InventoryPage />
           ) : currentPage === "customers" ? (
@@ -367,6 +353,7 @@ function App() {
           ) : (
             <DashboardPage />
           )}
+          </Suspense>
           </PermissionsProvider>
         </main>
       </div>

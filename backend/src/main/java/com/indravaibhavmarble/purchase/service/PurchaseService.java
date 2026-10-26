@@ -18,6 +18,8 @@ import com.indravaibhavmarble.purchase.entity.PurchaseItem;
 import com.indravaibhavmarble.purchase.entity.PurchaseExpense;
 import com.indravaibhavmarble.purchase.repository.PurchaseItemRepository;
 import com.indravaibhavmarble.purchase.repository.PurchaseExpenseRepository;
+import com.indravaibhavmarble.purchase.repository.PurchasePaymentRepository;
+import com.indravaibhavmarble.common.payment.PaymentStatus;
 import com.indravaibhavmarble.purchase.repository.PurchaseRepository;
 import com.indravaibhavmarble.expense.entity.ExpenseCategory;
 import com.indravaibhavmarble.expense.repository.ExpenseCategoryRepository;
@@ -53,6 +55,7 @@ public class PurchaseService {
     private final ProductInventorySettingRepository settingRepository;
     private final PurchaseNumberGenerator numberGenerator;
     private final StockMovementService stockMovementService;
+    private final PurchasePaymentRepository paymentRepository;
 
     public PurchaseService(
             PurchaseRepository purchaseRepository,
@@ -63,7 +66,8 @@ public class PurchaseService {
             ProductRepository productRepository,
             ProductInventorySettingRepository settingRepository,
             PurchaseNumberGenerator numberGenerator,
-            StockMovementService stockMovementService) {
+            StockMovementService stockMovementService,
+            PurchasePaymentRepository paymentRepository) {
         this.purchaseRepository = purchaseRepository;
         this.itemRepository = itemRepository;
         this.purchaseExpenseRepository = purchaseExpenseRepository;
@@ -73,6 +77,7 @@ public class PurchaseService {
         this.settingRepository = settingRepository;
         this.numberGenerator = numberGenerator;
         this.stockMovementService = stockMovementService;
+        this.paymentRepository = paymentRepository;
     }
 
     public PurchaseResponse createPurchase(PurchaseRequest request) {
@@ -246,6 +251,12 @@ public class PurchaseService {
                         .collect(Collectors.groupingBy(
                                 PurchaseExpense::getPurchaseId));
 
+        Map<Long, BigDecimal> paidByPurchase = paymentRepository
+                .getTotalPaidByPurchase(purchaseIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        row -> (Long) row[0], row -> (BigDecimal) row[1]));
+
         return purchases.stream()
                 .map(purchase -> toResponse(
                         purchase,
@@ -255,7 +266,9 @@ public class PurchaseService {
                         itemsByPurchase.getOrDefault(
                                 purchase.getId(), List.of()),
                         expensesByPurchase.getOrDefault(
-                                purchase.getId(), List.of())))
+                                purchase.getId(), List.of()),
+                        paidByPurchase.getOrDefault(
+                                purchase.getId(), BigDecimal.ZERO)))
                 .toList();
     }
 
@@ -493,14 +506,19 @@ public class PurchaseService {
                 supplierName,
                 items,
                 purchaseExpenseRepository.findByPurchaseIdOrderByIdAsc(
-                        purchase.getId()));
+                        purchase.getId()),
+                purchase.getId() == null
+                        ? BigDecimal.ZERO
+                        : paymentRepository.getTotalPaidForPurchase(
+                                purchase.getId()));
     }
 
     private PurchaseResponse toResponse(
             Purchase purchase,
             String supplierName,
             List<PurchaseItem> items,
-            List<PurchaseExpense> purchaseExpenses) {
+            List<PurchaseExpense> purchaseExpenses,
+            BigDecimal amountPaid) {
 
         List<PurchaseResponse.PurchaseItemResponse> itemResponses =
                 items.stream()
@@ -570,7 +588,10 @@ public class PurchaseService {
                 purchase.getNotes(),
                 purchase.getCreatedAt(),
                 itemResponses,
-                expenseResponses);
+                expenseResponses,
+                amountPaid,
+                normalizedTotal.subtract(amountPaid),
+                PaymentStatus.of(normalizedTotal, amountPaid));
     }
 
     private void validateRequest(PurchaseRequest request) {
