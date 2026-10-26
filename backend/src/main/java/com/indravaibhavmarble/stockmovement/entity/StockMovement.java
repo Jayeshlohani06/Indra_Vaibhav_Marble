@@ -1,6 +1,8 @@
 
 package com.indravaibhavmarble.stockmovement.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -15,6 +17,7 @@ import java.time.OffsetDateTime;
 @Table(name = "stock_movements")
 public class StockMovement {
 
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

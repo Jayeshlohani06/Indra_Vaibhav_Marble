@@ -1,6 +1,8 @@
 
 package com.indravaibhavmarble.category.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import jakarta.persistence.*;
 import java.time.OffsetDateTime;
 
@@ -8,6 +10,7 @@ import java.time.OffsetDateTime;
 @Table(name = "product_categories")
 public class ProductCategory {
 
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

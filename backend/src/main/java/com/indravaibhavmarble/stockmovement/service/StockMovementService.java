@@ -106,6 +106,33 @@ public class StockMovementService {
                 stockMovementRepository.save(requestedMovement));
     }
 
+    /**
+     * Records a stock change entered manually by a user. Reversals and
+     * movements tied to sales orders or purchases must go through their own
+     * workflows.
+     */
+    public StockMovementResponse recordManualMovement(StockMovement requestedMovement) {
+        if (requestedMovement == null) {
+            throw new IllegalArgumentException(
+                    "Stock movement is required");
+        }
+
+        if ("REVERSAL".equals(requestedMovement.getMovementType())) {
+            throw new IllegalArgumentException(
+                    "Use the reverse action to reverse a stock movement");
+        }
+
+        String referenceType = requestedMovement.getReferenceType();
+        if (referenceType != null && !"MANUAL".equals(referenceType)) {
+            throw new IllegalArgumentException(
+                    "Manual stock movements must use the MANUAL reference type");
+        }
+
+        requestedMovement.setReferenceId(null);
+
+        return recordMovement(requestedMovement);
+    }
+
     public StockMovementResponse reverseMovement(Long movementId, String notes) {
         StockMovement original = stockMovementRepository.findById(movementId)
                 .orElseThrow(() -> new IllegalArgumentException(
@@ -115,6 +142,19 @@ public class StockMovementService {
             throw new IllegalArgumentException(
                     "A reversal movement cannot be reversed");
         }
+
+        if ("SALES_ORDER".equals(original.getReferenceType())
+                || "PURCHASE".equals(original.getReferenceType())) {
+            throw new IllegalArgumentException(
+                    "Stock from a sales order or purchase cannot be reversed here");
+        }
+
+        // Lock the product so two concurrent requests cannot both pass the
+        // already-reversed check below.
+        productRepository.findByIdForUpdate(original.getProductId())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Product not found with ID: "
+                                + original.getProductId()));
 
         boolean alreadyReversed = stockMovementRepository
                 .findByReferenceTypeAndReferenceId("REVERSAL", movementId)

@@ -11,7 +11,20 @@ import { getSuppliers } from "../../services/api/supplierApi";
 import "./ExpensesPage.css";
 import { usePermission } from "../../auth/PermissionsContext";
 
-const today = () => new Date().toISOString().slice(0, 10);
+// Local date; toISOString() would give yesterday's date before 05:30 IST.
+const today = () => {
+  const date = new Date();
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+  return date.toISOString().slice(0, 10);
+};
+
+// Prefix cells that spreadsheet apps would run as formulas.
+const csvCell = (value) => {
+  const text = String(value ?? "");
+  const isFormula = /^[=+\-@\t\r]/.test(text) && !/^[+-]?\d+(\.\d+)?$/.test(text);
+  const safe = isFormula ? `'${text}` : text;
+  return `"${safe.replaceAll("\"", "\"\"")}"`;
+};
 const initialForm = () => ({
   expenseDate: today(), category: "", description: "", amount: "",
   paymentMethod: "CASH", supplierId: "", referenceNumber: "", notes: "",
@@ -188,7 +201,7 @@ function ExpensesPage() {
 
   function exportCsv() {
     const header = ["Date", "Category", "Description", "Supplier", "Payment method", "Amount", "Status", "Reference"];
-    const lines = visible.map((expense) => [expense.expenseDate, expense.category, expense.description, supplierName(expense.supplierId), expense.paymentMethod, expense.amount, expense.status, expense.referenceNumber].map((value) => `"${String(value || "").replaceAll("\"", "\"\"")}"`).join(","));
+    const lines = visible.map((expense) => [expense.expenseDate, expense.category, expense.description, supplierName(expense.supplierId), expense.paymentMethod, expense.amount, expense.status, expense.referenceNumber].map((value) => csvCell(value || "")).join(","));
     const blob = new Blob([[header.join(","), ...lines].join("\n")], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob); const link = document.createElement("a");
     link.href = url; link.download = "expenses.csv"; link.click(); URL.revokeObjectURL(url);

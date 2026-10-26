@@ -6,4 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface SalesOrderChargeRepository extends JpaRepository<SalesOrderCharge, Long> {
     List<SalesOrderCharge> findBySalesOrderId(Long salesOrderId);
+
+    List<SalesOrderCharge> findBySalesOrderIdInOrderByIdAsc(List<Long> salesOrderIds);
 }

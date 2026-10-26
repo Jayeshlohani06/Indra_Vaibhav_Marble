@@ -6,12 +6,17 @@ import {
 } from "../../services/api/reportApi";
 import "./ReportsPage.css";
 
-const dateString = (date) => date.toISOString().slice(0, 10);
+// Format in local time; toISOString() would shift dates back a day in IST.
+const dateString = (date) => [
+  date.getFullYear(),
+  String(date.getMonth() + 1).padStart(2, "0"),
+  String(date.getDate()).padStart(2, "0"),
+].join("-");
 const monthStart = () => {
   const date = new Date();
   return dateString(new Date(date.getFullYear(), date.getMonth(), 1));
 };
-const today = dateString(new Date());
+const today = () => dateString(new Date());
 const currency = (value) => Number(value || 0).toLocaleString("en-IN", {
   style: "currency",
   currency: "INR",
@@ -20,7 +25,7 @@ const currency = (value) => Number(value || 0).toLocaleString("en-IN", {
 
 function ReportsPage() {
   const [startDate, setStartDate] = useState(monthStart());
-  const [endDate, setEndDate] = useState(today);
+  const [endDate, setEndDate] = useState(today());
   const [report, setReport] = useState(null);
   const [supplierOutstanding, setSupplierOutstanding] = useState([]);
   const [paymentDateSummary, setPaymentDateSummary] = useState([]);
@@ -106,16 +111,16 @@ function ReportsPage() {
     const current = new Date();
     if (preset === "month") {
       setStartDate(monthStart());
-      setEndDate(today);
+      setEndDate(today());
     } else if (preset === "last-month") {
       setStartDate(dateString(new Date(current.getFullYear(), current.getMonth() - 1, 1)));
       setEndDate(dateString(new Date(current.getFullYear(), current.getMonth(), 0)));
     } else if (preset === "quarter") {
       setStartDate(dateString(new Date(current.getFullYear(), current.getMonth() - 2, 1)));
-      setEndDate(today);
+      setEndDate(today());
     } else if (preset === "year") {
       setStartDate(`${current.getFullYear()}-01-01`);
-      setEndDate(today);
+      setEndDate(today());
     }
   }
 

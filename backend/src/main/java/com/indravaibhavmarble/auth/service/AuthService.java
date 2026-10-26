@@ -13,7 +13,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -25,24 +27,40 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final AppUserRepository appUserRepository;
     private final JwtService jwtService;
+    private final LoginAttemptService loginAttemptService;
+    private final long expirationMs;
 
     public AuthService(
             AuthenticationManager authenticationManager,
             AppUserRepository appUserRepository,
-            JwtService jwtService) {
+            JwtService jwtService,
+            LoginAttemptService loginAttemptService,
+            @Value("${app.jwt.expiration-ms}") long expirationMs) {
         this.authenticationManager = authenticationManager;
         this.appUserRepository = appUserRepository;
         this.jwtService = jwtService;
+        this.loginAttemptService = loginAttemptService;
+        this.expirationMs = expirationMs;
     }
 
     @Transactional(readOnly = true)
     public LoginResponse login(LoginRequest request) {
 
-        Authentication authentication =
-                authenticationManager.authenticate(
-                        new UsernamePasswordAuthenticationToken(
-                                request.email().trim(),
-                                request.password()));
+        String email = request.email().trim();
+        loginAttemptService.checkNotLocked(email);
+
+        Authentication authentication;
+        try {
+            authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            email,
+                            request.password()));
+        } catch (AuthenticationException exception) {
+            loginAttemptService.recordFailure(email);
+            throw exception;
+        }
+
+        loginAttemptService.recordSuccess(email);
 
         AppUser user = appUserRepository
                 .findByEmailIgnoreCase(authentication.getName())
@@ -50,6 +68,31 @@ public class AuthService {
                         new IllegalStateException(
                                 "Authenticated user was not found"));
 
+        String token = jwtService.generateToken(user);
+
+        return new LoginResponse(
+                token,
+                "Bearer",
+                expirationMs / 1000,
+                toUserInfo(user));
+    }
+
+    /**
+     * Returns the signed-in user's current roles and permissions so the
+     * frontend can pick up changes without logging in again.
+     */
+    @Transactional(readOnly = true)
+    public LoginResponse.UserInfo currentUser(String email) {
+        AppUser user = appUserRepository
+                .findByEmailIgnoreCase(email)
+                .orElseThrow(() ->
+                        new IllegalStateException(
+                                "Authenticated user was not found"));
+
+        return toUserInfo(user);
+    }
+
+    private LoginResponse.UserInfo toUserInfo(AppUser user) {
         Set<String> roles = user.getRoles().stream()
                 .map(Role::getName)
                 .collect(Collectors.toSet());
@@ -59,20 +102,11 @@ public class AuthService {
                 .map(Permission::getCode)
                 .collect(Collectors.toSet());
 
-        String token = jwtService.generateToken(user);
-
-        LoginResponse.UserInfo userInfo =
-                new LoginResponse.UserInfo(
-                        user.getId(),
-                        user.getFullName(),
-                        user.getEmail(),
-                        roles.stream().sorted().toList(),
-                        permissions.stream().sorted().toList());
-
-        return new LoginResponse(
-                token,
-                "Bearer",
-                28800,
-                userInfo);
+        return new LoginResponse.UserInfo(
+                user.getId(),
+                user.getFullName(),
+                user.getEmail(),
+                roles.stream().sorted().toList(),
+                permissions.stream().sorted().toList());
     }
 }

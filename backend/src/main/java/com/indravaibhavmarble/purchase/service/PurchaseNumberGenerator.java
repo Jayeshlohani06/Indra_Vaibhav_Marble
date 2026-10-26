@@ -1,6 +1,8 @@
 
 package com.indravaibhavmarble.purchase.service;
 
+import com.indravaibhavmarble.common.time.BusinessDate;
+
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -11,7 +13,7 @@ import java.util.UUID;
 public class PurchaseNumberGenerator {
 
     public String generate() {
-        String date = LocalDate.now()
+        String date = BusinessDate.today()
                 .format(DateTimeFormatter.BASIC_ISO_DATE);
 
         String suffix = UUID.randomUUID()

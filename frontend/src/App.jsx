@@ -11,7 +11,7 @@ import PurchasesPage from "./features/purchases/PurchasesPage";
 import ExpensesPage from "./features/expenses/ExpensesPage";
 import ReportsPage from "./features/reports/ReportsPage";
 import UserManagementPage from "./features/users/UserManagementPage";
-import { logout } from "./services/api/authApi";
+import { getCurrentUser, logout } from "./services/api/authApi";
 import { PermissionsProvider } from "./auth/PermissionsContext";
 
 import "./App.css";
@@ -40,6 +40,8 @@ const PAGE_PERMISSIONS = {
   reports: "REPORT_READ",
   users: "USER_READ",
 };
+
+const PERMISSION_REFRESH_MS = 5 * 60 * 1000;
 
 function getCurrentPage() {
   const page = window.location.hash.replace("#", "");
@@ -79,6 +81,44 @@ function App() {
     window.addEventListener("auth-expired", handleAuthExpired);
     return () => window.removeEventListener("auth-expired", handleAuthExpired);
   }, []);
+
+  const isLoggedIn = Boolean(session);
+
+  // Keep roles and permissions in sync with the server so an admin's changes
+  // apply without the user logging in again.
+  useEffect(() => {
+    if (!isLoggedIn) return undefined;
+
+    let cancelled = false;
+
+    async function refreshCurrentUser() {
+      try {
+        const user = await getCurrentUser();
+        if (cancelled || !user) return;
+        setSession((current) => {
+          if (JSON.stringify(current) === JSON.stringify(user)) return current;
+          sessionStorage.setItem("indra-vaibhav-user", JSON.stringify(user));
+          return user;
+        });
+      } catch {
+        // Keep the current session; an expired token is handled by auth-expired.
+      }
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") refreshCurrentUser();
+    }
+
+    refreshCurrentUser();
+    const interval = window.setInterval(refreshCurrentUser, PERMISSION_REFRESH_MS);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [isLoggedIn]);
 
   function handleLoginSuccess(response) {
     setSession(response.user);

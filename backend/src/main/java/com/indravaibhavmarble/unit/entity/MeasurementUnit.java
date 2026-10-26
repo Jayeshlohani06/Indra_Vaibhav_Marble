@@ -1,6 +1,8 @@
 
 package com.indravaibhavmarble.unit.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import jakarta.persistence.*;
 import java.time.OffsetDateTime;
 
@@ -8,6 +10,7 @@ import java.time.OffsetDateTime;
 @Table(name = "measurement_units")
 public class MeasurementUnit {
 
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

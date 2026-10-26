@@ -8,6 +8,7 @@ import com.indravaibhavmarble.user.dto.DataResetRequest;
 import com.indravaibhavmarble.user.dto.DataResetResponse;
 import com.indravaibhavmarble.user.entity.AppUser;
 import com.indravaibhavmarble.user.repository.AppUserRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,13 +24,16 @@ public class UserManagementService {
     private final RoleRepository roles;
     private final PasswordEncoder passwordEncoder;
     private final EntityManager entityManager;
+    private final boolean dataResetEnabled;
 
     public UserManagementService(AppUserRepository users, RoleRepository roles,
-            PasswordEncoder passwordEncoder, EntityManager entityManager) {
+            PasswordEncoder passwordEncoder, EntityManager entityManager,
+            @Value("${app.data-reset.enabled:false}") boolean dataResetEnabled) {
         this.users = users;
         this.roles = roles;
         this.passwordEncoder = passwordEncoder;
         this.entityManager = entityManager;
+        this.dataResetEnabled = dataResetEnabled;
     }
 
     @Transactional(readOnly = true)
@@ -76,6 +80,11 @@ public class UserManagementService {
     }
 
     public DataResetResponse resetBusinessData(DataResetRequest request, String actorEmail) {
+        // Off unless the server explicitly enables it (DATA_RESET_ENABLED=true).
+        if (!dataResetEnabled) {
+            throw new IllegalArgumentException(
+                    "Removing business data is disabled on this server");
+        }
         if (request == null || request.password() == null || request.password().isBlank()) {
             throw new IllegalArgumentException("Admin password is required");
         }

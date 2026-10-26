@@ -33,6 +33,9 @@ public class AppUser {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "password_changed_at")
+    private Instant passwordChangedAt;
+
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
         name = "user_roles",
@@ -85,6 +88,11 @@ public class AppUser {
 
     public void setPasswordHash(String passwordHash) {
         this.passwordHash = passwordHash;
+        this.passwordChangedAt = Instant.now();
+    }
+
+    public Instant getPasswordChangedAt() {
+        return passwordChangedAt;
     }
 
     public boolean isActive() {

@@ -214,7 +214,13 @@ function CustomersPage() {
         customer.gstin || "",
         customer.creditLimit,
         customer.active ? "Active" : "Inactive",
-      ].map((value) => `"${String(value ?? "").replaceAll('"', '""')}"`)
+      ].map((value) => {
+        // Prefix cells that spreadsheet apps would run as formulas.
+        const text = String(value ?? "");
+        const isFormula = /^[=+\-@\t\r]/.test(text) && !/^[+-]?\d+(\.\d+)?$/.test(text);
+        const safe = isFormula ? `'${text}` : text;
+        return `"${safe.replaceAll('"', '""')}"`;
+      })
     );
     const blob = new Blob(
       [[header, ...rows].map((row) => row.join(",")).join("\n")],
