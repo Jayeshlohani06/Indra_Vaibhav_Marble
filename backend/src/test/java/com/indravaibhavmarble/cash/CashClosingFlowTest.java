@@ -122,7 +122,7 @@ class CashClosingFlowTest {
         bill(today, 2);
         // Purchase received without payment changes nothing; a cash payment does.
         Long purchaseId = insert("INSERT INTO purchases (purchase_number, supplier_id, purchase_date, status, total_amount)"
-                + " VALUES ('PT" + tag + "', " + supplierId + ", CURRENT_DATE, 'RECEIVED', 900) RETURNING id");
+                + " VALUES ('PT" + tag + "', " + supplierId + ", '" + today + "', 'RECEIVED', 900) RETURNING id");
         purchasePaymentService.recordPayment(purchaseId,
                 new PurchasePaymentRequest(today, new BigDecimal("300"), "CASH", null, null));
         // Cash and digital expenses.
@@ -176,8 +176,9 @@ class CashClosingFlowTest {
         assertThatThrownBy(() -> expense("Tea & snacks", "10", "CASH", null)).hasMessageContaining("closed");
         assertThatThrownBy(() -> movement("OWNER_CASH_IN", "10", null)).hasMessageContaining("closed");
         Long expenseId = ((Number) entityManager.createNativeQuery(
-                "SELECT id FROM expenses WHERE category = 'Tea & snacks' AND expense_date = CURRENT_DATE"
-                        + " AND amount = 200 ORDER BY id DESC LIMIT 1").getSingleResult()).longValue();
+                "SELECT id FROM expenses WHERE category = 'Tea & snacks' AND expense_date = :d"
+                        + " AND amount = 200 ORDER BY id DESC LIMIT 1").setParameter("d", today)
+                .getSingleResult()).longValue();
         assertThatThrownBy(() -> expenseService.voidExpense(expenseId, new ExpenseVoidRequest("Wrong")))
                 .hasMessageContaining("closed");
 
