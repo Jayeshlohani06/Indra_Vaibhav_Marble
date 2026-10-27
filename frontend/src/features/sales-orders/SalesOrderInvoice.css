@@ -17,8 +17,8 @@
 }
 
 .sales-invoice-toolbar {
-  position: sticky;
-  top: 0;
+  /* Scrolls away with the bill instead of covering it. */
+  position: relative;
   z-index: 1;
   display: flex;
   flex-shrink: 0;
@@ -117,9 +117,19 @@
   }
 
   .sales-invoice-toolbar {
-    align-items: stretch;
-    flex-direction: column;
-    padding: 12px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+  }
+
+  .sales-invoice-toolbar-text {
+    flex: 1 1 100%;
+  }
+
+  .sales-invoice-toolbar-actions {
+    flex: 1 1 100%;
   }
 
   .sales-invoice-toolbar-actions button {

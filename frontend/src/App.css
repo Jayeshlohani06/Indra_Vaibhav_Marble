@@ -139,8 +139,9 @@
 }
 
 .erp-topbar {
-  position: sticky;
-  top: 12px;
+  /* Scrolls away with the page so it never covers content; the sidebar
+     (and the bottom tabs on phones) stay in place for navigation. */
+  position: relative;
   z-index: 15;
   display: flex;
   align-items: center;
@@ -151,11 +152,8 @@
   padding: 10px 12px 10px 24px;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-panel);
-  /* The only live blur on the page: one small bar that content scrolls under. */
-  background: rgb(255 255 255 / 78%);
+  background: linear-gradient(160deg, rgb(255 255 255 / 86%), rgb(255 255 255 / 70%));
   box-shadow: var(--shadow-soft);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
 }
 
 .erp-topbar h1 {
@@ -367,7 +365,6 @@
   }
 
   .erp-topbar {
-    top: 8px;
     min-height: 56px;
     margin: 8px 10px 0;
     padding: 8px 8px 8px 16px;
