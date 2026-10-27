@@ -1,4 +1,6 @@
-
+/**
+ * Controller for managing customer-related operations.
+ */
 package com.indravaibhavmarble.customer.controller;
 
 import com.indravaibhavmarble.customer.dto.CustomerRequest;

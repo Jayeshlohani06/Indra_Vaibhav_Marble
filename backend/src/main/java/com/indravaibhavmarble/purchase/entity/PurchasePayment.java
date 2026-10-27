@@ -32,6 +32,9 @@ public class PurchasePayment {
     @Column(columnDefinition = "TEXT")
     private String notes;
 
+    @Column(name = "created_by", updatable = false)
+    private String createdBy;
+
     @Column(name = "created_at", insertable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -92,5 +95,13 @@ public class PurchasePayment {
 
     public OffsetDateTime getCreatedAt() {
         return createdAt;
+    }
+
+    public String getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(String createdBy) {
+        this.createdBy = createdBy;
     }
 }

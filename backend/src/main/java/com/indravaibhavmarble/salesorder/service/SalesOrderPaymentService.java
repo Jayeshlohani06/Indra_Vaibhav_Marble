@@ -1,5 +1,7 @@
 package com.indravaibhavmarble.salesorder.service;
 
+import com.indravaibhavmarble.cash.service.CashPeriodGuard;
+import com.indravaibhavmarble.common.security.CurrentUser;
 import com.indravaibhavmarble.common.time.BusinessDate;
 
 import com.indravaibhavmarble.customer.repository.CustomerRepository;
@@ -21,13 +23,16 @@ public class SalesOrderPaymentService {
     private final SalesOrderRepository orderRepository;
     private final SalesOrderPaymentRepository paymentRepository;
     private final CustomerRepository customerRepository;
+    private final CashPeriodGuard periodGuard;
 
     public SalesOrderPaymentService(SalesOrderRepository orderRepository,
             SalesOrderPaymentRepository paymentRepository,
-            CustomerRepository customerRepository) {
+            CustomerRepository customerRepository,
+            CashPeriodGuard periodGuard) {
         this.orderRepository = orderRepository;
         this.paymentRepository = paymentRepository;
         this.customerRepository = customerRepository;
+        this.periodGuard = periodGuard;
     }
 
     @Transactional
@@ -55,8 +60,10 @@ public class SalesOrderPaymentService {
         if (amount.compareTo(balance) > 0) {
             throw new IllegalArgumentException("Payment exceeds outstanding balance of " + balance);
         }
+        periodGuard.assertOpen(request.paymentDate());
         SalesOrderPayment payment = new SalesOrderPayment();
         payment.setSalesOrderId(orderId);
+        payment.setCreatedBy(CurrentUser.name());
         payment.setPaymentDate(request.paymentDate());
         payment.setAmount(amount);
         payment.setPaymentMethod(method);

@@ -26,6 +26,8 @@ public class SalesOrderPayment {
     /** Set on refunds, which are stored as negative amounts. */
     @Column(name = "sales_return_id")
     private Long salesReturnId;
+    @Column(name = "created_by", updatable = false)
+    private String createdBy;
     @Column(name = "created_at", insertable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -44,5 +46,7 @@ public class SalesOrderPayment {
     public void setSalesReturnId(Long value) { salesReturnId = value; }
     public String getNotes() { return notes; }
     public void setNotes(String value) { notes = value; }
+    public String getCreatedBy() { return createdBy; }
+    public void setCreatedBy(String value) { createdBy = value; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
 }

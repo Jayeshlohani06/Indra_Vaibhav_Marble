@@ -8,4 +8,5 @@ import java.util.Optional;
 public interface ExpenseCategoryRepository extends JpaRepository<ExpenseCategory, Long> {
     List<ExpenseCategory> findByActiveTrueOrderByNameAsc();
     Optional<ExpenseCategory> findByNameIgnoreCase(String name);
+    List<ExpenseCategory> findAllByOrderByGroupNameAscNameAsc();
 }

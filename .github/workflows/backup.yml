@@ -1,0 +1,103 @@
+name: Database backup
+
+# Nightly encrypted copy of the production database, stored in Cloudflare R2,
+# outside Render. Restore steps are in the README ("Backups and restore").
+#
+# Repository secrets (Settings > Secrets and variables > Actions):
+#   DATABASE_URL          Render Postgres "External Database URL"
+#   BACKUP_PASSPHRASE     Long password used to encrypt backups. Keep a copy
+#                         somewhere safe: without it no backup can be opened.
+#   R2_ACCOUNT_ID         Cloudflare account ID
+#   R2_ACCESS_KEY_ID      R2 API token key (Object Read & Write on the bucket)
+#   R2_SECRET_ACCESS_KEY  R2 API token secret
+#   R2_BUCKET             Bucket name
+#
+# Scheduled runs only happen from the default branch (main).
+
+on:
+  schedule:
+    - cron: "30 20 * * *" # 02:00 IST every night
+  workflow_dispatch: # "Run workflow" button for a backup on demand
+
+permissions:
+  contents: read
+
+concurrency:
+  group: database-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Back up the database
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      # pg_dump must be the same or newer than the database's PostgreSQL version.
+      PG_CLIENT_VERSION: "18"
+
+    steps:
+      - name: Check settings
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          missing=0
+          for name in DATABASE_URL BACKUP_PASSPHRASE R2_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Repository secret $name is not set."
+              missing=1
+            fi
+          done
+          exit $missing
+
+      - name: Dump the database
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          echo "STAMP=$(date -u +%Y-%m-%d_%H%M)" >> "$GITHUB_ENV"
+          docker run --rm -e DATABASE_URL -e PGSSLMODE=require -v "$PWD:/out" \
+            "postgres:$PG_CLIENT_VERSION" \
+            sh -c 'pg_dump "$DATABASE_URL" --format=custom --no-owner --no-privileges --file=/out/backup.dump'
+
+          # Keep the backup only if it is a complete, readable dump with the bills in it.
+          docker run --rm -v "$PWD:/out" "postgres:$PG_CLIENT_VERSION" \
+            pg_restore --list /out/backup.dump > contents.txt
+          grep -q "TABLE DATA public sales_orders" contents.txt
+          grep -q "TABLE DATA public flyway_schema_history" contents.txt
+          ls -lh backup.dump
+
+      - name: Encrypt
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --symmetric --cipher-algo AES256 \
+            --output backup.dump.gpg backup.dump <<< "$BACKUP_PASSPHRASE"
+          rm backup.dump
+
+      - name: Upload to Cloudflare R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          name="indra-vaibhav-marble_${STAMP}.dump.gpg"
+
+          # daily/ is kept 30 days and monthly/ 365 days by the bucket's lifecycle rules.
+          aws s3 cp backup.dump.gpg "s3://${R2_BUCKET}/daily/${name}" \
+            --endpoint-url "$endpoint" --only-show-errors
+          if [ "$(date -u +%d)" = "01" ]; then
+            aws s3 cp backup.dump.gpg "s3://${R2_BUCKET}/monthly/${name}" \
+              --endpoint-url "$endpoint" --only-show-errors
+          fi
+          echo "Uploaded ${name}"

@@ -151,6 +151,25 @@ public class SecurityConfig {
                             "/api/sales-orders/*/payments/**")
                     .hasAuthority("PAYMENT_MANAGE")
 
+                    // Daily cash closing. Reopening and settings need the
+                    // owner; the services check the same permissions again.
+                    .requestMatchers(HttpMethod.GET, "/api/cash/**")
+                    .hasAuthority("CASH_READ")
+                    .requestMatchers(HttpMethod.POST, "/api/cash/sessions/*/reopen")
+                    .hasAuthority("CASH_APPROVE")
+                    .requestMatchers(HttpMethod.PUT, "/api/cash/settings")
+                    .hasAuthority("CASH_APPROVE")
+                    .requestMatchers(HttpMethod.POST, "/api/cash/**")
+                    .hasAuthority("CASH_MANAGE")
+                    .requestMatchers(HttpMethod.GET, "/api/staff/**")
+                    .hasAuthority("EXPENSE_READ")
+                    .requestMatchers(HttpMethod.POST, "/api/staff/**")
+                    .hasAuthority("EXPENSE_MANAGE")
+                    .requestMatchers(HttpMethod.PUT, "/api/staff/**")
+                    .hasAuthority("EXPENSE_MANAGE")
+                    .requestMatchers(HttpMethod.PUT, "/api/expense-categories/**")
+                    .hasAuthority("MASTER_DATA_MANAGE")
+
                     // Reports and read-only workspace access.
                     .requestMatchers(HttpMethod.GET, "/api/reports/**")
                     .hasAuthority("REPORT_READ")

@@ -51,3 +51,15 @@ export async function getExpenseCategories() {
 export async function createExpenseCategory(category) {
   return httpClient.post("/api/expense-categories", category);
 }
+
+export async function getStaff() {
+  return httpClient.get("/api/staff");
+}
+
+export async function createStaff(staff) {
+  return httpClient.post("/api/staff", staff);
+}
+
+export async function updateStaff(id, staff) {
+  return httpClient.put(`/api/staff/${id}`, staff);
+}
