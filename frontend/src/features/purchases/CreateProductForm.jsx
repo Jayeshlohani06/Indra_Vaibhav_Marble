@@ -18,6 +18,7 @@ const initialForm = {
   purchasePrice: "",
   sellingPrice: "",
   gstRate: "18",
+  hsnCode: "",
   lowStockThreshold: "",
 };
 
@@ -127,11 +128,16 @@ function CreateProductForm({ onClose, onCreated }) {
       purchasePrice: Number(form.purchasePrice),
       sellingPrice: Number(form.sellingPrice),
       gstRate: Number(form.gstRate),
+      hsnCode: form.hsnCode.replace(/\s+/g, "") || null,
       stockQuantity: 0,
       lowStockThreshold: Number(form.lowStockThreshold),
     };
     if (!product.name) {
       setError("Product name is required.");
+      return;
+    }
+    if (product.hsnCode && !/^\d{4}(\d{2}){0,2}$/.test(product.hsnCode)) {
+      setError("HSN code must be 4, 6 or 8 digits, or left empty.");
       return;
     }
     // Number("") is 0, so a cleared field would otherwise save as ₹0.
@@ -313,6 +319,10 @@ function CreateProductForm({ onClose, onCreated }) {
               <label>
                 GST rate (%) *
                 <input name="gstRate" type="number" min="0" max="100" step="0.01" value={form.gstRate} onChange={handleChange} required />
+              </label>
+              <label>
+                HSN code
+                <input name="hsnCode" value={form.hsnCode} onChange={handleChange} inputMode="numeric" maxLength={10} placeholder="e.g. 6802 (optional)" />
               </label>
               <label>
                 Warn me when stock falls below

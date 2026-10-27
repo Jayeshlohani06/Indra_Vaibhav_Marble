@@ -144,9 +144,10 @@ public class StockMovementService {
         }
 
         if ("SALES_ORDER".equals(original.getReferenceType())
+                || "SALES_RETURN".equals(original.getReferenceType())
                 || "PURCHASE".equals(original.getReferenceType())) {
             throw new IllegalArgumentException(
-                    "Stock from a sales order or purchase cannot be reversed here");
+                    "Stock from a bill, return or purchase cannot be reversed here");
         }
 
         // Lock the product so two concurrent requests cannot both pass the
@@ -239,7 +240,7 @@ public class StockMovementService {
         String movementType = "SALE".equals(referenceType)
                 || "SALES_ORDER".equals(referenceType)
                 ? "SALE"
-                : null;
+                : "SALES_RETURN".equals(referenceType) ? "RETURN" : null;
 
         if (movementType == null) {
             throw new IllegalArgumentException(

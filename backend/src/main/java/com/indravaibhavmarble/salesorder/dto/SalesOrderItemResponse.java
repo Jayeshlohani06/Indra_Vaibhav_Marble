@@ -9,6 +9,7 @@ public record SalesOrderItemResponse(
         String productCode,
         String productName,
         String unitCode,
+        String hsnCode,
         BigDecimal quantity,
         BigDecimal secondaryQuantity,
         String pricingUnit,
@@ -18,6 +19,8 @@ public record SalesOrderItemResponse(
         BigDecimal cgstAmount,
         BigDecimal sgstAmount,
         BigDecimal igstAmount,
-        BigDecimal lineTotal
+        BigDecimal lineTotal,
+        BigDecimal returnedQuantity,
+        BigDecimal returnedSecondaryQuantity
 ) {
 }

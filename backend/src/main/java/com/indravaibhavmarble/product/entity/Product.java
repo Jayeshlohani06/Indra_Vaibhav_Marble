@@ -25,6 +25,10 @@ public class Product {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    /** Optional HSN code printed on GST bills. */
+    @Column(name = "hsn_code", length = 8)
+    private String hsnCode;
+
     @Column(name = "category_id", nullable = false)
     private Long categoryId;
 
@@ -99,6 +103,14 @@ protected Product() {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getHsnCode() {
+        return hsnCode;
+    }
+
+    public void setHsnCode(String hsnCode) {
+        this.hsnCode = hsnCode;
     }
 
     public String getDescription() {

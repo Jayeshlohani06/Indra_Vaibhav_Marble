@@ -18,6 +18,11 @@ import com.indravaibhavmarble.salesorder.dto.SalesOrderResponse;
 import com.indravaibhavmarble.salesorder.entity.SalesOrder;
 import com.indravaibhavmarble.salesorder.entity.SalesOrderItem;
 import com.indravaibhavmarble.salesorder.entity.SalesOrderCharge;
+import com.indravaibhavmarble.salesorder.entity.SalesReturn;
+import com.indravaibhavmarble.salesorder.entity.SalesReturnItem;
+import com.indravaibhavmarble.salesorder.dto.SalesReturnResponse;
+import com.indravaibhavmarble.salesorder.repository.SalesReturnItemRepository;
+import com.indravaibhavmarble.salesorder.repository.SalesReturnRepository;
 import com.indravaibhavmarble.salesorder.repository.SalesOrderItemRepository;
 import com.indravaibhavmarble.salesorder.repository.SalesOrderPaymentRepository;
 import com.indravaibhavmarble.common.payment.PaymentStatus;
@@ -36,6 +41,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.function.Function;
@@ -56,6 +62,8 @@ public class SalesOrderService {
     private final ProductCategoryRepository categoryRepository;
     private final StockMovementService stockMovementService;
     private final SalesOrderPaymentRepository paymentRepository;
+    private final SalesReturnRepository returnRepository;
+    private final SalesReturnItemRepository returnItemRepository;
 
     public SalesOrderService(
             SalesOrderRepository orderRepository,
@@ -66,7 +74,9 @@ public class SalesOrderService {
             MeasurementUnitRepository unitRepository,
             ProductCategoryRepository categoryRepository,
             StockMovementService stockMovementService,
-            SalesOrderPaymentRepository paymentRepository) {
+            SalesOrderPaymentRepository paymentRepository,
+            SalesReturnRepository returnRepository,
+            SalesReturnItemRepository returnItemRepository) {
 
         this.orderRepository = orderRepository;
         this.itemRepository = itemRepository;
@@ -77,6 +87,8 @@ public class SalesOrderService {
         this.categoryRepository = categoryRepository;
         this.stockMovementService = stockMovementService;
         this.paymentRepository = paymentRepository;
+        this.returnRepository = returnRepository;
+        this.returnItemRepository = returnItemRepository;
     }
 
     private record StockChange(
@@ -105,13 +117,17 @@ public class SalesOrderService {
                 ? "INTRA"
                 : request.taxType().trim().toUpperCase(Locale.ROOT);
 
-        if (!taxType.equals("INTRA") && !taxType.equals("INTER")) {
+        if (!taxType.equals("INTRA") && !taxType.equals("INTER")
+                && !taxType.equals("NONE")) {
             throw new IllegalArgumentException(
-                    "Tax type must be INTRA or INTER");
+                    "Tax type must be INTRA, INTER or NONE");
         }
+        boolean withoutGst = taxType.equals("NONE");
 
         SalesOrder order = SalesOrder.createNew();
-        order.setOrderNumber(generateOrderNumber());
+        order.setOrderNumber(withoutGst
+                ? generateEstimateNumber()
+                : generateOrderNumber());
         order.setCustomerId(customer.getId());
         order.setOrderDate(request.orderDate() == null
                 ? BusinessDate.today()
@@ -225,9 +241,12 @@ if (itemRequest.unitPrice() != null
                 : product.getSellingPrice()
 ).setScale(2, RoundingMode.HALF_UP);
 
-            BigDecimal gstRate = itemRequest.gstRate() == null
-                    ? product.getGstRate()
-                    : itemRequest.gstRate();
+            // Bills without GST never carry tax, whatever rate was sent.
+            BigDecimal gstRate = withoutGst
+                    ? ZERO
+                    : itemRequest.gstRate() == null
+                            ? product.getGstRate()
+                            : itemRequest.gstRate();
             if (gstRate.signum() < 0 || gstRate.compareTo(new BigDecimal("100")) > 0) {
                 throw new IllegalArgumentException("GST rate must be between 0 and 100");
             }
@@ -250,7 +269,7 @@ if (itemRequest.unitPrice() != null
                 cgst = taxAmount.divide(
                         new BigDecimal("2"), 2, RoundingMode.HALF_UP);
                 sgst = taxAmount.subtract(cgst);
-            } else {
+            } else if (taxType.equals("INTER")) {
                 igst = taxAmount;
             }
 
@@ -264,6 +283,7 @@ if (itemRequest.unitPrice() != null
             item.setProductCodeSnapshot(product.getProductCode());
             item.setProductNameSnapshot(product.getName());
             item.setUnitCodeSnapshot(unit.getCode());
+            item.setHsnCodeSnapshot(product.getHsnCode());
             item.setQuantity(primaryQuantity);
             item.setSecondaryQuantity(secondaryQuantity);
             item.setPricingUnit("SECONDARY".equalsIgnoreCase(itemRequest.pricingUnit())
@@ -345,7 +365,7 @@ if (itemRequest.unitPrice() != null
         }
 
         return toResponse(savedOrder, customer, savedItems, savedCharges,
-                BigDecimal.ZERO);
+                BigDecimal.ZERO, List.of(), List.of(), Map.of());
     }
 
     @Transactional(readOnly = true)
@@ -382,6 +402,17 @@ if (itemRequest.unitPrice() != null
                 .collect(Collectors.toMap(
                         row -> (Long) row[0], row -> (BigDecimal) row[1]));
 
+        Map<Long, String> hsnByProduct = currentHsnCodes(
+                itemsByOrder.values().stream().flatMap(List::stream).toList());
+
+        List<SalesReturn> allReturns = returnRepository.findBySalesOrderIdInOrderByIdAsc(orderIds);
+        Map<Long, List<SalesReturn>> returnsByOrder = allReturns.stream()
+                .collect(Collectors.groupingBy(SalesReturn::getSalesOrderId));
+        List<SalesReturnItem> allReturnItems = allReturns.isEmpty()
+                ? List.of()
+                : returnItemRepository.findBySalesReturnIdInOrderByIdAsc(
+                        allReturns.stream().map(SalesReturn::getId).toList());
+
         return orders.stream()
                 .map(order -> {
                     Customer customer = customersById.get(order.getCustomerId());
@@ -395,7 +426,10 @@ if (itemRequest.unitPrice() != null
                             customer,
                             itemsByOrder.getOrDefault(order.getId(), List.of()),
                             chargesByOrder.getOrDefault(order.getId(), List.of()),
-                            paidByOrder.getOrDefault(order.getId(), BigDecimal.ZERO));
+                            paidByOrder.getOrDefault(order.getId(), BigDecimal.ZERO),
+                            returnsByOrder.getOrDefault(order.getId(), List.of()),
+                            allReturnItems,
+                            hsnByProduct);
                 })
                 .toList();
     }
@@ -409,13 +443,39 @@ if (itemRequest.unitPrice() != null
 
         Customer customer = customerRepository.findById(
                 order.getCustomerId()).orElseThrow();
+        List<SalesReturn> returns = returnRepository.findBySalesOrderIdOrderByIdAsc(order.getId());
+        List<SalesOrderItem> items = itemRepository.findBySalesOrderId(order.getId());
 
         return toResponse(
                 order,
                 customer,
-                itemRepository.findBySalesOrderId(order.getId()),
+                items,
                 chargeRepository.findBySalesOrderId(order.getId()),
-                paymentRepository.getTotalPaid(order.getId()));
+                paymentRepository.getTotalPaid(order.getId()),
+                returns,
+                returns.isEmpty()
+                        ? List.of()
+                        : returnItemRepository.findBySalesReturnIdInOrderByIdAsc(
+                                returns.stream().map(SalesReturn::getId).toList()),
+                currentHsnCodes(items));
+    }
+
+    /**
+     * Bills saved before HSN codes existed have none on their lines; those
+     * show the product's current HSN code instead.
+     */
+    private Map<Long, String> currentHsnCodes(List<SalesOrderItem> items) {
+        List<Long> productIds = items.stream()
+                .filter(item -> item.getHsnCodeSnapshot() == null)
+                .map(SalesOrderItem::getProductId)
+                .distinct()
+                .toList();
+        if (productIds.isEmpty()) {
+            return Map.of();
+        }
+        return productRepository.findAllById(productIds).stream()
+                .filter(product -> product.getHsnCode() != null)
+                .collect(Collectors.toMap(Product::getId, Product::getHsnCode));
     }
 
     private void validateRequest(SalesOrderRequest request) {
@@ -459,12 +519,34 @@ if (itemRequest.unitPrice() != null
         return String.format("INV-%04d", orderRepository.nextOrderNumber());
     }
 
+    /** Returns the next number for a bill without GST, e.g. EST-0007. */
+    private String generateEstimateNumber() {
+        return String.format("EST-%04d", orderRepository.nextEstimateNumber());
+    }
+
     private SalesOrderResponse toResponse(
             SalesOrder order,
             Customer customer,
             List<SalesOrderItem> items,
             List<SalesOrderCharge> charges,
-            BigDecimal amountPaid) {
+            BigDecimal amountPaid,
+            List<SalesReturn> returns,
+            List<SalesReturnItem> returnItems,
+            Map<Long, String> hsnByProduct) {
+
+        // returnItems may cover several bills; keep only this bill's.
+        Set<Long> returnIds = returns.stream().map(SalesReturn::getId).collect(Collectors.toSet());
+        Map<Long, List<SalesReturnItem>> linesByReturn = returnItems.stream()
+                .filter(line -> returnIds.contains(line.getSalesReturnId()))
+                .collect(Collectors.groupingBy(SalesReturnItem::getSalesReturnId));
+        Map<Long, SalesReturnService.Returned> returnedByItem = SalesReturnService.returnedByItem(
+                linesByReturn.values().stream().flatMap(List::stream).toList());
+        Map<Long, SalesOrderItem> itemsById = items.stream()
+                .collect(Collectors.toMap(SalesOrderItem::getId, Function.identity()));
+        List<SalesReturnResponse> returnResponses = returns.stream()
+                .map(salesReturn -> SalesReturnService.toResponse(salesReturn,
+                        linesByReturn.getOrDefault(salesReturn.getId(), List.of()), itemsById))
+                .toList();
 
         List<SalesOrderItemResponse> itemResponses = items.stream()
                 .map(item -> new SalesOrderItemResponse(
@@ -473,6 +555,9 @@ if (itemRequest.unitPrice() != null
                         item.getProductCodeSnapshot(),
                         item.getProductNameSnapshot(),
                         item.getUnitCodeSnapshot(),
+                        item.getHsnCodeSnapshot() != null
+                                ? item.getHsnCodeSnapshot()
+                                : hsnByProduct.get(item.getProductId()),
                         item.getQuantity(),
                         item.getSecondaryQuantity(),
                         item.getPricingUnit(),
@@ -482,7 +567,9 @@ if (itemRequest.unitPrice() != null
                         item.getCgstAmount(),
                         item.getSgstAmount(),
                         item.getIgstAmount(),
-                        item.getLineTotal()))
+                        item.getLineTotal(),
+                        returnedByItem.getOrDefault(item.getId(), SalesReturnService.Returned.NONE).quantity(),
+                        returnedByItem.getOrDefault(item.getId(), SalesReturnService.Returned.NONE).secondaryQuantity()))
                 .toList();
         List<SalesOrderChargeResponse> chargeResponses = charges.stream()
                 .map(charge -> new SalesOrderChargeResponse(
@@ -508,7 +595,12 @@ if (itemRequest.unitPrice() != null
                 itemResponses,
                 chargeResponses,
                 amountPaid,
-                order.getGrandTotal().subtract(amountPaid),
-                PaymentStatus.of(order.getGrandTotal(), amountPaid));
+                order.getNetTotal().subtract(amountPaid),
+                PaymentStatus.of(order.getNetTotal(), amountPaid),
+                order.getReturnedTotal(),
+                order.getNetTotal(),
+                order.getCancelReason(),
+                order.getCancelledAt(),
+                returnResponses);
     }
 }

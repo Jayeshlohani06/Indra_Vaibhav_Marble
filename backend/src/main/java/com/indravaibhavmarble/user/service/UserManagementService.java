@@ -127,6 +127,8 @@ public class UserManagementService {
                     purchase_items,
                     purchases,
                     sales_order_payments,
+                    sales_return_items,
+                    sales_returns,
                     sales_order_items,
                     sales_orders,
                     stock_movements,

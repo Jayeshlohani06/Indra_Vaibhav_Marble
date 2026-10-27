@@ -288,6 +288,74 @@
   grid-column: 1 / -1;
 }
 
+/* ===== Returns and cancelling ===== */
+
+.sales-return-lines {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.sales-return-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: end;
+  padding: 12px;
+  border: 1px solid var(--border-color, #e7e1d8);
+  border-radius: 10px;
+}
+
+.sales-return-line strong {
+  display: block;
+  font-size: 14px;
+}
+
+.sales-return-line small {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-secondary, #6b6359);
+  font-size: 12px;
+}
+
+.sales-return-line label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text-secondary, #6b6359);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sales-return-line input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 11px;
+  border: 1px solid var(--border-color, #d9d1c5);
+  border-radius: 7px;
+  font: inherit;
+}
+
+.sales-return-refund {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fdf6ea;
+  color: #7a4f12;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sales-order-detail-item strong small {
+  font-weight: 500;
+}
+
+@media (max-width: 700px) {
+  .sales-return-line {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .sales-orders-table {
   width: 100%;
   border-collapse: collapse;

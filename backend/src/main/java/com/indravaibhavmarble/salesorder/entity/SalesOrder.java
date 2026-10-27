@@ -52,6 +52,16 @@ public class SalesOrder {
     @Column(columnDefinition = "TEXT")
     private String notes;
 
+    /** Value of everything returned so far; the bill is now worth grandTotal - returnedTotal. */
+    @Column(name = "returned_total", nullable = false, precision = 14, scale = 2)
+    private BigDecimal returnedTotal = BigDecimal.ZERO;
+
+    @Column(name = "cancel_reason", columnDefinition = "TEXT")
+    private String cancelReason;
+
+    @Column(name = "cancelled_at")
+    private OffsetDateTime cancelledAt;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
@@ -106,6 +116,13 @@ public static SalesOrder createNew() {
     public void setGrandTotal(BigDecimal grandTotal) { this.grandTotal = grandTotal; }
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
+    public BigDecimal getReturnedTotal() { return returnedTotal; }
+    public void setReturnedTotal(BigDecimal value) { returnedTotal = value; }
+    public BigDecimal getNetTotal() { return grandTotal.subtract(returnedTotal); }
+    public String getCancelReason() { return cancelReason; }
+    public void setCancelReason(String value) { cancelReason = value; }
+    public OffsetDateTime getCancelledAt() { return cancelledAt; }
+    public void setCancelledAt(OffsetDateTime value) { cancelledAt = value; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public OffsetDateTime getUpdatedAt() { return updatedAt; }
 }

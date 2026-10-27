@@ -7,6 +7,8 @@ import {
   createSalesOrder,
   getSalesOrderBalance,
   recordSalesOrderPayment,
+  createSalesReturn,
+  cancelSalesOrder,
 
 } from "../../services/api/salesOrderApi";
 
@@ -68,6 +70,24 @@ function roundMoney(value) {
 
 }
 
+// What is still on a bill line after earlier returns.
+function quantityLeft(item) {
+  return roundQuantity(Number(item.quantity || 0) - Number(item.returnedQuantity || 0));
+}
+
+function roundQuantity(value) {
+  return Math.round(value * 1000) / 1000;
+}
+
+// Rough value of a return, for the refund hint; the server works out the exact figure.
+function estimateReturnValue(order, lines) {
+  return roundMoney((order.items || []).reduce((total, item) => {
+    const quantity = Number(lines[item.id]?.quantity) || 0;
+    const sold = Number(item.quantity) || 0;
+    return sold > 0 ? total + (Number(item.lineTotal) || 0) * (quantity / sold) : total;
+  }, 0));
+}
+
 function calculateTotals(items, taxType, charges = []) {
 
   let subtotal = 0;
@@ -87,7 +107,8 @@ function calculateTotals(items, taxType, charges = []) {
 
     const unitPrice = Number(item.unitPrice) || 0;
 
-    const gstRate = Number(item.gstRate) || 0;
+    // Bills without GST ("NONE") carry no tax at all.
+    const gstRate = taxType === "NONE" ? 0 : Number(item.gstRate) || 0;
 
     const taxableAmount = roundMoney(quantity * unitPrice);
 
@@ -105,7 +126,7 @@ function calculateTotals(items, taxType, charges = []) {
 
       sgstAmount += sgst;
 
-    } else {
+    } else if (taxType === "INTER") {
 
       igstAmount += tax;
 
@@ -222,6 +243,12 @@ function SalesOrdersPage() {
     referenceNumber: "",
     notes: "",
   });
+  // Returning goods or cancelling the bill open from the bill details.
+  const [returnMode, setReturnMode] = useState(null);
+  const [returnLines, setReturnLines] = useState({});
+  const [returnForm, setReturnForm] = useState({ date: today(), reason: "", refundMethod: "CASH" });
+  const [savingReturn, setSavingReturn] = useState(false);
+  const [returnError, setReturnError] = useState("");
   const [orderSearch, setOrderSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [dateFilter, setDateFilter] = useState("ALL");
@@ -232,6 +259,9 @@ function SalesOrdersPage() {
   const [orderDate, setOrderDate] = useState(today());
 
   const [taxType, setTaxType] = useState("INTRA");
+  // false makes a bill without GST (an estimate, numbered EST-0001).
+  const [withGst, setWithGst] = useState(true);
+  const billTaxType = withGst ? taxType : "NONE";
 
   const [notes, setNotes] = useState("");
   const [charges, setCharges] = useState([]);
@@ -476,6 +506,7 @@ function SalesOrdersPage() {
     setOrderDate(today());
 
     setTaxType("INTRA");
+    setWithGst(true);
 
     setNotes("");
     setCharges([]);
@@ -733,7 +764,7 @@ function SalesOrdersPage() {
 
       orderDate,
 
-      taxType,
+      taxType: billTaxType,
 
       notes: notes.trim(),
 
@@ -791,7 +822,7 @@ function SalesOrdersPage() {
 
   }
 
-  const totals = calculateTotals(items, taxType, charges);
+  const totals = calculateTotals(items, billTaxType, charges);
   const filteredOrders = useMemo(() => {
     const term = orderSearch.trim().toLowerCase();
     const now = new Date();
@@ -823,8 +854,9 @@ function SalesOrdersPage() {
   const billedOrders = orders.filter(
     (order) => order.status !== "CANCELLED" && order.status !== "DRAFT"
   );
+  // Returned goods no longer count as sold.
   const sumTotals = (list) => list.reduce(
-    (total, order) => total + Number(order.grandTotal || 0), 0
+    (total, order) => total + Number(order.netTotal ?? order.grandTotal ?? 0), 0
   );
   const monthKey = today().slice(0, 7);
   const monthOrders = billedOrders.filter((order) =>
@@ -846,6 +878,67 @@ function SalesOrdersPage() {
       setPaymentBalance(await getSalesOrderBalance(order.id));
     } catch (err) {
       setError(err.message || "Unable to load payment balance.");
+    }
+  }
+
+  function openReturnForm(mode) {
+    setReturnMode(mode);
+    setReturnLines({});
+    setReturnForm({ date: today(), reason: "", refundMethod: "CASH" });
+    setReturnError("");
+  }
+
+  function updateReturnLine(itemId, field, value) {
+    setReturnLines((current) => ({
+      ...current,
+      [itemId]: { ...current[itemId], [field]: value },
+    }));
+  }
+
+  async function handleReturnSubmit(event) {
+    event.preventDefault();
+    if (!detailsOrder || savingReturn) return;
+    const cancelling = returnMode === "cancel";
+    const items = Object.entries(returnLines)
+      .map(([itemId, line]) => ({
+        salesOrderItemId: Number(itemId),
+        quantity: line.quantity === "" || line.quantity == null ? null : Number(line.quantity),
+        secondaryQuantity: line.secondaryQuantity === "" || line.secondaryQuantity == null
+          ? null : Number(line.secondaryQuantity),
+      }))
+      .filter((line) => line.quantity > 0 || line.secondaryQuantity > 0);
+    if (!cancelling && items.length === 0) {
+      setReturnError("Enter how much of at least one item is coming back.");
+      return;
+    }
+    setSavingReturn(true);
+    setReturnError("");
+    try {
+      const result = cancelling
+        ? await cancelSalesOrder(detailsOrder.id, {
+          cancelDate: returnForm.date,
+          reason: returnForm.reason.trim(),
+          refundMethod: returnForm.refundMethod,
+        })
+        : await createSalesReturn(detailsOrder.id, {
+          returnDate: returnForm.date,
+          reason: returnForm.reason.trim(),
+          refundMethod: returnForm.refundMethod,
+          items,
+        });
+      setReturnMode(null);
+      setDetailsOrder(null);
+      await refreshOrders();
+      const refund = Number(result.refundAmount) > 0
+        ? ` ${formatCurrency(result.refundAmount)} refund recorded.`
+        : "";
+      setSuccess(cancelling
+        ? `Bill ${detailsOrder.orderNumber} cancelled. Stock has been added back.${refund}`
+        : `Return ${result.returnNumber} saved. Stock has been added back.${refund}`);
+    } catch (err) {
+      setReturnError(err.message || "Unable to save the return.");
+    } finally {
+      setSavingReturn(false);
     }
   }
 
@@ -1403,22 +1496,41 @@ function SalesOrdersPage() {
                 </label>
 
                 <label>
-
-                  Customer location <span className="required">*</span>
-
+                  Bill type <span className="required">*</span>
                   <select
-                    value={taxType}
-                    onChange={(event) => setTaxType(event.target.value)}
+                    value={withGst ? "GST" : "NONE"}
+                    onChange={(event) => setWithGst(event.target.value === "GST")}
                     required
                   >
-                    <option value="INTRA">Same state as us (CGST + SGST)</option>
-                    <option value="INTER">Other state (IGST)</option>
+                    <option value="GST">GST bill (tax invoice)</option>
+                    <option value="NONE">Without GST (estimate)</option>
                   </select>
                   <small className="sales-order-field-hint">
-                    Filled in from the customer&apos;s GSTIN. Change it only if needed.
+                    {withGst
+                      ? "GST added on top. Numbered INV-0001…"
+                      : "No GST on the bill. Numbered EST-0001…"}
                   </small>
-
                 </label>
+
+                {withGst && (
+                  <label>
+
+                    Customer location <span className="required">*</span>
+
+                    <select
+                      value={taxType}
+                      onChange={(event) => setTaxType(event.target.value)}
+                      required
+                    >
+                      <option value="INTRA">Same state as us (CGST + SGST)</option>
+                      <option value="INTER">Other state (IGST)</option>
+                    </select>
+                    <small className="sales-order-field-hint">
+                      Filled in from the customer&apos;s GSTIN. Change it only if needed.
+                    </small>
+
+                  </label>
+                )}
 
               </div>
 
@@ -1587,19 +1699,21 @@ function SalesOrdersPage() {
 
                       </label>
 
-                      <label>
-                        GST (%)
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.01"
-                          value={item.gstRate}
-                          onChange={(event) =>
-                            updateItem(index, "gstRate", event.target.value)
-                          }
-                        />
-                      </label>
+                      {withGst && (
+                        <label>
+                          GST (%)
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            value={item.gstRate}
+                            onChange={(event) =>
+                              updateItem(index, "gstRate", event.target.value)
+                            }
+                          />
+                        </label>
+                      )}
 
                       <div className="sales-order-line-total">
 
@@ -1611,11 +1725,13 @@ function SalesOrdersPage() {
 
                         </strong>
 
-                        <small>
+                        {withGst && (
+                          <small>
 
-                          GST: {Number(item.gstRate || 0)}%
+                            GST: {Number(item.gstRate || 0)}%
 
-                        </small>
+                          </small>
+                        )}
 
                       </div>
 
@@ -1741,7 +1857,7 @@ function SalesOrdersPage() {
 
                 </div>
 
-                {taxType === "INTRA" ? (
+                {!withGst ? null : taxType === "INTRA" ? (
 
                   <>
 
@@ -1787,12 +1903,14 @@ function SalesOrdersPage() {
 
                 )}
 
-                <div>
-                  <span>Total GST</span>
+                {withGst && (
+                  <div>
+                    <span>Total GST</span>
 
-                  <strong>{formatCurrency(totals.totalTax)}</strong>
+                    <strong>{formatCurrency(totals.totalTax)}</strong>
 
-                </div>
+                  </div>
+                )}
                 {totals.chargesTotal > 0 && (
                   <div>
                     <span>Additional charges</span>
@@ -1965,6 +2083,9 @@ function SalesOrdersPage() {
 
                     <td>
                       <strong>{order.orderNumber}</strong>
+                      {order.taxType === "NONE" && (
+                        <span className="sales-orders-status">No GST</span>
+                      )}
                       {order.status !== "CONFIRMED" && (
                         <span className={`sales-orders-status sales-orders-status-${String(order.status).toLowerCase()}`}>
                           {label(order.status)}
@@ -1983,8 +2104,13 @@ function SalesOrdersPage() {
                     </td>
 
                     <td className="sales-orders-amount">
-                      {formatCurrency(order.grandTotal)}
-                      {Number(order.balanceDue) > 0 && Number(order.balanceDue) < Number(order.grandTotal) && (
+                      {order.status === "CANCELLED"
+                        ? <s>{formatCurrency(order.grandTotal)}</s>
+                        : formatCurrency(order.netTotal ?? order.grandTotal)}
+                      {order.status !== "CANCELLED" && Number(order.returnedTotal) > 0 && (
+                        <span className="amount-due">{formatCurrency(order.returnedTotal)} returned</span>
+                      )}
+                      {order.status !== "CANCELLED" && Number(order.balanceDue) > 0 && Number(order.balanceDue) < Number(order.netTotal ?? order.grandTotal) && (
                         <span className="amount-due">{formatCurrency(order.balanceDue)} due</span>
                       )}
                     </td>
@@ -2020,11 +2146,17 @@ function SalesOrdersPage() {
               >
                 <span className="mobile-card__row">
                   <span className="mobile-card__title">{order.customerName}</span>
-                  <span className="mobile-card__amount">{formatCurrency(order.grandTotal)}</span>
+                  <span className="mobile-card__amount">
+                    {order.status === "CANCELLED"
+                      ? <s>{formatCurrency(order.grandTotal)}</s>
+                      : formatCurrency(order.netTotal ?? order.grandTotal)}
+                  </span>
                 </span>
                 <span className="mobile-card__row">
                   <span className="mobile-card__meta">{order.orderNumber} · {formatDate(order.orderDate)}</span>
-                  <span className={paymentBadgeClass(order.paymentStatus)}>{label(order.paymentStatus)}</span>
+                  {order.status === "CANCELLED"
+                    ? <span className="sales-orders-status sales-orders-status-cancelled">Cancelled</span>
+                    : <span className={paymentBadgeClass(order.paymentStatus)}>{label(order.paymentStatus)}</span>}
                 </span>
               </button>
             ))}
@@ -2051,27 +2183,146 @@ function SalesOrdersPage() {
             </div>
             <div className="sales-order-detail-summary">
               <div><span>Status</span><strong>{label(detailsOrder.status)}</strong></div>
-              <div><span>Customer location</span><strong>{label(detailsOrder.taxType)}</strong></div>
+              {detailsOrder.taxType === "NONE"
+                ? <div><span>Bill type</span><strong>Without GST</strong></div>
+                : <div><span>Customer location</span><strong>{label(detailsOrder.taxType)}</strong></div>}
               <div><span>Subtotal</span><strong>{formatCurrency(detailsOrder.subtotal)}</strong></div>
               <div><span>Total tax</span><strong>{formatCurrency(detailsOrder.totalTax)}</strong></div>
               {detailsOrder.charges?.length > 0 && <div><span>Additional charges</span><strong>{formatCurrency(detailsOrder.charges.reduce((sum, charge) => sum + Number(charge.amount || 0), 0))}</strong></div>}
               <div><span>Grand total</span><strong>{formatCurrency(detailsOrder.grandTotal)}</strong></div>
-              {paymentBalance && <div><span>Payment</span><strong><span className={paymentBadgeClass(paymentBalance.paymentStatus)}>{label(paymentBalance.paymentStatus)}</span></strong></div>}
-              {paymentBalance && <div><span>Still to collect</span><strong>{formatCurrency(paymentBalance.outstandingBalance)}</strong></div>}
+              {Number(detailsOrder.returnedTotal) > 0 && <div><span>Returned</span><strong>− {formatCurrency(detailsOrder.returnedTotal)}</strong></div>}
+              {Number(detailsOrder.returnedTotal) > 0 && <div><span>Bill now worth</span><strong>{formatCurrency(detailsOrder.netTotal)}</strong></div>}
+              {detailsOrder.status === "CANCELLED" && <div><span>Reason for cancelling</span><strong>{detailsOrder.cancelReason || "—"}</strong></div>}
+              {paymentBalance && detailsOrder.status !== "CANCELLED" && <div><span>Payment</span><strong><span className={paymentBadgeClass(paymentBalance.paymentStatus)}>{label(paymentBalance.paymentStatus)}</span></strong></div>}
+              {paymentBalance && detailsOrder.status !== "CANCELLED" && <div><span>Still to collect</span><strong>{formatCurrency(paymentBalance.outstandingBalance)}</strong></div>}
             </div>
             <div className="sales-order-detail-items">
               <h3>Products</h3>
-              {detailsOrder.items?.map((item) => <div className="sales-order-detail-item" key={item.id}><span>{item.productName} <small>{item.productCode}</small></span><span>{item.quantity} {item.unitCode} × {formatCurrency(item.unitPrice)} · GST {item.gstRate}%</span><strong>{formatCurrency(item.lineTotal)}</strong></div>)}
+              {detailsOrder.items?.map((item) => <div className="sales-order-detail-item" key={item.id}><span>{item.productName} <small>{item.productCode}</small></span><span>{item.quantity} {item.unitCode} × {formatCurrency(item.unitPrice)}{detailsOrder.taxType !== "NONE" && ` · GST ${item.gstRate}%`}</span><strong>{formatCurrency(item.lineTotal)}{Number(item.returnedQuantity) > 0 && <small>{roundQuantity(Number(item.returnedQuantity))} {item.unitCode} returned</small>}</strong></div>)}
               {detailsOrder.charges?.map((charge) => <div className="sales-order-detail-item" key={`charge-${charge.id}`}><span>{charge.description}</span><strong>{formatCurrency(charge.amount)}</strong></div>)}
             </div>
+            {detailsOrder.returns?.length > 0 && (
+              <div className="sales-order-detail-items">
+                <h3>Returns</h3>
+                {detailsOrder.returns.map((salesReturn) => (
+                  <div className="sales-order-detail-item" key={salesReturn.id}>
+                    <span>
+                      {salesReturn.cancelsOrder ? "Bill cancelled" : salesReturn.returnNumber} · {formatDate(salesReturn.returnDate)}
+                      <small>{salesReturn.reason}{salesReturn.createdBy ? ` · by ${salesReturn.createdBy}` : ""}</small>
+                    </span>
+                    <span>
+                      {salesReturn.items.map((line) => `${roundQuantity(Number(line.quantity))} ${line.unitCode} ${line.productName}`).join(", ") || "Extra charges only"}
+                      {Number(salesReturn.refundAmount) > 0 && <small>Refunded {formatCurrency(salesReturn.refundAmount)}</small>}
+                    </span>
+                    <strong>− {formatCurrency(salesReturn.totalAmount)}</strong>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="sales-order-form-actions">
               <button type="button" className="sales-orders-secondary" onClick={() => setDetailsOrder(null)}>Close</button>
               <button type="button" className="sales-orders-secondary" onClick={() => { setInvoiceOrderId(detailsOrder.id); setDetailsOrder(null); }}>Print invoice</button>
-              {canManagePayments && paymentBalance?.outstandingBalance > 0 && <button type="button" className="sales-orders-primary" onClick={() => { setPaymentError(""); setShowPaymentForm(true); }}>Take payment</button>}
+              {canManageSales && detailsOrder.status === "CONFIRMED" && <button type="button" className="sales-orders-danger" onClick={() => openReturnForm("cancel")}>Cancel bill</button>}
+              {canManageSales && detailsOrder.status === "CONFIRMED" && detailsOrder.items?.some((item) => quantityLeft(item) > 0) && <button type="button" className="sales-orders-secondary" onClick={() => openReturnForm("return")}>Return items</button>}
+              {canManagePayments && detailsOrder.status !== "CANCELLED" && paymentBalance?.outstandingBalance > 0 && <button type="button" className="sales-orders-primary" onClick={() => { setPaymentError(""); setShowPaymentForm(true); }}>Take payment</button>}
             </div>
           </section>
         </div>
       )}
+
+      {returnMode && detailsOrder && (() => {
+        const cancelling = returnMode === "cancel";
+        const paid = Number(detailsOrder.amountPaid || 0);
+        const worthNow = Number(detailsOrder.netTotal ?? detailsOrder.grandTotal);
+        const refund = cancelling
+          ? paid
+          : Math.max(0, roundMoney(paid - (worthNow - estimateReturnValue(detailsOrder, returnLines))));
+        const close = () => !savingReturn && setReturnMode(null);
+        return (
+          <div className="sales-order-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && close()}>
+            <form className="sales-order-details-modal sales-payment-modal sales-return-modal" onSubmit={handleReturnSubmit} aria-labelledby="sales-return-title">
+              <div className="sales-order-form-heading">
+                <div>
+                  <h2 id="sales-return-title">{cancelling ? `Cancel bill ${detailsOrder.orderNumber}?` : "Return items"}</h2>
+                  <p>{cancelling
+                    ? "Everything still on the bill goes back into stock and the bill stops counting as a sale. The bill is kept, marked Cancelled."
+                    : `Bill ${detailsOrder.orderNumber} · enter how much of each item is coming back.`}</p>
+                </div>
+                <button type="button" className="sales-orders-refresh" onClick={close}>Close</button>
+              </div>
+
+              {!cancelling && (
+                <div className="sales-return-lines">
+                  {detailsOrder.items.filter((item) => quantityLeft(item) > 0).map((item) => {
+                    const left = quantityLeft(item);
+                    const dualUnit = Number(item.secondaryQuantity) > 0;
+                    return (
+                      <div className="sales-return-line" key={item.id}>
+                        <div>
+                          <strong>{item.productName}</strong>
+                          <small>
+                            Sold {roundQuantity(Number(item.quantity))} {item.unitCode}
+                            {Number(item.returnedQuantity) > 0 && ` · ${roundQuantity(Number(item.returnedQuantity))} already returned`}
+                            {` · ${left} left`}
+                          </small>
+                        </div>
+                        <label>
+                          Returning ({item.unitCode})
+                          <input
+                            type="number" min="0" max={left} step="0.001" inputMode="decimal"
+                            value={returnLines[item.id]?.quantity ?? ""}
+                            onChange={(event) => updateReturnLine(item.id, "quantity", event.target.value)}
+                            placeholder="0"
+                          />
+                        </label>
+                        {dualUnit && (
+                          <label>
+                            Second quantity
+                            <input
+                              type="number" min="0" step="0.001" inputMode="decimal"
+                              value={returnLines[item.id]?.secondaryQuantity ?? ""}
+                              onChange={(event) => updateReturnLine(item.id, "secondaryQuantity", event.target.value)}
+                              placeholder="Auto"
+                            />
+                          </label>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="sales-payment-grid">
+                <label>{cancelling ? "Cancel date" : "Return date"}<input type="date" min={detailsOrder.orderDate} max={today()} value={returnForm.date} onChange={(event) => setReturnForm({ ...returnForm, date: event.target.value })} required /></label>
+                {refund > 0 && (
+                  <label>
+                    Refund given by
+                    <select value={returnForm.refundMethod} onChange={(event) => setReturnForm({ ...returnForm, refundMethod: event.target.value })}><option value="CASH">Cash</option><option value="UPI">UPI</option><option value="BANK_TRANSFER">Bank transfer</option><option value="CHEQUE">Cheque</option><option value="CARD">Card</option><option value="OTHER">Other</option></select>
+                  </label>
+                )}
+                <label className="sales-payment-full-width">
+                  <span>Reason <span className="required">*</span></span>
+                  <textarea rows="2" value={returnForm.reason} onChange={(event) => setReturnForm({ ...returnForm, reason: event.target.value })} maxLength={1000} required placeholder={cancelling ? "e.g. Customer cancelled the order" : "e.g. Wrong shade, broken in transport"} />
+                </label>
+              </div>
+
+              {refund > 0 && (
+                <p className="sales-return-refund">
+                  {cancelling ? "" : "About "}{formatCurrency(refund)} will be recorded as a refund to the customer.
+                  {!canManagePayments && " You can't record refunds, so ask someone who can take payments to do this."}
+                </p>
+              )}
+              {returnError && <div className="sales-orders-error" role="alert">{returnError}</div>}
+              <div className="sales-order-form-actions">
+                <button type="button" className="sales-orders-secondary" onClick={close}>{cancelling ? "Keep bill" : "Back"}</button>
+                <button type="submit" className={cancelling ? "sales-orders-danger" : "sales-orders-primary"} disabled={savingReturn}>
+                  {savingReturn ? "Saving..." : cancelling ? "Cancel bill" : "Save return"}
+                </button>
+              </div>
+            </form>
+          </div>
+        );
+      })()}
 
       {showPaymentForm && detailsOrder && (
         <div className="sales-order-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setShowPaymentForm(false)}>

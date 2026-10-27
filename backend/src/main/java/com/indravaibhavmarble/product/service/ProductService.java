@@ -109,6 +109,7 @@ public class ProductService {
         existing.setProductCode(updatedProduct.getProductCode());
         existing.setName(updatedProduct.getName());
         existing.setDescription(updatedProduct.getDescription());
+        existing.setHsnCode(updatedProduct.getHsnCode());
         existing.setCategoryId(updatedProduct.getCategoryId());
         existing.setUnitId(updatedProduct.getUnitId());
         existing.setSecondaryUnitId(updatedProduct.getSecondaryUnitId());
@@ -151,6 +152,15 @@ public class ProductService {
             throw new IllegalArgumentException(
                     "Product name is required");
         }
+
+        // HSN is optional; spaces are dropped so "6802 10" is stored as 680210.
+        String hsnCode = product.getHsnCode() == null
+                ? "" : product.getHsnCode().replaceAll("\\s+", "");
+        if (!hsnCode.isEmpty() && !hsnCode.matches("\\d{4}|\\d{6}|\\d{8}")) {
+            throw new IllegalArgumentException(
+                    "HSN code must be 4, 6 or 8 digits");
+        }
+        product.setHsnCode(hsnCode.isEmpty() ? null : hsnCode);
 
         if (product.getCategoryId() == null
                 || product.getUnitId() == null) {
