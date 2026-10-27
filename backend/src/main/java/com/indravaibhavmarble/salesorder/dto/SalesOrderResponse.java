@@ -26,6 +26,11 @@ public record SalesOrderResponse(
         List<SalesOrderChargeResponse> charges,
         BigDecimal amountPaid,
         BigDecimal balanceDue,
-        String paymentStatus
+        String paymentStatus,
+        BigDecimal returnedTotal,
+        BigDecimal netTotal,
+        String cancelReason,
+        OffsetDateTime cancelledAt,
+        List<SalesReturnResponse> returns
 ) {
 }

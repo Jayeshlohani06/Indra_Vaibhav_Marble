@@ -26,7 +26,13 @@ function money(value) {
   }).format(Number(value || 0));
 }
 
+// Bills saved without GST are estimates: no GSTIN, HSN or tax is printed.
+function isWithoutGst(order) {
+  return order.taxType === "NONE";
+}
+
 function invoiceTitle(order) {
+  if (isWithoutGst(order)) return order.status === "DRAFT" ? "DRAFT ESTIMATE" : "ESTIMATE";
   return order.status === "DRAFT" ? "DRAFT — NOT A TAX INVOICE" : "TAX INVOICE";
 }
 
@@ -186,6 +192,20 @@ const INVOICE_CSS = `
     letter-spacing: 1.2px;
   }
   .doc-title.is-draft { background: #b45309; color: #fff; }
+  .doc-title.is-cancelled { background: #b42318; color: #fff; }
+  .void-banner {
+    margin-top: 10px;
+    padding: 8px 12px;
+    border: 1.5px solid #b42318;
+    border-radius: 8px;
+    color: #b42318;
+    font-size: 10pt;
+    font-weight: 800;
+    text-align: center;
+  }
+  .total-row.less span, .total-row.less strong { color: #9a3412; }
+  .total-row.net { padding-top: 7px; border-bottom: 0; font-size: 11pt; }
+  .total-row.net span, .total-row.net strong { color: #1f1b16; font-weight: 800; }
   .doc dl {
     display: grid;
     grid-template-columns: auto auto;
@@ -214,6 +234,7 @@ const INVOICE_CSS = `
     gap: 10px;
     margin-top: 12px;
   }
+  .parties.is-single { grid-template-columns: 1fr; }
   .card {
     min-width: 0;
     padding: 10px 12px;
@@ -305,6 +326,10 @@ const INVOICE_CSS = `
 `;
 
 function invoiceHtml(order, customer, items, { autoPrint }) {
+  const withGst = !isWithoutGst(order);
+  const cancelled = order.status === "CANCELLED";
+  const returns = Array.isArray(order.returns) ? order.returns : [];
+  const cancelDate = returns.find((salesReturn) => salesReturn.cancelsOrder)?.returnDate;
   const itemRows = items.map((item, index) => {
     const gst =
       Number(item.cgstAmount || 0) +
@@ -315,13 +340,13 @@ function invoiceHtml(order, customer, items, { autoPrint }) {
       <tr>
         <td class="center">${index + 1}</td>
         <td class="product">${escapeHtml(item.productName || "—")}</td>
-        <td class="center">${escapeHtml(item.hsnCode || "—")}</td>
+        ${withGst ? `<td class="center">${escapeHtml(item.hsnCode || "—")}</td>` : ""}
         <td class="number">${Number(item.quantity || 0)}</td>
         <td class="center">${escapeHtml(item.unitCode || "—")}</td>
         <td class="number">${money(item.unitPrice)}</td>
-        <td class="number">${money(item.taxableAmount)}</td>
+        ${withGst ? `<td class="number">${money(item.taxableAmount)}</td>
         <td class="number">${Number(item.gstRate || 0)}%</td>
-        <td class="number">${money(gst)}</td>
+        <td class="number">${money(gst)}</td>` : ""}
         <td class="number">${money(item.lineTotal)}</td>
       </tr>`;
   }).join("");
@@ -347,7 +372,7 @@ function invoiceHtml(order, customer, items, { autoPrint }) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Invoice ${escapeHtml(order.orderNumber)}</title>
+  <title>${withGst ? "Invoice" : "Estimate"} ${escapeHtml(order.orderNumber)}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -362,48 +387,50 @@ function invoiceHtml(order, customer, items, { autoPrint }) {
         <p class="address">${escapeHtml(BUSINESS.address)},<br>${escapeHtml(BUSINESS.city)}</p>
       </div>
       <div class="doc">
-        <span class="doc-title${order.status === "DRAFT" ? " is-draft" : ""}">${escapeHtml(invoiceTitle(order))}</span>
+        <span class="doc-title${order.status === "DRAFT" ? " is-draft" : ""}${cancelled ? " is-cancelled" : ""}">${escapeHtml(cancelled ? `${invoiceTitle(order)} · CANCELLED` : invoiceTitle(order))}</span>
         <dl>
-          <dt>Invoice No.</dt><dd>${escapeHtml(order.orderNumber)}</dd>
+          <dt>${withGst ? "Invoice No." : "Estimate No."}</dt><dd>${escapeHtml(order.orderNumber)}</dd>
           <dt>Date</dt><dd>${escapeHtml(formatDate(order.orderDate))}</dd>
         </dl>
       </div>
     </header>
 
+    ${cancelled ? `<div class="void-banner">CANCELLED${cancelDate ? ` on ${escapeHtml(formatDate(cancelDate))}` : ""}${order.cancelReason ? ` · ${escapeHtml(order.cancelReason)}` : ""} · This bill is not payable</div>` : ""}
+
     <div class="contact">
       <span>Mob.: <strong>${escapeHtml(BUSINESS.phone)}</strong></span>
-      <span>GSTIN: <strong>${escapeHtml(BUSINESS.gstin)}</strong></span>
+      ${withGst ? `<span>GSTIN: <strong>${escapeHtml(BUSINESS.gstin)}</strong></span>` : ""}
     </div>
 
-    <section class="parties">
+    <section class="parties${withGst ? "" : " is-single"}">
       <div class="card">
         <h3>Billed to</h3>
         <span class="name">${escapeHtml(customer?.name || order.customerName || "—")}</span>
         <dl class="rows">
           <dt>Phone</dt><dd>${escapeHtml(customer?.phone || "—")}</dd>
           <dt>Address</dt><dd>${escapeHtml(customer?.billingAddress || "—")}</dd>
-          <dt>GSTIN / Unique ID</dt><dd>${escapeHtml(customer?.gstin || "—")}</dd>
+          ${withGst ? `<dt>GSTIN / Unique ID</dt><dd>${escapeHtml(customer?.gstin || "—")}</dd>` : ""}
         </dl>
       </div>
-      <div class="card">
+      ${withGst ? `<div class="card">
         <h3>Tax details</h3>
         <dl class="rows">
           <dt>State Code</dt><dd>${escapeHtml(customerStateCode(order, customer))}</dd>
           <dt>Tax Type</dt><dd>${escapeHtml(taxTypeLabel(order))}</dd>
         </dl>
-      </div>
+      </div>` : ""}
     </section>
 
     <table class="items">
       <thead>
         <tr>
-          <th class="center">Sl.</th><th>Description of Goods</th><th class="center">HSN</th><th class="number">Qty.</th>
-          <th class="center">Unit</th><th class="number">Rate (₹)</th><th class="number">Taxable Value (₹)</th>
-          <th class="number">GST %</th><th class="number">GST (₹)</th><th class="number">Amount (₹)</th>
+          <th class="center">Sl.</th><th>Description of Goods</th>${withGst ? '<th class="center">HSN</th>' : ""}<th class="number">Qty.</th>
+          <th class="center">Unit</th><th class="number">Rate (₹)</th>${withGst ? `<th class="number">Taxable Value (₹)</th>
+          <th class="number">GST %</th><th class="number">GST (₹)</th>` : ""}<th class="number">Amount (₹)</th>
         </tr>
       </thead>
       <tbody>
-        ${itemRows || '<tr><td colspan="10" class="center">No items</td></tr>'}
+        ${itemRows || `<tr><td colspan="${withGst ? 10 : 6}" class="center">No items</td></tr>`}
       </tbody>
     </table>
 
@@ -424,14 +451,16 @@ function invoiceHtml(order, customer, items, { autoPrint }) {
         </div>
       </div>
       <div class="totals">
-        <div class="total-row"><span>Total Amount Before Tax</span><strong>${money(order.subtotal)}</strong></div>
+        ${withGst ? `<div class="total-row"><span>Total Amount Before Tax</span><strong>${money(order.subtotal)}</strong></div>
         <div class="total-row"><span>CGST</span><strong>${money(order.cgstAmount)}</strong></div>
         <div class="total-row"><span>SGST</span><strong>${money(order.sgstAmount)}</strong></div>
         <div class="total-row"><span>IGST</span><strong>${money(order.igstAmount)}</strong></div>
-        <div class="total-row"><span>Total Tax</span><strong>${money(order.totalTax)}</strong></div>
+        <div class="total-row"><span>Total Tax</span><strong>${money(order.totalTax)}</strong></div>` : `<div class="total-row"><span>Subtotal</span><strong>${money(order.subtotal)}</strong></div>`}
         ${charges.map((charge) => `<div class="total-row"><span>Add: ${escapeHtml(charge.description)}</span><strong>${money(charge.amount)}</strong></div>`).join("")}
         <div class="total-row"><span>Round Off</span><strong>${money(roundOff)}</strong></div>
-        <div class="grand"><span>Total Amount After Tax</span><strong>${money(order.grandTotal)}</strong></div>
+        <div class="grand"><span>${withGst ? "Total Amount After Tax" : "Total Amount"}</span><strong>${money(order.grandTotal)}</strong></div>
+        ${returns.map((salesReturn) => `<div class="total-row less"><span>Less: ${salesReturn.cancelsOrder ? "Cancelled" : `Returned ${escapeHtml(salesReturn.returnNumber)}`} (${escapeHtml(formatDate(salesReturn.returnDate))})</span><strong>− ${money(salesReturn.totalAmount)}</strong></div>`).join("")}
+        ${returns.length ? `<div class="total-row net"><span>Net Amount</span><strong>${money(order.netTotal)}</strong></div>` : ""}
       </div>
     </section>
 
@@ -568,10 +597,10 @@ export default function SalesOrderInvoice({ orderId, onClose }) {
         <div className="sales-invoice-toolbar-text">
           <strong>
             {order.status === "DRAFT"
-              ? "Draft order — not a final tax invoice"
-              : `Bill ${order.orderNumber}`}
+              ? "Draft order — not a final bill"
+              : `${isWithoutGst(order) ? "Estimate" : "Bill"} ${order.orderNumber}${order.status === "CANCELLED" ? " · Cancelled" : ""}`}
           </strong>
-          {balance && (
+          {balance && order.status !== "CANCELLED" && (
             <span className="sales-invoice-payment-summary">
               <span className={paymentBadgeClass(balance.paymentStatus)}>
                 {label(balance.paymentStatus)}

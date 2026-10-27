@@ -40,6 +40,9 @@ public class SalesOrderItem {
     @Column(name = "unit_price", nullable = false, precision = 14, scale = 2)
     private BigDecimal unitPrice;
 
+    @Column(name = "hsn_code_snapshot", length = 8)
+    private String hsnCodeSnapshot;
+
     @Column(name = "gst_rate", nullable = false, precision = 5, scale = 2)
     private BigDecimal gstRate = BigDecimal.ZERO;
 
@@ -92,6 +95,8 @@ public static SalesOrderItem createNew() {
     public void setPricingUnit(String value) { pricingUnit = value; }
     public BigDecimal getUnitPrice() { return unitPrice; }
     public void setUnitPrice(BigDecimal unitPrice) { this.unitPrice = unitPrice; }
+    public String getHsnCodeSnapshot() { return hsnCodeSnapshot; }
+    public void setHsnCodeSnapshot(String value) { this.hsnCodeSnapshot = value; }
     public BigDecimal getGstRate() { return gstRate; }
     public void setGstRate(BigDecimal gstRate) { this.gstRate = gstRate; }
     public BigDecimal getTaxableAmount() { return taxableAmount; }

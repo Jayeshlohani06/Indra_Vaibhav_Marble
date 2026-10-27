@@ -26,9 +26,12 @@ public interface SalesOrderRepository
     @Query(value = "SELECT nextval('sales_order_number_seq')", nativeQuery = true)
     Long nextOrderNumber();
 
+    @Query(value = "SELECT nextval('sales_estimate_number_seq')", nativeQuery = true)
+    Long nextEstimateNumber();
+
     /** Rows of [customerId, orderCount, billedTotal] for billed (non-draft, non-cancelled) orders. */
     @Query("""
-            SELECT o.customerId, COUNT(o), COALESCE(SUM(o.grandTotal), 0)
+            SELECT o.customerId, COUNT(o), COALESCE(SUM(o.grandTotal - o.returnedTotal), 0)
             FROM SalesOrder o
             WHERE o.status NOT IN ('DRAFT', 'CANCELLED')
             GROUP BY o.customerId

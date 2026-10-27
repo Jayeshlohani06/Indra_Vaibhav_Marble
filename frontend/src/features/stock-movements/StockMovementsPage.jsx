@@ -346,10 +346,12 @@ function StockMovementsPage() {
           <option value="PURCHASE">Came in</option>
           <option value="ADJUSTMENT">Manual corrections</option>
           <option value="REVERSAL">Undone entries</option>
+          <option value="RETURN">Returned by customers</option>
         </select>
         <select aria-label="Filter by source" value={referenceType} onChange={(event) => { setReferenceType(event.target.value); setPage(1); }}>
           <option value="ALL">From anywhere</option>
           <option value="SALES_ORDER">From bills</option>
+          <option value="SALES_RETURN">From returns</option>
           <option value="PURCHASE">From purchases</option>
           <option value="MANUAL">Entered by hand</option>
           <option value="REVERSAL">Undone entries</option>
@@ -432,7 +434,7 @@ function StockMovementsPage() {
             <p><span>From</span><strong>{label(selectedMovement.referenceType)}</strong></p>
           </div>
           <div className="stock-movement-notes"><span>Notes</span><p>{selectedMovement.notes || "No notes recorded."}</p></div>
-          {canManageInventory && selectedMovement.movementType !== "REVERSAL" && selectedMovement.referenceType !== "SALES_ORDER" && selectedMovement.referenceType !== "PURCHASE" && <div className="stock-movement-reversal"><label>Reversal reason<input value={reversalNotes} onChange={(event) => setReversalNotes(event.target.value)} placeholder="Why should this movement be reversed?" /></label><button type="button" className="stock-movements-danger" onClick={handleReverse} disabled={reversing}>{reversing ? "Reversing..." : "Reverse movement"}</button></div>}
+          {canManageInventory && selectedMovement.movementType !== "REVERSAL" && selectedMovement.referenceType !== "SALES_ORDER" && selectedMovement.referenceType !== "SALES_RETURN" && selectedMovement.referenceType !== "PURCHASE" && <div className="stock-movement-reversal"><label>Reversal reason<input value={reversalNotes} onChange={(event) => setReversalNotes(event.target.value)} placeholder="Why should this movement be reversed?" /></label><button type="button" className="stock-movements-danger" onClick={handleReverse} disabled={reversing}>{reversing ? "Reversing..." : "Reverse movement"}</button></div>}
         </section>
       </div>}
 

@@ -73,7 +73,8 @@ public class FinancialReportService {
                                 endDate);
 
         BigDecimal salesTotal = salesOrders.stream()
-                .map(SalesOrder::getGrandTotal)
+                // Goods returned on a bill no longer count as sold.
+                .map(SalesOrder::getNetTotal)
                 .filter(amount -> amount != null)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 

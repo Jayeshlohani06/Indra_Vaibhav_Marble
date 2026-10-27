@@ -30,6 +30,7 @@ const initialForm = {
   purchasePrice: "",
   sellingPrice: "",
   gstRate: "18",
+  hsnCode: "",
   lowStockThreshold: "",
 };
 
@@ -258,6 +259,7 @@ function InventoryPage() {
         purchasePrice: String(product.purchasePrice ?? 0),
         sellingPrice: String(product.sellingPrice ?? 0),
         gstRate: String(product.gstRate ?? 0),
+        hsnCode: product.hsnCode ?? "",
         lowStockThreshold: String(product.lowStockThreshold ?? 0),
       });
 
@@ -303,11 +305,16 @@ function InventoryPage() {
       purchasePrice: Number(form.purchasePrice),
       sellingPrice: Number(form.sellingPrice),
       gstRate: Number(form.gstRate),
+      hsnCode: form.hsnCode.replace(/\s+/g, "") || null,
       lowStockThreshold: Number(form.lowStockThreshold),
     };
 
     if (!product.name) {
       setError("Product name is required.");
+      return;
+    }
+    if (product.hsnCode && !/^\d{4}(\d{2}){0,2}$/.test(product.hsnCode)) {
+      setError("HSN code must be 4, 6 or 8 digits, or left empty.");
       return;
     }
 
@@ -897,6 +904,11 @@ function InventoryPage() {
               </label>
 
               <label>
+                HSN code
+                <input name="hsnCode" value={form.hsnCode} onChange={handleChange} inputMode="numeric" maxLength={10} placeholder="e.g. 6802 (optional)" />
+              </label>
+
+              <label>
                 Warn me when stock falls below
                 <input
                   name="lowStockThreshold"
@@ -1010,6 +1022,7 @@ function InventoryPage() {
               ₹{Number(selectedProduct.sellingPrice ?? 0).toFixed(2)}
             </p>
             <p><strong>GST:</strong> {selectedProduct.gstRate}%</p>
+            <p><strong>HSN code:</strong> {selectedProduct.hsnCode || "Not set"}</p>
             <p>
               <strong>Available Stock:</strong>{" "}
               {selectedProduct.stockQuantity ?? 0}

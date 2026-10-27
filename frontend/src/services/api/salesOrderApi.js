@@ -24,3 +24,11 @@ export async function recordSalesOrderPayment(orderId, payment) {
 export async function getSalesOrderBalance(orderId) {
   return httpClient.get(`/api/sales-orders/${orderId}/payments/balance`);
 }
+
+export async function createSalesReturn(orderId, salesReturn) {
+  return httpClient.post(`/api/sales-orders/${orderId}/returns`, salesReturn);
+}
+
+export async function cancelSalesOrder(orderId, cancellation) {
+  return httpClient.post(`/api/sales-orders/${orderId}/cancel`, cancellation);
+}

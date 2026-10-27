@@ -51,7 +51,7 @@ public class SalesOrderPaymentService {
         }
         BigDecimal amount = request.amount().setScale(2, RoundingMode.UNNECESSARY);
         BigDecimal paid = paymentRepository.getTotalPaid(orderId);
-        BigDecimal balance = order.getGrandTotal().subtract(paid);
+        BigDecimal balance = order.getNetTotal().subtract(paid);
         if (amount.compareTo(balance) > 0) {
             throw new IllegalArgumentException("Payment exceeds outstanding balance of " + balance);
         }
@@ -79,13 +79,13 @@ public class SalesOrderPaymentService {
         var order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Sales order not found: " + orderId));
         BigDecimal paid = paymentRepository.getTotalPaid(orderId);
-        BigDecimal balance = order.getGrandTotal().subtract(paid);
+        BigDecimal balance = order.getNetTotal().subtract(paid);
         String status = paid.signum() == 0 ? "UNPAID"
                 : balance.signum() == 0 ? "PAID" : "PARTIALLY_PAID";
         String name = customerRepository.findById(order.getCustomerId())
                 .map(customer -> customer.getName()).orElse("Unavailable customer");
         return new SalesOrderBalanceResponse(order.getId(), order.getOrderNumber(),
-                order.getCustomerId(), name, order.getGrandTotal(), paid,
+                order.getCustomerId(), name, order.getNetTotal(), paid,
                 balance, status);
     }
 
