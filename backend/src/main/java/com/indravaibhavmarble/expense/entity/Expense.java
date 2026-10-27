@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.Locale;
+import java.util.UUID;
 
 @Entity
 @Table(name = "expenses")
@@ -46,6 +47,28 @@ private String description;
 
     @Column(name = "void_reason", length = 500)
     private String voidReason;
+
+    @Column(length = 150)
+    private String payee;
+
+    @Column(name = "staff_member_id")
+    private Long staffMemberId;
+
+    /** First day of the month a salary or advance is for. */
+    @Column(name = "salary_period")
+    private LocalDate salaryPeriod;
+
+    @Column(name = "request_id", unique = true, updatable = false)
+    private UUID requestId;
+
+    @Column(name = "created_by", updatable = false)
+    private String createdBy;
+
+    @Column(name = "updated_by")
+    private String updatedBy;
+
+    @Column(name = "voided_by")
+    private String voidedBy;
 
     @Column(name = "created_at", insertable = false, updatable = false)
     private OffsetDateTime createdAt;
@@ -155,4 +178,19 @@ private String description;
     public void setVoidReason(String voidReason) {
         this.voidReason = voidReason;
     }
+
+    public String getPayee() { return payee; }
+    public void setPayee(String payee) { this.payee = payee; }
+    public Long getStaffMemberId() { return staffMemberId; }
+    public void setStaffMemberId(Long staffMemberId) { this.staffMemberId = staffMemberId; }
+    public LocalDate getSalaryPeriod() { return salaryPeriod; }
+    public void setSalaryPeriod(LocalDate salaryPeriod) { this.salaryPeriod = salaryPeriod; }
+    public UUID getRequestId() { return requestId; }
+    public void setRequestId(UUID requestId) { this.requestId = requestId; }
+    public String getCreatedBy() { return createdBy; }
+    public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
+    public String getUpdatedBy() { return updatedBy; }
+    public void setUpdatedBy(String updatedBy) { this.updatedBy = updatedBy; }
+    public String getVoidedBy() { return voidedBy; }
+    public void setVoidedBy(String voidedBy) { this.voidedBy = voidedBy; }
 }

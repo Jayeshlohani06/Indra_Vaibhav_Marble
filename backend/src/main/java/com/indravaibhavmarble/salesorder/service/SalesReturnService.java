@@ -1,5 +1,6 @@
 package com.indravaibhavmarble.salesorder.service;
 
+import com.indravaibhavmarble.cash.service.CashPeriodGuard;
 import com.indravaibhavmarble.common.time.BusinessDate;
 import com.indravaibhavmarble.product.entity.Product;
 import com.indravaibhavmarble.product.repository.ProductRepository;
@@ -63,6 +64,7 @@ public class SalesReturnService {
     private final SalesReturnItemRepository returnItemRepository;
     private final ProductRepository productRepository;
     private final StockMovementService stockMovementService;
+    private final CashPeriodGuard periodGuard;
 
     public SalesReturnService(
             SalesOrderRepository orderRepository,
@@ -72,7 +74,8 @@ public class SalesReturnService {
             SalesReturnRepository returnRepository,
             SalesReturnItemRepository returnItemRepository,
             ProductRepository productRepository,
-            StockMovementService stockMovementService) {
+            StockMovementService stockMovementService,
+            CashPeriodGuard periodGuard) {
         this.orderRepository = orderRepository;
         this.itemRepository = itemRepository;
         this.chargeRepository = chargeRepository;
@@ -81,6 +84,7 @@ public class SalesReturnService {
         this.returnItemRepository = returnItemRepository;
         this.productRepository = productRepository;
         this.stockMovementService = stockMovementService;
+        this.periodGuard = periodGuard;
     }
 
     /** What has already come back on one bill line. */
@@ -224,6 +228,7 @@ public class SalesReturnService {
                 throw new IllegalArgumentException(
                         "A refund of " + refund + " is due. Ask someone who can record payments to do this return.");
             }
+            periodGuard.assertOpen(date);
         }
 
         SalesReturn salesReturn = SalesReturn.createNew();
@@ -258,6 +263,7 @@ public class SalesReturnService {
             payment.setAmount(refund.negate());
             payment.setPaymentMethod(refundMethod);
             payment.setSalesReturnId(saved.getId());
+            payment.setCreatedBy(currentUserName());
             payment.setNotes("Refund for " + saved.getReturnNumber());
             paymentRepository.save(payment);
         }

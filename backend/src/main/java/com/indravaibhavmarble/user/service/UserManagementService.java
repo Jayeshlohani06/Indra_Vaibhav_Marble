@@ -121,7 +121,12 @@ public class UserManagementService {
 
         entityManager.createNativeQuery("""
                 TRUNCATE TABLE
+                    cash_count_lines,
+                    cash_sessions,
+                    cash_movements,
+                    financial_audit_log,
                     expenses,
+                    staff_members,
                     expense_categories,
                     purchase_payments,
                     purchase_items,

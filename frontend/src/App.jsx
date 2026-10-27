@@ -11,6 +11,7 @@ const StockMovementsPage = lazy(() => import("./features/stock-movements/StockMo
 const SuppliersPage = lazy(() => import("./features/suppliers/SuppliersPage"));
 const PurchasesPage = lazy(() => import("./features/purchases/PurchasesPage"));
 const ExpensesPage = lazy(() => import("./features/expenses/ExpensesPage"));
+const CashBookPage = lazy(() => import("./features/cash/CashBookPage"));
 const ReportsPage = lazy(() => import("./features/reports/ReportsPage"));
 const UserManagementPage = lazy(() => import("./features/users/UserManagementPage"));
 import { getCurrentUser, logout } from "./services/api/authApi";
@@ -28,6 +29,7 @@ const VALID_PAGES = [
   "suppliers",
   "purchases",
   "expenses",
+  "cash",
   "reports",
   "users",
 ];
@@ -40,6 +42,7 @@ const PAGE_PERMISSIONS = {
   purchases: "PURCHASE_READ",
   suppliers: "SUPPLIER_READ",
   expenses: "EXPENSE_READ",
+  cash: "CASH_READ",
   reports: "REPORT_READ",
   users: "USER_READ",
 };
@@ -55,6 +58,7 @@ const PAGE_TITLES = {
   suppliers: "Suppliers",
   purchases: "Purchases",
   expenses: "Expenses",
+  cash: "Cash Book",
   reports: "Reports",
   users: "Users",
 };
@@ -68,6 +72,7 @@ const ICON_PATHS = {
   purchases: "M2.5 6h11v10h-11zM13.5 9.5h4l3 3.5v3h-7M7 19.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM17 19.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4z",
   suppliers: "M3 20.5V10l5.5 3.5V10l5.5 3.5V4h7v16.5zM17 8h1M17 12h1M17 16h1",
   expenses: "M3 7.5A1.5 1.5 0 0 1 4.5 6h15A1.5 1.5 0 0 1 21 7.5v11a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5zM3 10.5h18M16 15h2",
+  cash: "M3 6.5h18v11H3zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 9.5v.01M18 14.5v.01",
   "stock-movements": "M7 20V4M3 8l4-4 4 4M17 4v16M13 16l4 4 4-4",
   reports: "M4 20V11M10 20V5M16 20v-6M21.5 20h-19",
   users: "M12 3 4.5 6v5.5c0 4.5 3.2 8.2 7.5 9.5 4.3-1.3 7.5-5 7.5-9.5V6zM9 12l2.2 2.2L15.5 10",
@@ -90,6 +95,7 @@ const NAV_ITEMS = [
   { page: "purchases", label: "Purchases" },
   { page: "suppliers", label: "Suppliers" },
   { page: "expenses", label: "Expenses" },
+  { page: "cash", label: "Cash Book" },
   { page: "stock-movements", label: "Stock History" },
   { page: "reports", label: "Reports" },
   { page: "users", label: "Users" },
@@ -346,6 +352,8 @@ function App() {
             <PurchasesPage />
           ) : currentPage === "expenses" ? (
             <ExpensesPage />
+          ) : currentPage === "cash" ? (
+            <CashBookPage />
           ) : currentPage === "reports" ? (
             <ReportsPage />
           ) : currentPage === "users" ? (

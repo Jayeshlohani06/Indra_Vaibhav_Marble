@@ -63,6 +63,21 @@ const LABELS = {
   SALESPERSON: "Salesperson",
   INVENTORY_MANAGER: "Inventory manager",
   VIEWER: "Viewer",
+  OPEN: "Open",
+  CLOSED: "Closed",
+  SALE_RECEIPT: "Paid on new bill",
+  COLLECTION: "Collected on old bill",
+  REFUND: "Refund",
+  SUPPLIER_PAYMENT: "Paid supplier",
+  EXPENSE: "Expense",
+  OWNER_CASH_IN: "Owner put cash in",
+  OWNER_CASH_OUT: "Owner took cash out",
+  BANK_DEPOSIT: "Deposited in bank",
+  BANK_WITHDRAWAL: "Withdrawn from bank",
+  ADJUSTMENT_IN: "Correction: cash in",
+  ADJUSTMENT_OUT: "Correction: cash out",
+  SALARY: "Salary",
+  ADVANCE: "Advance",
 };
 
 // Turns stored codes such as "SALES_ORDER" into words people use.

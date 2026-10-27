@@ -1,6 +1,8 @@
 
 package com.indravaibhavmarble.purchase.service;
 
+import com.indravaibhavmarble.cash.service.CashPeriodGuard;
+import com.indravaibhavmarble.common.security.CurrentUser;
 import com.indravaibhavmarble.common.time.BusinessDate;
 import com.indravaibhavmarble.purchase.dto.PurchaseBalanceResponse;
 import com.indravaibhavmarble.purchase.dto.PurchasePaymentRequest;
@@ -29,15 +31,18 @@ public class PurchasePaymentService {
     private final PurchaseRepository purchaseRepository;
     private final PurchasePaymentRepository paymentRepository;
     private final SupplierRepository supplierRepository;
+    private final CashPeriodGuard periodGuard;
 
     public PurchasePaymentService(
             PurchaseRepository purchaseRepository,
             PurchasePaymentRepository paymentRepository,
-            SupplierRepository supplierRepository
+            SupplierRepository supplierRepository,
+            CashPeriodGuard periodGuard
     ) {
         this.purchaseRepository = purchaseRepository;
         this.paymentRepository = paymentRepository;
         this.supplierRepository = supplierRepository;
+        this.periodGuard = periodGuard;
     }
 
     @Transactional
@@ -111,8 +116,11 @@ public class PurchasePaymentService {
             );
         }
 
+        periodGuard.assertOpen(request.paymentDate());
+
         PurchasePayment payment = new PurchasePayment();
         payment.setPurchaseId(purchaseId);
+        payment.setCreatedBy(CurrentUser.name());
         payment.setPaymentDate(request.paymentDate());
         payment.setAmount(amount);
         payment.setPaymentMethod(paymentMethod);

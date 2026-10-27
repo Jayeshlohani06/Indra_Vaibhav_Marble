@@ -1,4 +1,3 @@
-
 package com.indravaibhavmarble.expense.dto;
 
 import java.math.BigDecimal;
@@ -19,6 +18,13 @@ public record ExpenseResponse(
         OffsetDateTime voidedAt,
         String voidReason,
         OffsetDateTime createdAt,
-        OffsetDateTime updatedAt
+        OffsetDateTime updatedAt,
+        String payee,
+        Long staffMemberId,
+        String staffMemberName,
+        LocalDate salaryPeriod,
+        String createdBy,
+        String updatedBy,
+        String voidedBy
 ) {
 }

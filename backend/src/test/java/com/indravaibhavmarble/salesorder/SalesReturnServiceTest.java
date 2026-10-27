@@ -1,5 +1,6 @@
 package com.indravaibhavmarble.salesorder;
 
+import com.indravaibhavmarble.cash.service.CashPeriodGuard;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -56,10 +57,12 @@ class SalesReturnServiceTest {
     private final SalesReturnItemRepository returnItemRepository = mock(SalesReturnItemRepository.class);
     private final ProductRepository productRepository = mock(ProductRepository.class);
     private final StockMovementService stockMovementService = mock(StockMovementService.class);
+    private final CashPeriodGuard periodGuard = mock(CashPeriodGuard.class);
 
     private final SalesReturnService service = new SalesReturnService(
             orderRepository, itemRepository, chargeRepository, paymentRepository,
-            returnRepository, returnItemRepository, productRepository, stockMovementService);
+            returnRepository, returnItemRepository, productRepository, stockMovementService,
+            periodGuard);
 
     private SalesOrder order;
     private Product product;

@@ -13,3 +13,11 @@
   .expenses-toolbar :is(input,select){width:100%;min-width:0}
   .expenses-toolbar button{display:none}
 }
+.expense-hint{margin:0;color:#6b6359;font-size:12px}
+.expense-staff-add{display:flex;gap:8px;margin:14px 0}
+.expense-staff-add input{flex:1;min-height:40px;border:1px solid #ddd5c9;border-radius:8px;padding:9px 11px;font:inherit;font-size:13px}
+.expense-staff-add button{border-radius:8px;padding:0 16px;cursor:pointer}
+.expense-staff-list{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
+.expense-staff-list li{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;border:1px solid #e7e1d8;border-radius:8px;font-size:13px}
+.expense-staff-list li.is-inactive span{color:#a39a8e;text-decoration:line-through}
+.expense-staff-list button{border:1px solid #ddd5c9;border-radius:7px;padding:6px 10px;background:#fff;font:inherit;font-size:11px;cursor:pointer}
