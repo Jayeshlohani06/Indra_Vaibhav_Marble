@@ -116,7 +116,9 @@ const MARBLE_STRIP =
 // One stylesheet for the bill, used by the on-screen preview and the printed
 // copy, so what you see is exactly what prints.
 const INVOICE_CSS = `
-  @page { size: A4 portrait; margin: 10mm; }
+  /* No page margin, so the browser has no room to print its own date, title
+     and address lines; the bill keeps its white border inside the sheet. */
+  @page { size: A4 portrait; margin: 0; }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: transparent; }
   body {
@@ -294,7 +296,7 @@ const INVOICE_CSS = `
     .sheet { box-shadow: 0 1px 2px rgb(60 44 24 / 10%), 0 18px 40px rgb(40 28 14 / 18%); }
   }
   @media print {
-    .sheet { max-width: none; padding: 0; background: #fff; }
+    .sheet { max-width: none; padding: 10mm; background: #fff; }
     .sheet::before { display: none; }
     .letterhead { padding-top: 0; }
     .items thead { display: table-header-group; }
