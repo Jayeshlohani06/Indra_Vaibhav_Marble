@@ -122,6 +122,9 @@
   ):has(> .field-half) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px 12px;
+    /* Pairs line up by their inputs, so a label that wraps to two lines
+       (long Hindi text, a wider font) does not push its input down. */
+    align-items: end;
   }
 
   #root :is(
@@ -285,8 +288,10 @@
     .erp-sales-period-card, .erp-money-card
   ) > :is(strong, h3) {
     /* Amounts stay on one line (a wrapped minus sign reads as a dash), so
-       the size follows the box width: crore amounts shrink to fit. */
-    font-size: clamp(13px, 11.5cqi, 20px);
+       the size follows the box width and the amount's length (--fit-chars,
+       set by FitText): crore amounts shrink to fit. 0.7em per character
+       leaves room for wider fallback fonts if the web font has not loaded. */
+    font-size: clamp(11px, calc(100cqi / (var(--fit-chars, 12) * 0.7)), 19px);
     white-space: nowrap;
     overflow-wrap: normal;
   }

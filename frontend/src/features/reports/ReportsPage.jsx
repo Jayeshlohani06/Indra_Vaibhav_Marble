@@ -14,6 +14,7 @@ import "./ReportsPage.css";
 import Skeleton from "../../components/Skeleton";
 import EmptyState from "../../components/EmptyState";
 
+import FitText from "../../components/FitText";
 // Format in local time; toISOString() would shift dates back a day in IST.
 const dateString = (date) => [
   date.getFullYear(),
@@ -282,10 +283,10 @@ function ReportsPage() {
         <>
           <div className="reports-period"><span>{t("Showing")}</span><strong>{formatDate(report.startDate)} – {formatDate(report.endDate)}</strong></div>
           <section className="reports-kpis">
-            <article className="reports-kpi is-sales"><span>{t("Sales")}</span><strong>{currency(values.sales)}</strong><small>{t("{count} bills", { count: report.salesOrderCount || 0 })}</small></article>
-            <article className="reports-kpi is-purchases"><span>{t("Stock bought")}</span><strong>{currency(values.purchases)}</strong><small>{t("{count} supplier bills", { count: report.receivedPurchaseCount || 0 })}</small></article>
-            <article className="reports-kpi is-expenses"><span>{t("Expenses")}</span><strong>{currency(values.expenses)}</strong><small>{t("{count} expenses", { count: report.expenseCount || 0 })}</small></article>
-            <article className={`reports-kpi ${values.netMovement >= 0 ? "is-positive" : "is-negative"}`}><span>{t("Money in minus money out")}</span><strong>{currency(values.netMovement)}</strong><small>{t("Sales − stock bought − expenses")}</small></article>
+            <article className="reports-kpi is-sales"><span>{t("Sales")}</span><FitText>{currency(values.sales)}</FitText><small>{t("{count} bills", { count: report.salesOrderCount || 0 })}</small></article>
+            <article className="reports-kpi is-purchases"><span>{t("Stock bought")}</span><FitText>{currency(values.purchases)}</FitText><small>{t("{count} supplier bills", { count: report.receivedPurchaseCount || 0 })}</small></article>
+            <article className="reports-kpi is-expenses"><span>{t("Expenses")}</span><FitText>{currency(values.expenses)}</FitText><small>{t("{count} expenses", { count: report.expenseCount || 0 })}</small></article>
+            <article className={`reports-kpi ${values.netMovement >= 0 ? "is-positive" : "is-negative"}`}><span>{t("Money in minus money out")}</span><FitText>{currency(values.netMovement)}</FitText><small>{t("Sales − stock bought − expenses")}</small></article>
           </section>
 
           <section className="reports-panel reports-breakdown">

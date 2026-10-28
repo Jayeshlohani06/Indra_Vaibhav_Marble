@@ -21,6 +21,7 @@ import { newRequestId } from "../../utils/requestId";
 import { backdateWarning } from "../../utils/backdate";
 import { t } from "../../i18n";
 
+import FitText from "../../components/FitText";
 // Local date; toISOString() would give yesterday's date before 05:30 IST.
 const today = () => {
   const date = new Date();
@@ -289,7 +290,7 @@ function ExpensesPage() {
   return (
     <main className="expenses-page">
       <div className="expenses-page__header"><p className="expenses-intro">{t("Money spent on running the shop, such as rent, transport and wages.")}</p><div className="expenses-actions"><button type="button" onClick={exportCsv} disabled={!visible.length}>{t("Export CSV")}</button>{canManageExpenses && <button type="button" onClick={() => setShowStaff(true)}>{t("Staff")}</button>}{canManageExpenses && <button type="button" className="expenses-primary-button" onClick={openCreate}>{t("+ Add expense")}</button>}</div></div>
-      <div className="expenses-kpis"><div><span>{t("Spent this month")}</span><strong>{currency(monthTotal)}</strong><small>{monthExpenses.length === 1 ? t("{count} expense", { count: monthExpenses.length }) : t("{count} expenses", { count: monthExpenses.length })}</small></div><div><span>{t("Spent in total")}</span><strong>{currency(total)}</strong><small>{active.length === 1 ? t("{count} expense recorded", { count: active.length }) : t("{count} expenses recorded", { count: active.length })}</small></div><div><span>{t("Biggest spending")}</span><strong>{topCategory}</strong><small>{t("Category with the most spent")}</small></div></div>
+      <div className="expenses-kpis"><div><span>{t("Spent this month")}</span><FitText>{currency(monthTotal)}</FitText><small>{monthExpenses.length === 1 ? t("{count} expense", { count: monthExpenses.length }) : t("{count} expenses", { count: monthExpenses.length })}</small></div><div><span>{t("Spent in total")}</span><FitText>{currency(total)}</FitText><small>{active.length === 1 ? t("{count} expense recorded", { count: active.length }) : t("{count} expenses recorded", { count: active.length })}</small></div><div><span>{t("Biggest spending")}</span><FitText>{topCategory}</FitText><small>{t("Category with the most spent")}</small></div></div>
       {error && <p className="expenses-alert expenses-error" role="alert">{error}</p>}
       {success && <p className="expenses-alert expenses-success" role="status">{success}</p>}
       {canManageExpenses && quickCategories.length > 0 && <div className="expense-quick-add"><span>{t("Quick add:")}</span>{quickCategories.map((name) => <button type="button" key={name} onClick={() => quickAdd(name)}>+ {name}</button>)}</div>}<section className="expenses-table-card">

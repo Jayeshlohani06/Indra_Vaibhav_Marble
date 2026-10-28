@@ -47,8 +47,10 @@ test.describe("every page fits a phone screen", () => {
 test("a crore-sized amount still fits its summary box", async ({ loggedIn: page }) => {
   await openPage(page, "reports");
   const amount = page.locator(".reports-kpi > strong").last();
+  // As FitText would render it: the text plus its length for the CSS.
   await amount.evaluate((el) => {
     el.textContent = "-₹12,34,56,789.00";
+    el.style.setProperty("--fit-chars", el.textContent.length);
   });
   expect(await amount.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
 });

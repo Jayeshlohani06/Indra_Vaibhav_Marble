@@ -134,6 +134,11 @@ export const test = base.extend({
   unmockedRequests: async ({ page }, use) => {
     const unmocked = [];
     await page.clock.setFixedTime(FIXED_NOW);
+    // Measure with the fallback fonts, as a phone sees the app before the
+    // web font arrives. They are wider, so a layout that fits them fits
+    // Manrope too, and results no longer depend on Google Fonts loading in
+    // time.
+    await page.route(/fonts\.(googleapis|gstatic)\.com/, (route) => route.abort());
     await page.route(`**${MOCK_API_PATH}/**`, (route) => answerFromRecording(route, unmocked));
     await use(unmocked);
     expect(

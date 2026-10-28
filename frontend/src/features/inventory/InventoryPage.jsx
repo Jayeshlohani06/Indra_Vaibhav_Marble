@@ -21,6 +21,7 @@ import { usePermission } from "../../auth/PermissionsContext";
 import { t } from "../../i18n";
 import Skeleton from "../../components/Skeleton";
 
+import FitText from "../../components/FitText";
 const initialForm = {
   productCode: "",
   name: "",
@@ -582,19 +583,19 @@ function InventoryPage() {
       >
         <article className="inventory-stat-card">
           <span>{t("Products")}</span>
-          <strong>{activeProductCount}</strong>
+          <FitText>{activeProductCount}</FitText>
           <small>{t("Items you currently sell")}</small>
         </article>
 
         <article className="inventory-stat-card inventory-stat-warning">
           <span>{t("Running low or out")}</span>
-          <strong>{lowStockProducts.length + outOfStockProducts.length}</strong>
+          <FitText>{lowStockProducts.length + outOfStockProducts.length}</FitText>
           <small>{t("{out} out of stock · {low} running low", { out: outOfStockProducts.length, low: lowStockProducts.length })}</small>
         </article>
 
         <article className="inventory-stat-card">
           <span>{t("Value of stock")}</span>
-          <strong>{formatCurrency(inventoryCostValue)}</strong>
+          <FitText>{formatCurrency(inventoryCostValue)}</FitText>
           <small>{t("At the price you bought it")}</small>
         </article>
       </section>
