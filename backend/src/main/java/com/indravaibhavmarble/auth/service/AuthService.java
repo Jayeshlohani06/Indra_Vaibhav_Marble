@@ -4,6 +4,7 @@ package com.indravaibhavmarble.auth.service;
 import com.indravaibhavmarble.auth.dto.LoginRequest;
 import com.indravaibhavmarble.auth.dto.LoginResponse;
 import com.indravaibhavmarble.auth.security.JwtService;
+import com.indravaibhavmarble.common.util.MobileNumbers;
 import com.indravaibhavmarble.role.entity.Role;
 import com.indravaibhavmarble.permission.entity.Permission;
 import com.indravaibhavmarble.user.entity.AppUser;
@@ -46,7 +47,7 @@ public class AuthService {
     @Transactional(readOnly = true)
     public LoginResponse login(LoginRequest request) {
 
-        String email = request.email().trim();
+        String email = resolveEmail(request.login());
         loginAttemptService.checkNotLocked(email);
 
         Authentication authentication;
@@ -75,6 +76,19 @@ public class AuthService {
                 "Bearer",
                 expirationMs / 1000,
                 toUserInfo(user));
+    }
+
+    /**
+     * Turns what was typed in the login box into the email the account is
+     * stored under. A mobile number is looked up; an unknown number is passed
+     * on unchanged so it fails like a wrong email, without saying which part
+     * was wrong.
+     */
+    private String resolveEmail(String login) {
+        if (login.contains("@")) return login;
+        String phone = MobileNumbers.normalize(login);
+        if (phone == null) return login;
+        return appUserRepository.findByPhone(phone).map(AppUser::getEmail).orElse(phone);
     }
 
     /**

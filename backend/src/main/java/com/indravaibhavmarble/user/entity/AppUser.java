@@ -21,6 +21,10 @@ public class AppUser {
     @Column(nullable = false, unique = true, length = 255)
     private String email;
 
+    /** 10-digit mobile number; optional, used to log in instead of the email. */
+    @Column(length = 10)
+    private String phone;
+
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 
@@ -80,6 +84,14 @@ public class AppUser {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
     }
 
     public String getPasswordHash() {

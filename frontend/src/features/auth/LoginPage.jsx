@@ -22,7 +22,7 @@ const HIGHLIGHTS = [
 ];
 
 function LoginPage({ onLoginSuccess, onLanguageChange, theme, onThemeChange }) {
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [capsLockOn, setCapsLockOn] = useState(false);
@@ -35,7 +35,7 @@ function LoginPage({ onLoginSuccess, onLanguageChange, theme, onThemeChange }) {
     setLoading(true);
 
     try {
-      const response = await login(email.trim(), password);
+      const response = await login(identifier.trim(), password);
       setPassword("");
       onLoginSuccess(response);
     } catch (err) {
@@ -89,20 +89,21 @@ function LoginPage({ onLoginSuccess, onLanguageChange, theme, onThemeChange }) {
               <span>Indra Vaibhav Marble</span>
             </div>
             <h2>{t("Welcome back")}</h2>
-            <p>{t("Sign in with the email and password your shop admin gave you.")}</p>
+            <p>{t("Sign in with the mobile number or email and the password your shop admin gave you.")}</p>
           </div>
 
           <form onSubmit={handleSubmit} className="login-form">
             <div className="login-field">
-              <label htmlFor="email">{t("Email")}</label>
+              <label htmlFor="login-identifier">{t("Mobile number or email")}</label>
               <input
-                id="email"
-                type="email"
+                id="login-identifier"
+                type="text"
                 autoComplete="username"
-                inputMode="email"
-                placeholder="name@example.com"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
+                autoCapitalize="none"
+                spellCheck="false"
+                placeholder={t("e.g. 9876543210 or name@example.com")}
+                value={identifier}
+                onChange={(event) => setIdentifier(event.target.value)}
                 required
               />
             </div>
