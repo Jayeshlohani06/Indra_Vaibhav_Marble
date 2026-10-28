@@ -207,6 +207,24 @@ If the start fails, read the last red lines in **Logs**:
 > `FRONTEND_URL` doesn't exactly match the address in the browser bar. Check
 > `https`, the spelling and the trailing `/`.
 
+### Put the app on staff phones (free, no Play Store)
+
+The site installs like an app: it gets its own home-screen icon and opens full
+screen. Send staff the frontend address and these steps:
+
+- **Android (Chrome):** open the address, log in, and tap **Install** on the
+  banner at the bottom. If the banner was closed, use Chrome's **⋮** menu →
+  **Install app** (or **Add to Home screen**).
+- **iPhone (Safari):** open the address, tap **Share** → **Add to Home
+  Screen** → **Add**. It must be Safari; other iPhone browsers can't do this.
+
+Updates need nothing from staff: after a deploy, the app picks up the new
+version the next time it is opened (sometimes one more reopen).
+
+Logins stay signed in on that phone until the token expires (8 hours by
+default, `JWT_EXPIRATION_MS`), so staff log in about once a day. On a shared
+phone, tap **More** → **Log out** at the end of the day.
+
 ---
 
 ## Part 6 — Safe deploys (no downtime, no broken versions)

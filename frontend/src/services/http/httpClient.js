@@ -8,16 +8,34 @@ const API_BASE_URL = (
 // Long enough for the server to wake from a cold start.
 const REQUEST_TIMEOUT_MS = 90000;
 
+// Kept in localStorage so closing the installed phone app does not log staff
+// out; the token itself still expires on the server (8 hours by default).
 const AUTH_TOKEN_KEY = "indra-vaibhav-auth-token";
-let authToken = sessionStorage.getItem(AUTH_TOKEN_KEY);
+let authToken = readStored(AUTH_TOKEN_KEY);
+
+export function readStored(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+export function writeStored(key, value) {
+  try {
+    if (value === null) {
+      localStorage.removeItem(key);
+    } else {
+      localStorage.setItem(key, value);
+    }
+  } catch {
+    // Without storage the user simply logs in again next time.
+  }
+}
 
 export function setAuthToken(token) {
   authToken = token || null;
-  if (authToken) {
-    sessionStorage.setItem(AUTH_TOKEN_KEY, authToken);
-  } else {
-    sessionStorage.removeItem(AUTH_TOKEN_KEY);
-  }
+  writeStored(AUTH_TOKEN_KEY, authToken);
 }
 
 async function request(endpoint, options = {}) {
