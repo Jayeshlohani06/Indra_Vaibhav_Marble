@@ -62,6 +62,34 @@
   border: 0;
 }
 
+/* The tab row reads as one control: other tabs are flat and the open one is
+   filled. #root .erp-content outranks the raised look theme.css gives every
+   button, which otherwise made all tabs look the same. */
+#root .erp-content .cash-tabs > [role="tab"] {
+  min-height: var(--control-height-sm);
+  padding: 0 14px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  font-weight: 650;
+  text-shadow: none;
+}
+
+#root .erp-content .cash-tabs > [role="tab"]:hover:not([aria-selected="true"]) {
+  background: var(--color-primary-soft);
+  color: var(--color-text);
+}
+
+#root .erp-content .cash-tabs > [role="tab"][aria-selected="true"] {
+  background: var(--bronze);
+  box-shadow: var(--bronze-shadow);
+  color: #fff;
+  text-shadow: 0 -1px 0 light-dark(rgb(0 0 0 / 25%), rgb(0 0 0 / 55%));
+}
+
 .cash-page button:disabled {
   cursor: not-allowed;
   opacity: 0.55;

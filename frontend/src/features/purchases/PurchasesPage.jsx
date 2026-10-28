@@ -805,6 +805,7 @@ function PurchasesPage() {
                   {t("Copy the details from the supplier's bill.")}
                 </p>
               </div>
+              <button type="button" className="purchase-secondary-button" disabled={saving} onClick={() => setShowPurchaseForm(false)}>{t("Close")}</button>
             </div>
 
             <div className="purchase-form-grid">

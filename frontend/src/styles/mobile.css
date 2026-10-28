@@ -35,6 +35,17 @@
     border-radius: 20px 20px 0 0;
   }
 
+  /* Purchase popups keep Close at the top right, beside the title, instead of
+     the stacked heading the purchase page uses on phones. */
+  #root .purchase-modal > .purchase-section-heading:not(.purchase-items-heading) {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  #root .purchase-modal > .purchase-section-heading:not(.purchase-items-heading) > button {
+    flex-shrink: 0;
+  }
+
   /* ----- Save / Cancel bar -----
      Sits flush with the bottom of the sheet, edge to edge, so nothing scrolls
      past underneath it. Buttons share the width equally. */
