@@ -13,6 +13,7 @@ import { formatDate } from "../../utils/format";
 import { t } from "../../i18n";
 import Skeleton from "../../components/Skeleton";
 
+import FitText from "../../components/FitText";
 const emptyForm = {
   customerCode: "",
   name: "",
@@ -263,12 +264,12 @@ function CustomersPage() {
       <div className="customer-summary" aria-label={t("Customer overview")}>
         <div className="customer-summary-card is-amber">
           <span className="customer-summary-label">{t("Customers owe you")}</span>
-          <strong>{money(totalDue)}</strong>
+          <FitText>{money(totalDue)}</FitText>
           <span className="customer-summary-note">{owingCustomers.length === 1 ? t("From {count} customer", { count: owingCustomers.length }) : t("From {count} customers", { count: owingCustomers.length })}</span>
         </div>
         <div className="customer-summary-card is-blue">
           <span className="customer-summary-label">{t("Customers")}</span>
-          <strong>{activeCount}</strong>
+          <FitText>{activeCount}</FitText>
           <span className="customer-summary-note">{t("Active customers you can bill")}</span>
         </div>
       </div>

@@ -225,6 +225,7 @@ const hi = {
   "Bill number needed for expenses above (₹)": "इससे बड़े खर्च पर बिल नंबर ज़रूरी (₹)",
   "0 turns this off. The owner can always add expenses without a bill number.": "0 लिखने पर यह बंद हो जाता है। मालिक हमेशा बिना बिल नंबर के खर्च जोड़ सकते हैं।",
   "Save settings": "सेटिंग सेव करें",
+  "Methods with no money in this period are hidden.": "जिन तरीकों में इस अवधि में कोई पैसा नहीं आया, वे छिपाए गए हैं।",
 };
 
 export default hi;

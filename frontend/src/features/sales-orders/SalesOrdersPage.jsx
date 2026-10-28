@@ -44,6 +44,7 @@ import { t } from "../../i18n";
 import ChangeMethodDialog from "../../components/ChangeMethodDialog";
 import Skeleton from "../../components/Skeleton";
 
+import FitText from "../../components/FitText";
 function formatCurrency(value) {
 
   return new Intl.NumberFormat("en-IN", {
@@ -2027,9 +2028,9 @@ function SalesOrdersPage() {
       )}
 
       <div className="sales-orders-summary">
-        <div className="sales-orders-summary-card is-green"><span>{t("Sales today")}</span><strong>{formatCurrency(todaySales)}</strong><small>{todayOrders.length === 1 ? t("{count} bill", { count: todayOrders.length }) : t("{count} bills", { count: todayOrders.length })}</small></div>
-        <div className="sales-orders-summary-card is-blue"><span>{t("Sales this month")}</span><strong>{formatCurrency(monthSales)}</strong><small>{monthOrders.length === 1 ? t("{count} bill", { count: monthOrders.length }) : t("{count} bills", { count: monthOrders.length })}</small></div>
-        <div className="sales-orders-summary-card is-amber"><span>{t("To collect from customers")}</span><strong>{formatCurrency(toCollect)}</strong><small>{unpaidOrders.length === 1 ? t("{count} bill not fully paid", { count: unpaidOrders.length }) : t("{count} bills not fully paid", { count: unpaidOrders.length })}</small></div>
+        <div className="sales-orders-summary-card is-green"><span>{t("Sales today")}</span><FitText>{formatCurrency(todaySales)}</FitText><small>{todayOrders.length === 1 ? t("{count} bill", { count: todayOrders.length }) : t("{count} bills", { count: todayOrders.length })}</small></div>
+        <div className="sales-orders-summary-card is-blue"><span>{t("Sales this month")}</span><FitText>{formatCurrency(monthSales)}</FitText><small>{monthOrders.length === 1 ? t("{count} bill", { count: monthOrders.length }) : t("{count} bills", { count: monthOrders.length })}</small></div>
+        <div className="sales-orders-summary-card is-amber"><span>{t("To collect from customers")}</span><FitText>{formatCurrency(toCollect)}</FitText><small>{unpaidOrders.length === 1 ? t("{count} bill not fully paid", { count: unpaidOrders.length }) : t("{count} bills not fully paid", { count: unpaidOrders.length })}</small></div>
       </div>
 
       {loading && (
@@ -2265,7 +2266,7 @@ function SalesOrdersPage() {
               </div>
             )}
             <div className="sales-order-form-actions">
-              <button type="button" className="sales-orders-secondary" onClick={() => setDetailsOrder(null)}>{t("Close")}</button>
+              <button type="button" className="sales-orders-secondary sales-details-footer-close" onClick={() => setDetailsOrder(null)}>{t("Close")}</button>
               <button type="button" className="sales-orders-secondary" onClick={() => { setInvoiceOrderId(detailsOrder.id); setDetailsOrder(null); }}>{t("Print invoice")}</button>
               <a className="sales-orders-secondary sales-whatsapp" href={billWhatsappLink(detailsOrder)} target="_blank" rel="noopener noreferrer">{t("Send on WhatsApp")}</a>
               {canManageSales && detailsOrder.status === "CONFIRMED" && <button type="button" className="sales-orders-danger" onClick={() => openReturnForm("cancel")}>{t("Cancel bill")}</button>}

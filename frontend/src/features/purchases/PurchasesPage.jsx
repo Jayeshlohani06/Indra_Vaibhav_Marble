@@ -30,6 +30,7 @@ import ChangeMethodDialog from "../../components/ChangeMethodDialog";
 import { t } from "../../i18n";
 import Skeleton from "../../components/Skeleton";
 
+import FitText from "../../components/FitText";
 const today = () => {
   const date = new Date();
   date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
@@ -785,9 +786,9 @@ function PurchasesPage() {
       )}
 
       <div className="purchase-kpi-grid">
-        <div className="purchase-kpi-card is-blue"><span>{t("Bought this month")}</span><strong>{money(monthPurchaseValue)}</strong><small>{monthPurchases.length === 1 ? t("{count} received bill", { count: monthPurchases.length }) : t("{count} received bills", { count: monthPurchases.length })}</small></div>
-        <div className="purchase-kpi-card is-amber"><span>{t("You owe suppliers")}</span><strong>{money(toPaySuppliers)}</strong><small>{unpaidPurchases.length === 1 ? t("{count} bill not fully paid", { count: unpaidPurchases.length }) : t("{count} bills not fully paid", { count: unpaidPurchases.length })}</small></div>
-        <div className="purchase-kpi-card is-green"><span>{t("Waiting to arrive")}</span><strong>{draftPurchases.length}</strong><small>{t("Drafts not yet added to stock")}</small></div>
+        <div className="purchase-kpi-card is-blue"><span>{t("Bought this month")}</span><FitText>{money(monthPurchaseValue)}</FitText><small>{monthPurchases.length === 1 ? t("{count} received bill", { count: monthPurchases.length }) : t("{count} received bills", { count: monthPurchases.length })}</small></div>
+        <div className="purchase-kpi-card is-amber"><span>{t("You owe suppliers")}</span><FitText>{money(toPaySuppliers)}</FitText><small>{unpaidPurchases.length === 1 ? t("{count} bill not fully paid", { count: unpaidPurchases.length }) : t("{count} bills not fully paid", { count: unpaidPurchases.length })}</small></div>
+        <div className="purchase-kpi-card is-green"><span>{t("Waiting to arrive")}</span><FitText>{draftPurchases.length}</FitText><small>{t("Drafts not yet added to stock")}</small></div>
       </div>
 
       {loading ? (
@@ -805,6 +806,7 @@ function PurchasesPage() {
                   {t("Copy the details from the supplier's bill.")}
                 </p>
               </div>
+              <button type="button" className="purchase-secondary-button" disabled={saving} onClick={() => setShowPurchaseForm(false)}>{t("Close")}</button>
             </div>
 
             <div className="purchase-form-grid">
@@ -823,7 +825,7 @@ function PurchasesPage() {
                 />
               </label>
 
-              <label>
+              <label className="field-half">
                 {t("Supplier invoice number")}
                 <input
                   value={supplierInvoiceNumber}
@@ -835,7 +837,7 @@ function PurchasesPage() {
                 />
               </label>
 
-              <label>
+              <label className="field-half">
                 {t("Purchase date")} <b>*</b>
                 <input
                   type="date"
@@ -1141,7 +1143,7 @@ function PurchasesPage() {
             </div>}
 
             <div className="purchase-form-grid purchase-tax-grid">
-              <label>
+              <label className="field-half">
                 {t("Discount on whole bill (₹)")}
                 <input
                   type="number"
@@ -1153,7 +1155,7 @@ function PurchasesPage() {
                 />
               </label>
 
-              <label>
+              <label className="field-half">
                 {t("GST rate on this bill (%)")} <b>*</b>
                 <input
                   type="number"

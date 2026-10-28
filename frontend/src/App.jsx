@@ -15,11 +15,13 @@ const CashBookPage = lazy(() => import("./features/cash/CashBookPage"));
 const ReportsPage = lazy(() => import("./features/reports/ReportsPage"));
 const UserManagementPage = lazy(() => import("./features/users/UserManagementPage"));
 import { getCurrentUser, logout } from "./services/api/authApi";
+import { readStored, writeStored } from "./services/http/httpClient";
 import { PermissionsProvider } from "./auth/PermissionsContext";
 import { label } from "./utils/format";
 import { getLanguage, setLanguage, t } from "./i18n";
 import LanguageToggle from "./i18n/LanguageToggle";
 import ThemeToggle from "./components/ThemeToggle";
+import InstallPrompt from "./components/InstallPrompt";
 import Skeleton from "./components/Skeleton";
 import { getTheme, setTheme } from "./utils/theme";
 
@@ -53,6 +55,8 @@ const PAGE_PERMISSIONS = {
 };
 
 const PERMISSION_REFRESH_MS = 5 * 60 * 1000;
+
+const SESSION_USER_KEY = "indra-vaibhav-user";
 
 const PAGE_TITLES = {
   dashboard: "Dashboard",
@@ -118,7 +122,7 @@ function getCurrentPage() {
 function App() {
   const [session, setSession] = useState(() => {
     try {
-      return JSON.parse(sessionStorage.getItem("indra-vaibhav-user") || "null");
+      return JSON.parse(readStored(SESSION_USER_KEY) || "null");
     } catch {
       return null;
     }
@@ -161,7 +165,7 @@ function App() {
 
   useEffect(() => {
     function handleAuthExpired() {
-      sessionStorage.removeItem("indra-vaibhav-user");
+      writeStored(SESSION_USER_KEY, null);
       setSession(null);
       window.location.hash = "#dashboard";
     }
@@ -185,7 +189,7 @@ function App() {
         if (cancelled || !user) return;
         setSession((current) => {
           if (JSON.stringify(current) === JSON.stringify(user)) return current;
-          sessionStorage.setItem("indra-vaibhav-user", JSON.stringify(user));
+          writeStored(SESSION_USER_KEY, JSON.stringify(user));
           return user;
         });
       } catch {
@@ -210,12 +214,12 @@ function App() {
 
   function handleLoginSuccess(response) {
     setSession(response.user);
-    sessionStorage.setItem("indra-vaibhav-user", JSON.stringify(response.user));
+    writeStored(SESSION_USER_KEY, JSON.stringify(response.user));
   }
 
   function handleLogout() {
     logout();
-    sessionStorage.removeItem("indra-vaibhav-user");
+    writeStored(SESSION_USER_KEY, null);
     setSession(null);
     window.location.hash = "#dashboard";
   }
@@ -325,6 +329,8 @@ function App() {
           </div>
         </div>
       )}
+
+      <InstallPrompt />
 
       {/* Main Workspace */}
       <div className="erp-workspace">

@@ -168,15 +168,18 @@
   margin-top: 24px;
 }
 
-.inventory-modal .stock-operations-panel,
-.inventory-modal .inventory-settings-panel {
+/* The popup already has the title and frame, so the panels inside drop
+   theirs. #root matches the panel style in theme.css. */
+#root .inventory-modal :is(.stock-operations-panel, .inventory-settings-panel) {
   margin: 0;
   padding: 0;
   border: 0;
+  background: none;
   box-shadow: none;
 }
 
-.inventory-modal .inventory-settings-panel .inventory-panel-heading {
+.inventory-modal .inventory-settings-panel .inventory-panel-heading,
+.inventory-modal .stock-operations-heading {
   display: none;
 }
 

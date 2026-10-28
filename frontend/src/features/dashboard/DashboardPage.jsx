@@ -14,6 +14,7 @@ import Skeleton from "../../components/Skeleton";
 import { usePermission } from "../../auth/PermissionsContext";
 import { getLanguage, t } from "../../i18n";
 
+import FitText from "../../components/FitText";
 const currencyFormatter = new Intl.NumberFormat("en-IN", {
   style: "currency",
   currency: "INR",
@@ -336,13 +337,13 @@ function DashboardPage() {
             {salesCards.map((card) => (
               <article className={`erp-sales-period-card ${card.key}`} key={card.key}>
                 <p className="erp-sales-period-title">{card.tag}</p>
-                <h3>
+                <FitText as="h3">
                   {loading
                     ? <Skeleton.Inline label={t("Loading…")} />
                     : card.data
                       ? formatCurrency(card.data.salesOrderTotal)
                       : t("Unavailable")}
-                </h3>
+                </FitText>
                 <p className="erp-sales-period-note">
                   {card.data
                     ? (Number(card.data.salesOrderCount) === 1
@@ -366,7 +367,7 @@ function DashboardPage() {
           <div className="erp-money-grid">
             <a className="erp-money-card is-in" href="#customers">
               <span>{t("Customers owe you")}</span>
-              <strong>{loading ? <Skeleton.Inline label={t("Loading…")} /> : formatCurrency(customerDues)}</strong>
+              <FitText>{loading ? <Skeleton.Inline label={t("Loading…")} /> : formatCurrency(customerDues)}</FitText>
               <small>
                 {customerCount
                   ? (customerCount === 1
@@ -377,7 +378,7 @@ function DashboardPage() {
             </a>
             <a className="erp-money-card is-out" href="#purchases">
               <span>{t("You owe suppliers")}</span>
-              <strong>{loading ? <Skeleton.Inline label={t("Loading…")} /> : formatCurrency(supplierDues)}</strong>
+              <FitText>{loading ? <Skeleton.Inline label={t("Loading…")} /> : formatCurrency(supplierDues)}</FitText>
               <small>
                 {supplierCount
                   ? (supplierCount === 1

@@ -296,8 +296,9 @@ html:lang(hi) :is(h1, h2, h3, h4, strong, b, button, th) {
     }
   }
 
-  /* Tables without their own phone cards turn each row into a card, with the
-     column name shown beside each value. */
+  /* Tables without their own phone cards turn each row into a card: the
+     first column is the card's title and the rest sit in two columns, each
+     with its column name above the value. */
   #root .stack-on-phone {
     min-width: 0 !important;
   }
@@ -307,9 +308,7 @@ html:lang(hi) :is(h1, h2, h3, h4, strong, b, button, th) {
   }
 
   #root .stack-on-phone,
-  #root .stack-on-phone tbody,
-  #root .stack-on-phone tr,
-  #root .stack-on-phone td {
+  #root .stack-on-phone tbody {
     display: block;
     width: 100%;
   }
@@ -322,41 +321,56 @@ html:lang(hi) :is(h1, h2, h3, h4, strong, b, button, th) {
   }
 
   #root .erp-content .stack-on-phone tbody tr {
-    padding: 6px 14px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2px 14px;
+    padding: 12px 14px;
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-card);
     background: light-dark(rgb(255 255 255 / 85%), rgb(255 255 255 / 4%));
     box-shadow: var(--shadow-soft);
   }
 
-  #root .erp-content .stack-on-phone td {
+  /* "table." matches the specificity of the general cell padding in theme.css. */
+  #root .erp-content table.stack-on-phone td {
     display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    justify-content: flex-end;
-    gap: 4px 8px;
-    padding: 7px 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-width: 0;
+    padding: 6px 0;
     border: 0;
-    text-align: right;
+    text-align: left;
     white-space: normal;
-  }
-
-  #root .erp-content .stack-on-phone td + td {
-    border-top: 1px dashed var(--color-border);
+    overflow-wrap: anywhere;
   }
 
   #root .stack-on-phone td[data-label]::before {
-    flex-shrink: 0;
     color: var(--color-text-muted);
-    font-size: var(--text-xs);
-    margin-right: auto;
+    font-size: 11px;
     font-weight: 600;
-    text-align: left;
     content: attr(data-label);
   }
 
-  #root .stack-on-phone td:first-child {
+  #root .erp-content .stack-on-phone td:first-child {
+    grid-column: 1 / -1;
+    margin-bottom: 4px;
+    padding: 0 0 10px;
+    border-bottom: 1px dashed var(--color-border);
+    font-size: var(--text-md);
     font-weight: 700;
+  }
+
+  #root .stack-on-phone td:first-child::before {
+    display: none;
+  }
+
+  /* Cells without a name (row buttons) take the full width at the bottom. */
+  #root .erp-content .stack-on-phone td:not([data-label]):not(:first-child) {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    justify-content: flex-end;
+    padding-top: 8px;
   }
 }
 

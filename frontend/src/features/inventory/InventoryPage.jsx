@@ -21,6 +21,7 @@ import { usePermission } from "../../auth/PermissionsContext";
 import { t } from "../../i18n";
 import Skeleton from "../../components/Skeleton";
 
+import FitText from "../../components/FitText";
 const initialForm = {
   productCode: "",
   name: "",
@@ -582,19 +583,19 @@ function InventoryPage() {
       >
         <article className="inventory-stat-card">
           <span>{t("Products")}</span>
-          <strong>{activeProductCount}</strong>
+          <FitText>{activeProductCount}</FitText>
           <small>{t("Items you currently sell")}</small>
         </article>
 
         <article className="inventory-stat-card inventory-stat-warning">
           <span>{t("Running low or out")}</span>
-          <strong>{lowStockProducts.length + outOfStockProducts.length}</strong>
+          <FitText>{lowStockProducts.length + outOfStockProducts.length}</FitText>
           <small>{t("{out} out of stock · {low} running low", { out: outOfStockProducts.length, low: lowStockProducts.length })}</small>
         </article>
 
         <article className="inventory-stat-card">
           <span>{t("Value of stock")}</span>
-          <strong>{formatCurrency(inventoryCostValue)}</strong>
+          <FitText>{formatCurrency(inventoryCostValue)}</FitText>
           <small>{t("At the price you bought it")}</small>
         </article>
       </section>
@@ -863,7 +864,7 @@ function InventoryPage() {
                 />
               </label>}
 
-              <label>
+              <label className="field-half">
                 {t("Purchase price (₹) *")}
                 <input
                   name="purchasePrice"
@@ -877,7 +878,7 @@ function InventoryPage() {
                 />
               </label>
 
-              <label>
+              <label className="field-half">
                 {t("Selling price (₹) *")}
                 <input
                   name="sellingPrice"
@@ -891,7 +892,7 @@ function InventoryPage() {
                 />
               </label>
 
-              <label>
+              <label className="field-half">
                 {t("GST rate (%) *")}
                 <input
                   name="gstRate"
@@ -905,7 +906,7 @@ function InventoryPage() {
                 />
               </label>
 
-              <label>
+              <label className="field-half">
                 {t("HSN code")}
                 <input name="hsnCode" value={form.hsnCode} onChange={handleChange} inputMode="numeric" maxLength={10} placeholder={t("e.g. 6802 (optional)")} />
               </label>
@@ -1000,7 +1001,7 @@ function InventoryPage() {
             </button>
           </div>
 
-          <div className="inventory-form-grid">
+          <div className="inventory-form-grid inventory-detail-list">
             <p><strong>{t("Product ID:")}</strong> {selectedProduct.id}</p>
             <p><strong>{t("Code:")}</strong> {selectedProduct.productCode}</p>
             <p><strong>{t("Name:")}</strong> {selectedProduct.name}</p>

@@ -20,6 +20,7 @@ import { formatDate, formatDateTime, label } from "../../utils/format";
 import { newRequestId } from "../../utils/requestId";
 import { getLanguage, t } from "../../i18n";
 import { whatsappLink } from "../../utils/whatsapp";
+import { isEmptyMethod } from "./cashMethods";
 import "./CashBookPage.css";
 import Skeleton from "../../components/Skeleton";
 import EmptyState from "../../components/EmptyState";
@@ -436,9 +437,10 @@ function DaySummary({ detail }) {
           <table className="cash-table stack-on-phone">
             <thead><tr><th>{t("Method")}</th><th className="num">{t("New bills")}</th><th className="num">{t("Old bills")}</th><th className="num">{t("Refunds")}</th><th className="num">{t("Suppliers")}</th><th className="num">{t("Expenses")}</th><th className="num">{t("Net")}</th></tr></thead>
             <tbody>{summary.byMethod.map((row) => (
-              <tr key={row.paymentMethod}><td data-label={t("Method")}><strong>{label(row.paymentMethod)}</strong></td><td className="num" data-label={t("New bills")}>{currency(row.saleReceipts)}</td><td className="num" data-label={t("Old bills")}>{currency(row.collections)}</td><td className="num" data-label={t("Refunds")}>{currency(row.refunds)}</td><td className="num" data-label={t("Suppliers")}>{currency(row.supplierPayments)}</td><td className="num" data-label={t("Expenses")}>{currency(row.expenses)}</td><td className="num" data-label={t("Net")}><strong>{currency(row.net)}</strong></td></tr>
+              <tr key={row.paymentMethod} className={isEmptyMethod(row) ? "cash-method-empty" : undefined}><td data-label={t("Method")}><strong>{label(row.paymentMethod)}</strong></td><td className="num" data-label={t("New bills")}>{currency(row.saleReceipts)}</td><td className="num" data-label={t("Old bills")}>{currency(row.collections)}</td><td className="num" data-label={t("Refunds")}>{currency(row.refunds)}</td><td className="num" data-label={t("Suppliers")}>{currency(row.supplierPayments)}</td><td className="num" data-label={t("Expenses")}>{currency(row.expenses)}</td><td className="num" data-label={t("Net")}><strong>{currency(row.net)}</strong></td></tr>
             ))}</tbody>
           </table>
+          {summary.byMethod.some(isEmptyMethod) && <p className="cash-method-empty-note">{t("Methods with no money in this period are hidden.")}</p>}
         </div>
         <div className="cash-not-cash">
           <p><span>{t("Bills raised")}</span><strong>{currency(summary.billsRaised)}</strong></p>

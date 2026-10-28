@@ -32,8 +32,8 @@ const fields = [
   { name: "supplierCode", label: "Supplier Code", maxLength: 50 },
   { name: "name", label: "Supplier Name", required: true, maxLength: 150 },
   { name: "contactPerson", label: "Contact Person", maxLength: 120 },
-  { name: "phone", label: "Phone", maxLength: 20 },
-  { name: "alternatePhone", label: "Alternate Phone", maxLength: 20 },
+  { name: "phone", label: "Phone", type: "tel", maxLength: 20, half: true },
+  { name: "alternatePhone", label: "Alternate Phone", type: "tel", maxLength: 20, half: true },
   {
   name: "email",
   label: "Email",
@@ -45,9 +45,9 @@ const fields = [
   label: "GSTIN",
   maxLength: 15,
 },
-  { name: "city", label: "City", maxLength: 100 },
-  { name: "state", label: "State", maxLength: 100 },
-  { name: "postalCode", label: "Postal Code", maxLength: 10 },
+  { name: "city", label: "City", maxLength: 100, half: true },
+  { name: "state", label: "State", maxLength: 100, half: true },
+  { name: "postalCode", label: "Postal Code", inputMode: "numeric", maxLength: 10 },
 ];
 
 
@@ -315,7 +315,7 @@ async function handleSubmit(event) {
 
           <div className="supplier-form-grid">
             {fields.map((field) => (
-              <label className="supplier-field" key={field.name}>
+              <label className={`supplier-field${field.half ? " field-half" : ""}`} key={field.name}>
                 <span>
                   {t(field.label)}
                   {field.required && <b> *</b>}
@@ -324,6 +324,7 @@ async function handleSubmit(event) {
                 <input
                   name={field.name}
                   type={field.type || "text"}
+                  inputMode={field.inputMode}
                   value={form[field.name] ?? ""}
                   onChange={handleChange}
                   required={field.required || false}
