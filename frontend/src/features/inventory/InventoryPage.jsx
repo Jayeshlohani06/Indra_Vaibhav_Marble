@@ -863,7 +863,7 @@ function InventoryPage() {
                 />
               </label>}
 
-              <label>
+              <label className="field-half">
                 {t("Purchase price (₹) *")}
                 <input
                   name="purchasePrice"
@@ -877,7 +877,7 @@ function InventoryPage() {
                 />
               </label>
 
-              <label>
+              <label className="field-half">
                 {t("Selling price (₹) *")}
                 <input
                   name="sellingPrice"
@@ -891,7 +891,7 @@ function InventoryPage() {
                 />
               </label>
 
-              <label>
+              <label className="field-half">
                 {t("GST rate (%) *")}
                 <input
                   name="gstRate"
@@ -905,7 +905,7 @@ function InventoryPage() {
                 />
               </label>
 
-              <label>
+              <label className="field-half">
                 {t("HSN code")}
                 <input name="hsnCode" value={form.hsnCode} onChange={handleChange} inputMode="numeric" maxLength={10} placeholder={t("e.g. 6802 (optional)")} />
               </label>
@@ -1000,7 +1000,7 @@ function InventoryPage() {
             </button>
           </div>
 
-          <div className="inventory-form-grid">
+          <div className="inventory-form-grid inventory-detail-list">
             <p><strong>{t("Product ID:")}</strong> {selectedProduct.id}</p>
             <p><strong>{t("Code:")}</strong> {selectedProduct.productCode}</p>
             <p><strong>{t("Name:")}</strong> {selectedProduct.name}</p>

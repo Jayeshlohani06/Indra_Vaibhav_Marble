@@ -823,7 +823,7 @@ function PurchasesPage() {
                 />
               </label>
 
-              <label>
+              <label className="field-half">
                 {t("Supplier invoice number")}
                 <input
                   value={supplierInvoiceNumber}
@@ -835,7 +835,7 @@ function PurchasesPage() {
                 />
               </label>
 
-              <label>
+              <label className="field-half">
                 {t("Purchase date")} <b>*</b>
                 <input
                   type="date"
@@ -1141,7 +1141,7 @@ function PurchasesPage() {
             </div>}
 
             <div className="purchase-form-grid purchase-tax-grid">
-              <label>
+              <label className="field-half">
                 {t("Discount on whole bill (₹)")}
                 <input
                   type="number"
@@ -1153,7 +1153,7 @@ function PurchasesPage() {
                 />
               </label>
 
-              <label>
+              <label className="field-half">
                 {t("GST rate on this bill (%)")} <b>*</b>
                 <input
                   type="number"

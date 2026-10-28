@@ -2265,7 +2265,7 @@ function SalesOrdersPage() {
               </div>
             )}
             <div className="sales-order-form-actions">
-              <button type="button" className="sales-orders-secondary" onClick={() => setDetailsOrder(null)}>{t("Close")}</button>
+              <button type="button" className="sales-orders-secondary sales-details-footer-close" onClick={() => setDetailsOrder(null)}>{t("Close")}</button>
               <button type="button" className="sales-orders-secondary" onClick={() => { setInvoiceOrderId(detailsOrder.id); setDetailsOrder(null); }}>{t("Print invoice")}</button>
               <a className="sales-orders-secondary sales-whatsapp" href={billWhatsappLink(detailsOrder)} target="_blank" rel="noopener noreferrer">{t("Send on WhatsApp")}</a>
               {canManageSales && detailsOrder.status === "CONFIRMED" && <button type="button" className="sales-orders-danger" onClick={() => openReturnForm("cancel")}>{t("Cancel bill")}</button>}
