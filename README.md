@@ -37,7 +37,7 @@ and the server checks the same permissions on every request.
 ```
 indra-vaibhav-marble/
 ├── .github/workflows/
-│   ├── ci.yml                 Backend tests + frontend lint/build on every push and PR
+│   ├── ci.yml                 Backend tests, frontend lint/tests/build on every push and PR
 │   └── backup.yml             Nightly encrypted database backup to Cloudflare R2
 ├── .env.example               Environment variables for the deployed backend
 ├── DEPLOYMENT.md              Step-by-step Render setup, backups and going live
@@ -66,8 +66,11 @@ indra-vaibhav-marble/
 │       └── test/java/…          Unit and integration tests
 └── frontend/                  React app
     ├── index.html, vite.config.js, eslint.config.js, package.json
+    ├── vitest.config.js, playwright.config.js   Test setup (see "Tests and checks")
     ├── .env.example           VITE_API_BASE_URL (backend address)
-    ├── public/                Favicon
+    ├── public/                Favicon and installable-app icons
+    ├── e2e/                   Browser tests: phone layout, installable app, desktop
+    │   └── fixtures/api.json  Recorded API answers the browser tests use
     └── src/
         ├── main.jsx, App.jsx  Entry point, layout, navigation and page routing
         ├── features/          One folder per page (auth, dashboard, sales-orders,
@@ -77,7 +80,8 @@ indra-vaibhav-marble/
         ├── components/        Shared pieces (searchable dropdown, row menu)
         ├── services/          API calls (api/*.js) and the HTTP client (http/)
         ├── auth/              Permission context used to show/hide actions
-        ├── styles/            Design tokens, theme and global/responsive CSS
+        ├── styles/            Design tokens, theme, global CSS and the phone
+        │                      layout (mobile.css)
         ├── utils/             Formatting (dates, money, labels) and GST helpers
         └── assets/            Background image
 ```
@@ -144,7 +148,18 @@ Open `http://localhost:5173`. In development the app calls
 ```bash
 cd backend && ./mvnw test        # needs the local database; tests roll back their data
 cd frontend && npm run lint
+cd frontend && npm test          # unit tests (login storage, install banner, cash book)
+cd frontend && npm run test:e2e  # browser tests on phone sizes and desktop
 ```
+
+The first `npm run test:e2e` needs the browser once:
+`npx playwright install chromium`. The browser tests build the app and answer
+its API calls from `frontend/e2e/fixtures/api.json`, so no backend or
+database is needed. If a page starts calling a new endpoint, the test fails
+with "No recorded API answer for …". To refresh the recordings, run a
+backend with **sample data only** (the file is committed) and a
+`admin@test.local` / `MobileTest#2026` admin, then run
+`RECORD_API=http://localhost:8081 npm run test:e2e`.
 
 ---
 
@@ -210,7 +225,8 @@ backend URL, and publish directory `frontend/dist`. The app uses hash URLs
 (`/#billing`), so no rewrite rules are needed.
 
 **CI.** [.github/workflows/ci.yml](.github/workflows/ci.yml) runs the backend
-tests against a PostgreSQL service, plus the frontend lint and build, on every
+tests against a PostgreSQL service, plus the frontend lint, unit tests, build
+and browser tests (failed runs keep a `playwright-report` download), on every
 push to `main`/`develop` and on every pull request.
 
 ---
