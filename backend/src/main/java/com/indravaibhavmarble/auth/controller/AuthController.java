@@ -42,7 +42,7 @@ public class AuthController {
             AuthenticationException exception) {
 
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(new ApiError("Invalid email or password"));
+                .body(new ApiError("Wrong mobile number, email or password"));
     }
 
     @ExceptionHandler(LoginAttemptService.LoginLockedException.class)

@@ -2,9 +2,10 @@
 import httpClient from "../http/httpClient";
 import { setAuthToken } from "../http/httpClient";
 
-export async function login(email, password) {
+// The login box takes a mobile number or an email address.
+export async function login(identifier, password) {
   const response = await httpClient.post("/api/auth/login", {
-    email,
+    identifier,
     password,
   });
 

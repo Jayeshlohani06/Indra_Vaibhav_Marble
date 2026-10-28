@@ -1,6 +1,7 @@
 package com.indravaibhavmarble.user.service;
 
 import com.indravaibhavmarble.auth.security.AuthenticatedUserCache;
+import com.indravaibhavmarble.common.util.MobileNumbers;
 import com.indravaibhavmarble.role.entity.Role;
 import com.indravaibhavmarble.role.repository.RoleRepository;
 import com.indravaibhavmarble.user.dto.UserRequest;
@@ -51,9 +52,14 @@ public class UserManagementService {
         validate(request, true);
         String email = request.email().trim().toLowerCase(Locale.ROOT);
         if (users.existsByEmailIgnoreCase(email)) throw new IllegalArgumentException("A user with this email already exists");
+        String phone = phoneOf(request);
+        if (phone != null && users.existsByPhone(phone)) {
+            throw new IllegalArgumentException("Another user already has this mobile number");
+        }
         AppUser user = AppUser.createNewUser();
         user.setFullName(request.fullName().trim());
         user.setEmail(email);
+        user.setPhone(phone);
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.getRoles().addAll(resolveRoles(request.roles()));
         userCache.evictAllAfterCommit();
@@ -69,6 +75,11 @@ public class UserManagementService {
             throw new IllegalArgumentException("A user with this email already exists");
         }
         user.setEmail(email);
+        String phone = phoneOf(request);
+        if (phone != null && users.existsByPhoneAndIdNot(phone, user.getId())) {
+            throw new IllegalArgumentException("Another user already has this mobile number");
+        }
+        user.setPhone(phone);
         if (request.password() != null && !request.password().isBlank()) {
             user.setPasswordHash(passwordEncoder.encode(request.password()));
         }
@@ -187,8 +198,18 @@ public class UserManagementService {
         }
     }
 
+    // The mobile number is optional; when given it must be a valid Indian mobile.
+    private String phoneOf(UserRequest request) {
+        if (request.phone() == null || request.phone().isBlank()) return null;
+        String phone = MobileNumbers.normalize(request.phone());
+        if (phone == null) {
+            throw new IllegalArgumentException("Enter a 10-digit mobile number, for example 9876543210");
+        }
+        return phone;
+    }
+
     private UserResponse toResponse(AppUser user) {
-        return new UserResponse(user.getId(), user.getFullName(), user.getEmail(), user.isActive(),
+        return new UserResponse(user.getId(), user.getFullName(), user.getEmail(), user.getPhone(), user.isActive(),
                 user.getRoles().stream().map(Role::getName).sorted().toList(),
                 user.getCreatedAt(), user.getUpdatedAt());
     }
