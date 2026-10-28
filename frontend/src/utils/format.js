@@ -1,5 +1,7 @@
 // Shared display helpers so every page shows dates and statuses the same way.
 
+import { t } from "../i18n";
+
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 // "2026-10-25" or an ISO timestamp -> "25 Oct 2026".
@@ -84,9 +86,9 @@ const LABELS = {
 export function label(code) {
   if (code === null || code === undefined || code === "") return "—";
   const key = String(code).toUpperCase();
-  if (LABELS[key]) return LABELS[key];
+  if (LABELS[key]) return t(LABELS[key]);
   const words = String(code).replaceAll("_", " ").toLowerCase();
-  return words.charAt(0).toUpperCase() + words.slice(1);
+  return t(words.charAt(0).toUpperCase() + words.slice(1));
 }
 
 // Badge for Paid / Part-paid / Unpaid. Uses the shared .pay-badge styles.

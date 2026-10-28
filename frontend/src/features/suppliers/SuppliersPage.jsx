@@ -10,6 +10,8 @@ import {
 import "./SuppliersPage.css";
 import RowMenu from "../../components/RowMenu";
 import { usePermission } from "../../auth/PermissionsContext";
+import { t } from "../../i18n";
+import Skeleton from "../../components/Skeleton";
 
 const emptyForm = {
   supplierCode: "",
@@ -51,19 +53,19 @@ const fields = [
 
 function validateSupplier(form) {
   if (!form.name.trim()) {
-    return "Supplier name is required.";
+    return t("Supplier name is required.");
   }
 
   if (form.email.trim()) {
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (!emailPattern.test(form.email.trim())) {
-      return "Please enter a valid email address.";
+      return t("Please enter a valid email address.");
     }
   }
 
   if (form.gstin.trim() && form.gstin.trim().length !== 15) {
-    return "GSTIN must contain exactly 15 characters.";
+    return t("GSTIN must contain exactly 15 characters.");
   }
 
   return "";
@@ -94,7 +96,7 @@ function SuppliersPage() {
       const result = await getSuppliers({ status });
       setSuppliers(Array.isArray(result) ? result : []);
     } catch (err) {
-      setError(err.message || "Unable to load suppliers.");
+      setError(err.message || t("Unable to load suppliers."));
     } finally {
       setLoading(false);
     }
@@ -221,13 +223,13 @@ async function handleSubmit(event) {
 
     setSuccess(
       editingId !== null
-        ? "Supplier updated successfully."
-        : "Supplier created successfully."
+        ? t("Supplier updated successfully.")
+        : t("Supplier created successfully.")
     );
 
     await loadSuppliers();
   } catch (err) {
-    setError(err.message || "Unable to save supplier.");
+    setError(err.message || t("Unable to save supplier."));
   } finally {
     setSaving(false);
   }
@@ -237,7 +239,9 @@ async function handleSubmit(event) {
   async function handleStatusChange(supplier) {
     const action = supplier.active ? "deactivate" : "reactivate";
     const confirmed = window.confirm(
-      `${action[0].toUpperCase() + action.slice(1)} "${supplier.name}"?`
+      supplier.active
+        ? t("Deactivate \"{name}\"?", { name: supplier.name })
+        : t("Reactivate \"{name}\"?", { name: supplier.name })
     );
 
     if (!confirmed) return;
@@ -251,10 +255,14 @@ async function handleSubmit(event) {
       } else {
         await reactivateSupplier(supplier.id);
       }
-      setSuccess(`${supplier.name} was ${action}d.`);
+      setSuccess(action === "deactivate"
+        ? t("{name} was deactivated.", { name: supplier.name })
+        : t("{name} was reactivated.", { name: supplier.name }));
       await loadSuppliers();
     } catch (err) {
-      setError(err.message || `Unable to ${action} supplier.`);
+      setError(err.message || (action === "deactivate"
+        ? t("Unable to deactivate supplier.")
+        : t("Unable to reactivate supplier.")));
     }
   }
 
@@ -262,11 +270,11 @@ async function handleSubmit(event) {
     <section className="suppliers-page">
       <div className="suppliers-heading">
         <p className="suppliers-subtitle">
-          The companies you buy from and how to reach them.
+          {t("The companies you buy from and how to reach them.")}
         </p>
 
         {canManageSuppliers && <button className="supplier-primary-button" onClick={openAddForm}>
-          + Add supplier
+          {t("+ Add supplier")}
         </button>}
       </div>
 
@@ -283,16 +291,16 @@ async function handleSubmit(event) {
       )}
 
       <div className="supplier-summary">
-        <div className="supplier-summary-card is-blue"><span>Suppliers</span><strong>{activeCount}</strong><small>Active suppliers you buy from</small></div>
-        <div className="supplier-summary-card is-green"><span>With GSTIN</span><strong>{gstCount}</strong><small>Registered for GST</small></div>
-        <div className="supplier-summary-card is-slate"><span>Inactive</span><strong>{inactiveCount}</strong><small>Kept for old records</small></div>
+        <div className="supplier-summary-card is-blue"><span>{t("Suppliers")}</span><strong>{activeCount}</strong><small>{t("Active suppliers you buy from")}</small></div>
+        <div className="supplier-summary-card is-green"><span>{t("With GSTIN")}</span><strong>{gstCount}</strong><small>{t("Registered for GST")}</small></div>
+        <div className="supplier-summary-card is-slate"><span>{t("Inactive")}</span><strong>{inactiveCount}</strong><small>{t("Kept for old records")}</small></div>
       </div>
 
       {showForm && (
         <div className="supplier-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && !saving && setShowForm(false)}>
         <form className="supplier-form-card supplier-modal" onSubmit={handleSubmit}>
           <div className="supplier-form-heading">
-            <h3>{editingId !== null ? "Edit supplier" : "Add supplier"}</h3>
+            <h3>{editingId !== null ? t("Edit supplier") : t("Add supplier")}</h3>
             {canManageSuppliers && <button
               type="button"
               className="supplier-text-button"
@@ -301,7 +309,7 @@ async function handleSubmit(event) {
                 setError("");
               }}
             >
-              Cancel
+              {t("Cancel")}
             </button>}
           </div>
 
@@ -309,7 +317,7 @@ async function handleSubmit(event) {
             {fields.map((field) => (
               <label className="supplier-field" key={field.name}>
                 <span>
-                  {field.label}
+                  {t(field.label)}
                   {field.required && <b> *</b>}
                 </span>
 
@@ -325,7 +333,7 @@ async function handleSubmit(event) {
             ))}
 
             <label className="supplier-field supplier-field-wide">
-              <span>Address</span>
+              <span>{t("Address")}</span>
               <textarea
                 name="addressLine"
                 value={form.addressLine}
@@ -335,7 +343,7 @@ async function handleSubmit(event) {
             </label>
 
             <label className="supplier-field supplier-field-wide">
-              <span>Notes</span>
+              <span>{t("Notes")}</span>
               <textarea
                 name="notes"
                 value={form.notes}
@@ -352,7 +360,7 @@ async function handleSubmit(event) {
               onClick={() => setShowForm(false)}
               disabled={saving}
             >
-              Cancel
+              {t("Cancel")}
             </button>
 
             <button
@@ -361,10 +369,10 @@ async function handleSubmit(event) {
               disabled={saving}
             >
               {saving
-                ? "Saving..."
+                ? t("Saving...")
                 : editingId !== null
-                  ? "Save Changes"
-                  : "Create Supplier"}
+                  ? t("Save Changes")
+                  : t("Create Supplier")}
             </button>
           </div>
         </form>
@@ -374,40 +382,40 @@ async function handleSubmit(event) {
       <div className="supplier-table-card">
         <div className="supplier-table-toolbar">
           <div>
-            <h3>All suppliers</h3>
-            <p>Tap a supplier to see their full details.</p>
+            <h3>{t("All suppliers")}</h3>
+            <p>{t("Tap a supplier to see their full details.")}</p>
           </div>
 
           <input
             className="supplier-search"
             type="search"
-            placeholder="Search name, code, phone..."
+            placeholder={t("Search name, code, phone...")}
             value={search}
             onChange={(event) => { setSearch(event.target.value); setPage(1); }}
-            aria-label="Search suppliers"
+            aria-label={t("Search suppliers")}
           />
-          <select value={status} aria-label="Supplier status" onChange={(event) => { setStatus(event.target.value); setPage(1); }}>
-            <option value="ACTIVE">Active suppliers</option>
-            <option value="INACTIVE">Inactive suppliers</option>
-            <option value="ALL">All suppliers</option>
+          <select value={status} aria-label={t("Supplier status")} onChange={(event) => { setStatus(event.target.value); setPage(1); }}>
+            <option value="ACTIVE">{t("Active suppliers")}</option>
+            <option value="INACTIVE">{t("Inactive suppliers")}</option>
+            <option value="ALL">{t("All suppliers")}</option>
           </select>
-          <select value={sort} aria-label="Sort suppliers" onChange={(event) => setSort(event.target.value)}>
-            <option value="name">Sort: Name</option>
-            <option value="supplierCode">Sort: Code</option>
-            <option value="city">Sort: City</option>
+          <select value={sort} aria-label={t("Sort suppliers")} onChange={(event) => setSort(event.target.value)}>
+            <option value="name">{t("Sort: Name")}</option>
+            <option value="supplierCode">{t("Sort: Code")}</option>
+            <option value="city">{t("Sort: City")}</option>
           </select>
-          <button type="button" className="supplier-secondary-button" onClick={() => { setSearch(""); setStatus("ACTIVE"); setSort("name"); setPage(1); }}>Clear</button>
+          <button type="button" className="supplier-secondary-button" onClick={() => { setSearch(""); setStatus("ACTIVE"); setSort("name"); setPage(1); }}>{t("Clear")}</button>
         </div>
 
         {loading ? (
-          <div className="supplier-empty-state">Loading suppliers...</div>
+          <Skeleton label={t("Loading suppliers...")} />
         ) : filteredSuppliers.length === 0 ? (
           <div className="supplier-empty-state">
-            <h3>{search ? "No matching suppliers" : "No suppliers found"}</h3>
+            <h3>{search ? t("No matching suppliers") : t("No suppliers found")}</h3>
             <p>
               {search
-                ? "Try a different search term."
-                : "Add your first supplier to get started."}
+                ? t("Try a different search term.")
+                : t("Add your first supplier to get started.")}
             </p>
           </div>
         ) : (
@@ -415,11 +423,11 @@ async function handleSubmit(event) {
             <table className="supplier-table desktop-table">
               <thead>
                 <tr>
-                  <th>Supplier</th>
-                  <th>Contact</th>
-                  <th>GSTIN</th>
-                  <th>Location</th>
-                  <th><span className="visually-hidden">Actions</span></th>
+                  <th>{t("Supplier")}</th>
+                  <th>{t("Contact")}</th>
+                  <th>{t("GSTIN")}</th>
+                  <th>{t("Location")}</th>
+                  <th><span className="visually-hidden">{t("Actions")}</span></th>
                 </tr>
               </thead>
 
@@ -428,11 +436,11 @@ async function handleSubmit(event) {
                   <tr key={supplier.id} onClick={() => setDetailsSupplier(supplier)}>
                     <td>
                       <strong>{supplier.name}</strong>
-                      <small>{supplier.supplierCode || "No supplier code"}</small>
+                      <small>{supplier.supplierCode || t("No supplier code")}</small>
                     </td>
                     <td>
                       <span>{supplier.contactPerson || "—"}</span>
-                      <small>{supplier.phone || "No phone"}</small>
+                      <small>{supplier.phone || t("No phone")}</small>
                       {supplier.email && <small>{supplier.email}</small>}
                     </td>
                     <td>{supplier.gstin || "—"}</td>
@@ -448,12 +456,12 @@ async function handleSubmit(event) {
                           className="supplier-action-button"
                           onClick={(event) => { event.stopPropagation(); setDetailsSupplier(supplier); }}
                         >
-                          View
+                          {t("View")}
                         </button>
-                        {canManageSuppliers && <RowMenu label={`More actions for ${supplier.name}`} items={[
-                          { label: "Edit details", onClick: () => openEditForm(supplier) },
+                        {canManageSuppliers && <RowMenu label={t("More actions for {name}", { name: supplier.name })} items={[
+                          { label: t("Edit details"), onClick: () => openEditForm(supplier) },
                           {
-                            label: supplier.active ? "Deactivate supplier" : "Reactivate supplier",
+                            label: supplier.active ? t("Deactivate supplier") : t("Reactivate supplier"),
                             onClick: () => handleStatusChange(supplier),
                             danger: supplier.active,
                           },
@@ -470,26 +478,26 @@ async function handleSubmit(event) {
                 <button type="button" key={supplier.id} className="mobile-card" onClick={() => setDetailsSupplier(supplier)}>
                   <span className="mobile-card__row">
                     <span className="mobile-card__title">{supplier.name}</span>
-                    {!supplier.active && <span className="mobile-card__meta">Inactive</span>}
+                    {!supplier.active && <span className="mobile-card__meta">{t("Inactive")}</span>}
                   </span>
                   <span className="mobile-card__meta">
-                    {[supplier.phone, [supplier.city, supplier.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ") || "No contact details"}
+                    {[supplier.phone, [supplier.city, supplier.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ") || t("No contact details")}
                   </span>
                 </button>
               ))}
             </div>
           </div>
         )}
-        <div className="supplier-pagination"><span>Showing {filteredSuppliers.length ? (page - 1) * PAGE_SIZE + 1 : 0}–{Math.min(page * PAGE_SIZE, filteredSuppliers.length)} of {filteredSuppliers.length}</span><div><button type="button" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>Previous</button><strong>Page {page} of {pageCount}</strong><button type="button" disabled={page >= pageCount} onClick={() => setPage((current) => current + 1)}>Next</button></div></div>
+        <div className="supplier-pagination"><span>{t("Showing {from}–{to} of {total}", { from: filteredSuppliers.length ? (page - 1) * PAGE_SIZE + 1 : 0, to: Math.min(page * PAGE_SIZE, filteredSuppliers.length), total: filteredSuppliers.length })}</span><div><button type="button" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>{t("Previous")}</button><strong>{t("Page {page} of {count}", { page, count: pageCount })}</strong><button type="button" disabled={page >= pageCount} onClick={() => setPage((current) => current + 1)}>{t("Next")}</button></div></div>
       </div>
 
       {detailsSupplier && (
         <div className="supplier-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setDetailsSupplier(null)}>
           <section className="supplier-details-modal" role="dialog" aria-modal="true" aria-labelledby="supplier-details-title">
-            <div className="supplier-form-heading"><div><h2 id="supplier-details-title">{detailsSupplier.name}</h2><p>{detailsSupplier.supplierCode || "No supplier code"}</p></div><button type="button" className="supplier-secondary-button" onClick={() => setDetailsSupplier(null)}>Close</button></div>
-            <div className="supplier-detail-grid"><p><span>Contact person</span><strong>{detailsSupplier.contactPerson || "—"}</strong></p><p><span>Phone</span><strong>{detailsSupplier.phone || "—"}</strong></p><p><span>Email</span><strong>{detailsSupplier.email || "—"}</strong></p><p><span>GSTIN</span><strong>{detailsSupplier.gstin || "Unregistered"}</strong></p><p><span>Location</span><strong>{[detailsSupplier.city, detailsSupplier.state, detailsSupplier.postalCode].filter(Boolean).join(", ") || "—"}</strong></p><p><span>Status</span><strong>{detailsSupplier.active ? "Active" : "Inactive"}</strong></p></div>
-            <div className="supplier-detail-address"><span>Address</span><p>{detailsSupplier.addressLine || "Not provided"}</p></div>
-            <div className="supplier-form-actions">{canManageSuppliers && <button type="button" className="supplier-secondary-button" onClick={() => { setDetailsSupplier(null); openEditForm(detailsSupplier); }}>Edit supplier</button>}{canManageSuppliers && <button type="button" className={`supplier-primary-button ${detailsSupplier.active ? "supplier-danger-button" : ""}`} onClick={() => { setDetailsSupplier(null); handleStatusChange(detailsSupplier); }}>{detailsSupplier.active ? "Deactivate" : "Reactivate"}</button>}</div>
+            <div className="supplier-form-heading"><div><h2 id="supplier-details-title">{detailsSupplier.name}</h2><p>{detailsSupplier.supplierCode || t("No supplier code")}</p></div><button type="button" className="supplier-secondary-button" onClick={() => setDetailsSupplier(null)}>{t("Close")}</button></div>
+            <div className="supplier-detail-grid"><p><span>{t("Contact person")}</span><strong>{detailsSupplier.contactPerson || "—"}</strong></p><p><span>{t("Phone")}</span><strong>{detailsSupplier.phone || "—"}</strong></p><p><span>{t("Email")}</span><strong>{detailsSupplier.email || "—"}</strong></p><p><span>{t("GSTIN")}</span><strong>{detailsSupplier.gstin || t("Unregistered")}</strong></p><p><span>{t("Location")}</span><strong>{[detailsSupplier.city, detailsSupplier.state, detailsSupplier.postalCode].filter(Boolean).join(", ") || "—"}</strong></p><p><span>{t("Status")}</span><strong>{detailsSupplier.active ? t("Active") : t("Inactive")}</strong></p></div>
+            <div className="supplier-detail-address"><span>{t("Address")}</span><p>{detailsSupplier.addressLine || t("Not provided")}</p></div>
+            <div className="supplier-form-actions">{canManageSuppliers && <button type="button" className="supplier-secondary-button" onClick={() => { setDetailsSupplier(null); openEditForm(detailsSupplier); }}>{t("Edit supplier")}</button>}{canManageSuppliers && <button type="button" className={`supplier-primary-button ${detailsSupplier.active ? "supplier-danger-button" : ""}`} onClick={() => { setDetailsSupplier(null); handleStatusChange(detailsSupplier); }}>{detailsSupplier.active ? t("Deactivate") : t("Reactivate")}</button>}</div>
           </section>
         </div>
       )}

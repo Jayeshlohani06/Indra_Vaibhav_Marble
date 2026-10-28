@@ -17,3 +17,7 @@ export async function getPurchaseBalance(purchaseId) {
     `/api/purchases/${purchaseId}/payments/balance`
   );
 }
+
+export async function changePurchasePaymentMethod(purchaseId, paymentId, paymentMethod, reason) {
+  return httpClient.post(`/api/purchases/${purchaseId}/payments/${paymentId}/method`, { paymentMethod, reason });
+}

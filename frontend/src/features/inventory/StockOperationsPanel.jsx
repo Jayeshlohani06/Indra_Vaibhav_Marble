@@ -6,6 +6,9 @@ import {
 } from "../../services/api/inventoryApi";
 import "./StockOperationsPanel.css";
 import { label } from "../../utils/format";
+import { t } from "../../i18n";
+import Skeleton from "../../components/Skeleton";
+import EmptyState from "../../components/EmptyState";
 
 const EMPTY_FORM = {
   movementType: "PURCHASE",
@@ -16,7 +19,7 @@ const EMPTY_FORM = {
 };
 
 function getErrorMessage(error) {
-  return error?.message || "Something went wrong. Please try again.";
+  return error?.message || t("Something went wrong. Please try again.");
 }
 
 export default function StockOperationsPanel({ products = [], units = [], onStockUpdated }) {
@@ -75,7 +78,7 @@ export default function StockOperationsPanel({ products = [], units = [], onStoc
       const response = await getProductStockMovements(id);
       setMovements(Array.isArray(response) ? response : []);
     } catch (err) {
-      setError(`Could not load movement history: ${getErrorMessage(err)}`);
+      setError(t("Could not load movement history: {error}", { error: getErrorMessage(err) }));
       setMovements([]);
     } finally {
       setLoadingHistory(false);
@@ -110,7 +113,7 @@ export default function StockOperationsPanel({ products = [], units = [], onStoc
     setSuccess("");
 
     if (!selectedProduct) {
-      setError("Please select an active product.");
+      setError(t("Please select an active product."));
       return;
     }
 
@@ -118,17 +121,17 @@ export default function StockOperationsPanel({ products = [], units = [], onStoc
     const secondaryQuantity = Number(form.secondaryQuantity);
 
     if (!Number.isFinite(quantity) || quantity <= 0) {
-      setError("Enter a quantity greater than zero.");
+      setError(t("Enter a quantity greater than zero."));
       return;
     }
     if (selectedProduct.secondaryUnitId != null
       && (!Number.isFinite(secondaryQuantity) || secondaryQuantity <= 0)) {
-      setError("Enter a positive secondary quantity for this dual-unit product.");
+      setError(t("Enter a positive secondary quantity for this dual-unit product."));
       return;
     }
 
     if (form.movementType === "ADJUSTMENT" && !form.notes.trim()) {
-      setError("Enter a reason for the stock adjustment.");
+      setError(t("Enter a reason for the stock adjustment."));
       return;
     }
 
@@ -150,7 +153,7 @@ export default function StockOperationsPanel({ products = [], units = [], onStoc
         notes: form.notes.trim() || null,
       });
 
-      setSuccess("Stock movement recorded successfully.");
+      setSuccess(t("Stock movement recorded successfully."));
       setForm(EMPTY_FORM);
 
       await loadHistory(productId);
@@ -178,8 +181,8 @@ export default function StockOperationsPanel({ products = [], units = [], onStoc
   if (!activeProducts.length) {
     return (
       <section className="stock-operations-panel">
-        <h2>Stock Operations</h2>
-        <p>No active products are available for stock operations.</p>
+        <h2>{t("Stock Operations")}</h2>
+        <p>{t("No active products are available for stock operations.")}</p>
       </section>
     );
   }
@@ -188,13 +191,13 @@ export default function StockOperationsPanel({ products = [], units = [], onStoc
     <section className="stock-operations-panel">
       <div className="stock-operations-heading">
         <div>
-          <h2>Stock Operations</h2>
-          <p>Record purchases, sales and stock adjustments.</p>
+          <h2>{t("Stock Operations")}</h2>
+          <p>{t("Record purchases, sales and stock adjustments.")}</p>
         </div>
       </div>
 
       <div className="stock-product-selector">
-        <label htmlFor="stock-product">Select product</label>
+        <label htmlFor="stock-product">{t("Select product")}</label>
         <select
           id="stock-product"
           value={productId}
@@ -208,7 +211,7 @@ export default function StockOperationsPanel({ products = [], units = [], onStoc
             <option key={product.id} value={product.id}>
               {product.productCode || product.code || product.id}
               {" — "}
-              {product.productName || product.name || "Unnamed product"}
+              {product.productName || product.name || t("Unnamed product")}
             </option>
           ))}
         </select>
@@ -216,7 +219,7 @@ export default function StockOperationsPanel({ products = [], units = [], onStoc
 
       {selectedProduct && (
         <div className="stock-current-balance">
-          <span>Current stock</span>
+          <span>{t("Current stock")}</span>
           <strong>
             {stockQuantity.toLocaleString(undefined, {
               maximumFractionDigits: 3,
@@ -229,7 +232,7 @@ export default function StockOperationsPanel({ products = [], units = [], onStoc
       <form className="stock-movement-form" onSubmit={handleSubmit}>
         <div className="stock-form-grid">
           <div className="stock-form-field">
-            <label htmlFor="movementType">What happened?</label>
+            <label htmlFor="movementType">{t("What happened?")}</label>
             <select
               id="movementType"
               name="movementType"
@@ -237,14 +240,14 @@ export default function StockOperationsPanel({ products = [], units = [], onStoc
               onChange={handleMovementTypeChange}
               disabled={submitting}
             >
-              <option value="PURCHASE">Stock came in</option>
-              <option value="SALE">Stock went out</option>
-              <option value="ADJUSTMENT">Correction after counting</option>
+              <option value="PURCHASE">{t("Stock came in")}</option>
+              <option value="SALE">{t("Stock went out")}</option>
+              <option value="ADJUSTMENT">{t("Correction after counting")}</option>
             </select>
           </div>
 
           <div className="stock-form-field">
-            <label htmlFor="stock-quantity">Quantity</label>
+            <label htmlFor="stock-quantity">{t("Quantity")}</label>
             <input
               id="stock-quantity"
               name="quantity"
@@ -254,14 +257,14 @@ export default function StockOperationsPanel({ products = [], units = [], onStoc
               step="0.001"
               value={form.quantity}
               onChange={updateField}
-              placeholder="Enter quantity"
+              placeholder={t("Enter quantity")}
               required
               disabled={submitting}
             />
           </div>
 
           {secondaryUnit && <div className="stock-form-field">
-            <label htmlFor="secondary-stock-quantity">Quantity ({secondaryUnit})</label>
+            <label htmlFor="secondary-stock-quantity">{t("Quantity ({unit})", { unit: secondaryUnit })}</label>
             <input
               id="secondary-stock-quantity"
               name="secondaryQuantity"
@@ -270,14 +273,14 @@ export default function StockOperationsPanel({ products = [], units = [], onStoc
               step="0.001"
               value={form.secondaryQuantity}
               onChange={updateField}
-              placeholder={`Enter ${secondaryUnit} quantity`}
+              placeholder={t("Enter {unit} quantity", { unit: secondaryUnit })}
               required
               disabled={submitting}
             />
           </div>}
 
           <div className="stock-form-field">
-            <label htmlFor="referenceNumber">Reference number (optional)</label>
+            <label htmlFor="referenceNumber">{t("Reference number (optional)")}</label>
             <input
               id="referenceNumber"
               name="referenceNumber"
@@ -285,7 +288,7 @@ export default function StockOperationsPanel({ products = [], units = [], onStoc
               maxLength="50"
               value={form.referenceNumber}
               onChange={updateField}
-              placeholder="e.g. PUR-001"
+              placeholder={t("e.g. PUR-001")}
               disabled={submitting}
             />
           </div>
@@ -293,8 +296,8 @@ export default function StockOperationsPanel({ products = [], units = [], onStoc
           <div className="stock-form-field">
             <label htmlFor="stock-notes">
               {form.movementType === "ADJUSTMENT"
-                ? "Adjustment reason (required)"
-                : "Notes (optional)"}
+                ? t("Adjustment reason (required)")
+                : t("Notes (optional)")}
             </label>
             <textarea
               id="stock-notes"
@@ -305,8 +308,8 @@ export default function StockOperationsPanel({ products = [], units = [], onStoc
               onChange={updateField}
               placeholder={
                 form.movementType === "ADJUSTMENT"
-                  ? "Explain why the stock is changing"
-                  : "Optional transaction details"
+                  ? t("Explain why the stock is changing")
+                  : t("Optional transaction details")
               }
               required={form.movementType === "ADJUSTMENT"}
               disabled={submitting}
@@ -331,45 +334,43 @@ export default function StockOperationsPanel({ products = [], units = [], onStoc
           type="submit"
           disabled={submitting || !selectedProduct}
         >
-          {submitting ? "Saving..." : "Save stock change"}
+          {submitting ? t("Saving...") : t("Save stock change")}
         </button>
 
         <p className="stock-form-note">
-          Use this only for changes that did not come from a bill or a supplier
-          purchase, for example after counting the stock. Bills and purchases
-          update stock by themselves.
+          {t("Use this only for changes that did not come from a bill or a supplier purchase, for example after counting the stock. Bills and purchases update stock by themselves.")}
         </p>
       </form>
 
       <div className="stock-history-section">
         <div className="stock-history-heading">
-          <h3>Movement History</h3>
+          <h3>{t("Movement History")}</h3>
           <button
             type="button"
             className="stock-refresh-button"
             onClick={() => loadHistory(productId)}
             disabled={loadingHistory}
           >
-            {loadingHistory ? "Loading..." : "Refresh"}
+            {loadingHistory ? t("Loading...") : t("Refresh")}
           </button>
         </div>
 
         {loadingHistory ? (
-          <p>Loading movement history...</p>
+          <Skeleton label={t("Loading movement history...")} rows={3} />
         ) : movements.length === 0 ? (
-          <p>No stock movements recorded for this product yet.</p>
+          <EmptyState text={t("No stock movements recorded for this product yet.")} />
         ) : (
           <div className="stock-history-table-wrapper">
             <table className="stock-history-table">
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Type</th>
-                  <th>Change</th>
-                  <th>Before</th>
-                  <th>After</th>
-                  <th>Reference</th>
-                  <th>Notes</th>
+                  <th>{t("Date")}</th>
+                  <th>{t("Type")}</th>
+                  <th>{t("Change")}</th>
+                  <th>{t("Before")}</th>
+                  <th>{t("After")}</th>
+                  <th>{t("Reference")}</th>
+                  <th>{t("Notes")}</th>
                 </tr>
               </thead>
               <tbody>

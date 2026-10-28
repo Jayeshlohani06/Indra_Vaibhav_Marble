@@ -8,8 +8,11 @@ import {
 import { getProducts, getMeasurementUnits } from "../../services/api/inventoryApi";
 
 import "./StockMovementsPage.css";
+import Skeleton from "../../components/Skeleton";
+import EmptyState from "../../components/EmptyState";
 import { usePermission } from "../../auth/PermissionsContext";
 import { label } from "../../utils/format";
+import { t } from "../../i18n";
 
 const PAGE_SIZE = 25;
 
@@ -95,7 +98,7 @@ function StockMovementsPage() {
       setProducts(Array.isArray(productData) ? productData : []);
       setUnits(Array.isArray(unitData) ? unitData : []);
     } catch (err) {
-      setError(err.message || "Unable to load stock movement history.");
+      setError(err.message || t("Unable to load stock movement history."));
     } finally {
       setLoading(false);
     }
@@ -265,7 +268,7 @@ function StockMovementsPage() {
   async function handleReverse() {
     if (!selectedMovement) return;
     if (!reversalNotes.trim()) {
-      setError("Enter a reason for the reversal.");
+      setError(t("Enter a reason for the reversal."));
       return;
     }
     try {
@@ -275,7 +278,7 @@ function StockMovementsPage() {
       setReversalNotes("");
       await loadMovements();
     } catch (err) {
-      setError(err.message || "Unable to reverse this movement.");
+      setError(err.message || t("Unable to reverse this movement."));
     } finally {
       setReversing(false);
     }
@@ -285,11 +288,11 @@ function StockMovementsPage() {
     event.preventDefault();
     const quantity = Number(adjustment.quantity);
     if (!adjustment.productId || !Number.isFinite(quantity) || quantity === 0) {
-      setError("Select a product and enter a non-zero adjustment.");
+      setError(t("Select a product and enter a non-zero adjustment."));
       return;
     }
     if (!adjustment.notes.trim()) {
-      setError("Enter a reason for the adjustment.");
+      setError(t("Enter a reason for the adjustment."));
       return;
     }
     try {
@@ -304,7 +307,7 @@ function StockMovementsPage() {
       setAdjustment({ productId: "", quantity: "", notes: "" });
       await loadMovements();
     } catch (err) {
-      setError(err.message || "Unable to record adjustment.");
+      setError(err.message || t("Unable to record adjustment."));
     }
   }
 
@@ -312,83 +315,83 @@ function StockMovementsPage() {
     <section className="stock-movements-page">
       <div className="stock-movements-header">
         <p className="stock-movements-description">
-          Every time stock went in or out, and why.
+          {t("Every time stock went in or out, and why.")}
         </p>
         <div className="stock-movements-header-actions">
           {canManageInventory && <button type="button" className="stock-movements-primary" onClick={() => setShowAdjustment(true)}>
-            Correct stock
+            {t("Correct stock")}
           </button>}
           <button type="button" className="stock-movements-refresh" onClick={loadMovements} disabled={loading}>
-            {loading ? "Loading..." : "Refresh"}
+            {loading ? t("Loading...") : t("Refresh")}
           </button>
           <button type="button" className="stock-movements-secondary" onClick={exportCsv} disabled={!filteredMovements.length}>
-            Export CSV
+            {t("Export CSV")}
           </button>
         </div>
       </div>
 
       <div className="stock-movements-stats">
-        <article><span>Times stock came in</span><strong>{metrics.received}</strong></article>
-        <article><span>Times stock was sold</span><strong>{metrics.sold}</strong></article>
-        <article><span>Manual corrections</span><strong>{metrics.adjustments + metrics.reversals}</strong></article>
-        <article><span>Products affected</span><strong>{metrics.products.size}</strong></article>
+        <article><span>{t("Times stock came in")}</span><strong>{metrics.received}</strong></article>
+        <article><span>{t("Times stock was sold")}</span><strong>{metrics.sold}</strong></article>
+        <article><span>{t("Manual corrections")}</span><strong>{metrics.adjustments + metrics.reversals}</strong></article>
+        <article><span>{t("Products affected")}</span><strong>{metrics.products.size}</strong></article>
       </div>
 
       <div className="stock-movements-toolbar">
-        <input type="search" aria-label="Search stock movements" placeholder="Search product or bill number" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} />
-        <select aria-label="Filter by product" value={productId} onChange={(event) => { setProductId(event.target.value); setPage(1); }}>
-          <option value="ALL">All products</option>
+        <input type="search" aria-label={t("Search stock movements")} placeholder={t("Search product or bill number")} value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} />
+        <select aria-label={t("Filter by product")} value={productId} onChange={(event) => { setProductId(event.target.value); setPage(1); }}>
+          <option value="ALL">{t("All products")}</option>
           {products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
         </select>
-        <select aria-label="Filter by movement type" value={movementType} onChange={(event) => { setMovementType(event.target.value); setPage(1); }}>
-          <option value="ALL">In and out</option>
-          <option value="SALE">Sold</option>
-          <option value="PURCHASE">Came in</option>
-          <option value="ADJUSTMENT">Manual corrections</option>
-          <option value="REVERSAL">Undone entries</option>
-          <option value="RETURN">Returned by customers</option>
+        <select aria-label={t("Filter by movement type")} value={movementType} onChange={(event) => { setMovementType(event.target.value); setPage(1); }}>
+          <option value="ALL">{t("In and out")}</option>
+          <option value="SALE">{t("Sold")}</option>
+          <option value="PURCHASE">{t("Came in")}</option>
+          <option value="ADJUSTMENT">{t("Manual corrections")}</option>
+          <option value="REVERSAL">{t("Undone entries")}</option>
+          <option value="RETURN">{t("Returned by customers")}</option>
         </select>
-        <select aria-label="Filter by source" value={referenceType} onChange={(event) => { setReferenceType(event.target.value); setPage(1); }}>
-          <option value="ALL">From anywhere</option>
-          <option value="SALES_ORDER">From bills</option>
-          <option value="SALES_RETURN">From returns</option>
-          <option value="PURCHASE">From purchases</option>
-          <option value="MANUAL">Entered by hand</option>
-          <option value="REVERSAL">Undone entries</option>
+        <select aria-label={t("Filter by source")} value={referenceType} onChange={(event) => { setReferenceType(event.target.value); setPage(1); }}>
+          <option value="ALL">{t("From anywhere")}</option>
+          <option value="SALES_ORDER">{t("From bills")}</option>
+          <option value="SALES_RETURN">{t("From returns")}</option>
+          <option value="PURCHASE">{t("From purchases")}</option>
+          <option value="MANUAL">{t("Entered by hand")}</option>
+          <option value="REVERSAL">{t("Undone entries")}</option>
         </select>
-        <select aria-label="Filter by date" value={dateRange} onChange={(event) => { setDateRange(event.target.value); setPage(1); }}>
-          <option value="ALL">All dates</option>
-          <option value="TODAY">Today</option>
-          <option value="WEEK">Last 7 days</option>
-          <option value="MONTH">Last 30 days</option>
+        <select aria-label={t("Filter by date")} value={dateRange} onChange={(event) => { setDateRange(event.target.value); setPage(1); }}>
+          <option value="ALL">{t("All dates")}</option>
+          <option value="TODAY">{t("Today")}</option>
+          <option value="WEEK">{t("Last 7 days")}</option>
+          <option value="MONTH">{t("Last 30 days")}</option>
         </select>
-        <select aria-label="Sort movements" value={sort} onChange={(event) => setSort(event.target.value)}>
-          <option value="date-desc">Newest first</option>
-          <option value="date-asc">Oldest first</option>
-          <option value="product">Product A–Z</option>
-          <option value="quantity">Quantity change</option>
+        <select aria-label={t("Sort movements")} value={sort} onChange={(event) => setSort(event.target.value)}>
+          <option value="date-desc">{t("Newest first")}</option>
+          <option value="date-asc">{t("Oldest first")}</option>
+          <option value="product">{t("Product A–Z")}</option>
+          <option value="quantity">{t("Quantity change")}</option>
         </select>
-        <button type="button" className="stock-movements-clear" onClick={clearFilters}>Clear filters</button>
+        <button type="button" className="stock-movements-clear" onClick={clearFilters}>{t("Clear filters")}</button>
       </div>
 
-      {error && <div className="stock-movements-error" role="alert"><p>{error}</p><button type="button" onClick={() => setError("")}>Dismiss</button></div>}
+      {error && <div className="stock-movements-error" role="alert"><p>{error}</p><button type="button" onClick={() => setError("")}>{t("Dismiss")}</button></div>}
 
-      {loading ? <div className="stock-movements-message">Loading stock movement history...</div> : !filteredMovements.length ? <div className="stock-movements-message">{movements.length ? "No movements match your filters." : "No stock movements have been recorded yet."}</div> : (
+      {loading ? <Skeleton label={t("Loading stock movement history...")} rows={6} /> : !filteredMovements.length ? (movements.length ? <EmptyState icon="search" title={t("No movements match your filters.")} /> : <EmptyState text={t("No stock movements have been recorded yet.")} />) : (
         <>
           <div className="stock-movements-table-wrapper has-mobile-cards">
             <table className="stock-movements-table desktop-table">
-              <thead><tr><th>Date</th><th>Product</th><th>What happened</th><th>Change</th><th>Stock after</th><th>From</th><th><span className="visually-hidden">Actions</span></th></tr></thead>
+              <thead><tr><th>{t("Date")}</th><th>{t("Product")}</th><th>{t("What happened")}</th><th>{t("Change")}</th><th>{t("Stock after")}</th><th>{t("Source")}</th><th><span className="visually-hidden">{t("Actions")}</span></th></tr></thead>
               <tbody>
                 {visibleMovements.map((movement) => {
                   const product = productMap.get(String(movement.productId));
                   return <tr key={movement.id} onClick={() => setSelectedMovement(movement)}>
                     <td>{formatDate(movement.createdAt)}</td>
-                    <td><strong>{product?.name || `Product #${movement.productId}`}</strong><small>{product?.productCode || `ID: ${movement.productId}`}</small></td>
+                    <td><strong>{product?.name || t("Product #{id}", { id: movement.productId })}</strong><small>{product?.productCode || `ID: ${movement.productId}`}</small></td>
                     <td><span className={`stock-movement-badge stock-movement-${String(movement.movementType || "unknown").toLowerCase()}`}>{label(movement.movementType)}</span></td>
                     <td className={Number(movement.quantityChange) < 0 ? "stock-quantity-negative" : "stock-quantity-positive"}>{Number(movement.quantityChange) > 0 ? "+" : ""}{formatMovementQuantity(movement, movement.quantityChange, movement.secondaryQuantityChange)}</td>
                     <td>{formatMovementQuantity(movement, movement.stockAfter, movement.secondaryStockAfter)}</td>
-                    <td><strong>{movement.referenceNumber || "Entered by hand"}</strong><small>{label(movement.referenceType)}</small></td>
-                    <td><button type="button" className="stock-row-action" onClick={(event) => { event.stopPropagation(); setSelectedMovement(movement); }}>View</button></td>
+                    <td><strong>{movement.referenceNumber || t("Entered by hand")}</strong><small>{label(movement.referenceType)}</small></td>
+                    <td><button type="button" className="stock-row-action" onClick={(event) => { event.stopPropagation(); setSelectedMovement(movement); }}>{t("View")}</button></td>
                   </tr>;
                 })}
               </tbody>
@@ -401,13 +404,13 @@ function StockMovementsPage() {
                 return (
                   <button type="button" key={movement.id} className="mobile-card" onClick={() => setSelectedMovement(movement)}>
                     <span className="mobile-card__row">
-                      <span className="mobile-card__title">{product?.name || `Product #${movement.productId}`}</span>
+                      <span className="mobile-card__title">{product?.name || t("Product #{id}", { id: movement.productId })}</span>
                       <span className={negative ? "stock-quantity-negative" : "stock-quantity-positive"}>
                         {negative ? "" : "+"}{formatMovementQuantity(movement, movement.quantityChange, movement.secondaryQuantityChange)}
                       </span>
                     </span>
                     <span className="mobile-card__row">
-                      <span className="mobile-card__meta">{formatDate(movement.createdAt)} · {movement.referenceNumber || "Entered by hand"}</span>
+                      <span className="mobile-card__meta">{formatDate(movement.createdAt)} · {movement.referenceNumber || t("Entered by hand")}</span>
                       <span className={`stock-movement-badge stock-movement-${String(movement.movementType || "unknown").toLowerCase()}`}>{label(movement.movementType)}</span>
                     </span>
                   </button>
@@ -416,36 +419,36 @@ function StockMovementsPage() {
             </div>
           </div>
           <div className="stock-movements-pagination">
-            <span>Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filteredMovements.length)} of {filteredMovements.length}</span>
-            <div><button type="button" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>Previous</button><strong>Page {page} of {pageCount}</strong><button type="button" disabled={page >= pageCount} onClick={() => setPage((current) => current + 1)}>Next</button></div>
+            <span>{t("Showing {from}–{to} of {total}", { from: (page - 1) * PAGE_SIZE + 1, to: Math.min(page * PAGE_SIZE, filteredMovements.length), total: filteredMovements.length })}</span>
+            <div><button type="button" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>{t("Previous")}</button><strong>{t("Page {page} of {pages}", { page, pages: pageCount })}</strong><button type="button" disabled={page >= pageCount} onClick={() => setPage((current) => current + 1)}>{t("Next")}</button></div>
           </div>
         </>
       )}
 
       {selectedMovement && <div className="stock-movement-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setSelectedMovement(null)}>
         <section className="stock-movement-modal" role="dialog" aria-modal="true" aria-labelledby="movement-detail-heading">
-          <div className="stock-movement-modal-heading"><div><h3 id="movement-detail-heading">{label(selectedMovement.movementType)}</h3><p>{formatDate(selectedMovement.createdAt)}</p></div><button type="button" onClick={() => setSelectedMovement(null)} aria-label="Close details">×</button></div>
+          <div className="stock-movement-modal-heading"><div><h3 id="movement-detail-heading">{label(selectedMovement.movementType)}</h3><p>{formatDate(selectedMovement.createdAt)}</p></div><button type="button" onClick={() => setSelectedMovement(null)} aria-label={t("Close details")}>×</button></div>
           <div className="stock-movement-detail-grid">
-            <p><span>Product</span><strong>{productMap.get(String(selectedMovement.productId))?.name || `Product #${selectedMovement.productId}`}</strong></p>
-            <p><span>Quantity change</span><strong>{formatMovementQuantity(selectedMovement, selectedMovement.quantityChange, selectedMovement.secondaryQuantityChange)}</strong></p>
-            <p><span>Stock before</span><strong>{formatMovementQuantity(selectedMovement, selectedMovement.stockBefore, selectedMovement.secondaryStockBefore)}</strong></p>
-            <p><span>Stock after</span><strong>{formatMovementQuantity(selectedMovement, selectedMovement.stockAfter, selectedMovement.secondaryStockAfter)}</strong></p>
-            <p><span>Bill or purchase no.</span><strong>{selectedMovement.referenceNumber || "Entered by hand"}</strong></p>
-            <p><span>From</span><strong>{label(selectedMovement.referenceType)}</strong></p>
+            <p><span>{t("Product")}</span><strong>{productMap.get(String(selectedMovement.productId))?.name || t("Product #{id}", { id: selectedMovement.productId })}</strong></p>
+            <p><span>{t("Quantity change")}</span><strong>{formatMovementQuantity(selectedMovement, selectedMovement.quantityChange, selectedMovement.secondaryQuantityChange)}</strong></p>
+            <p><span>{t("Stock before")}</span><strong>{formatMovementQuantity(selectedMovement, selectedMovement.stockBefore, selectedMovement.secondaryStockBefore)}</strong></p>
+            <p><span>{t("Stock after")}</span><strong>{formatMovementQuantity(selectedMovement, selectedMovement.stockAfter, selectedMovement.secondaryStockAfter)}</strong></p>
+            <p><span>{t("Bill or purchase no.")}</span><strong>{selectedMovement.referenceNumber || "Entered by hand"}</strong></p>
+            <p><span>{t("Source")}</span><strong>{label(selectedMovement.referenceType)}</strong></p>
           </div>
-          <div className="stock-movement-notes"><span>Notes</span><p>{selectedMovement.notes || "No notes recorded."}</p></div>
-          {canManageInventory && selectedMovement.movementType !== "REVERSAL" && selectedMovement.referenceType !== "SALES_ORDER" && selectedMovement.referenceType !== "SALES_RETURN" && selectedMovement.referenceType !== "PURCHASE" && <div className="stock-movement-reversal"><label>Reversal reason<input value={reversalNotes} onChange={(event) => setReversalNotes(event.target.value)} placeholder="Why should this movement be reversed?" /></label><button type="button" className="stock-movements-danger" onClick={handleReverse} disabled={reversing}>{reversing ? "Reversing..." : "Reverse movement"}</button></div>}
+          <div className="stock-movement-notes"><span>{t("Notes")}</span><p>{selectedMovement.notes || t("No notes recorded.")}</p></div>
+          {canManageInventory && selectedMovement.movementType !== "REVERSAL" && selectedMovement.referenceType !== "SALES_ORDER" && selectedMovement.referenceType !== "SALES_RETURN" && selectedMovement.referenceType !== "PURCHASE" && <div className="stock-movement-reversal"><label>{t("Reversal reason")}<input value={reversalNotes} onChange={(event) => setReversalNotes(event.target.value)} placeholder={t("Why should this movement be reversed?")} /></label><button type="button" className="stock-movements-danger" onClick={handleReverse} disabled={reversing}>{reversing ? t("Reversing...") : t("Reverse movement")}</button></div>}
         </section>
       </div>}
 
       {showAdjustment && <div className="stock-movement-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setShowAdjustment(false)}>
         <section className="stock-movement-modal" role="dialog" aria-modal="true" aria-labelledby="adjustment-heading">
-          <div className="stock-movement-modal-heading"><div><h3 id="adjustment-heading">Record stock adjustment</h3><p>Use this for a physical count or correction.</p></div><button type="button" onClick={() => setShowAdjustment(false)} aria-label="Close adjustment">×</button></div>
+          <div className="stock-movement-modal-heading"><div><h3 id="adjustment-heading">{t("Record stock adjustment")}</h3><p>{t("Use this for a physical count or correction.")}</p></div><button type="button" onClick={() => setShowAdjustment(false)} aria-label={t("Close adjustment")}>×</button></div>
           <form className="stock-adjustment-form" onSubmit={handleAdjustment}>
-            <label>Product<select value={adjustment.productId} onChange={(event) => setAdjustment({ ...adjustment, productId: event.target.value })} required><option value="">Select product</option>{products.filter((product) => product.active !== false).map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select></label>
-            <label>Quantity change<input type="number" step="0.001" value={adjustment.quantity} onChange={(event) => setAdjustment({ ...adjustment, quantity: event.target.value })} placeholder="Use negative quantity to reduce stock" required /></label>
-            <label>Reason<textarea value={adjustment.notes} onChange={(event) => setAdjustment({ ...adjustment, notes: event.target.value })} rows="3" required /></label>
-            <button type="submit" className="stock-movements-primary">Record adjustment</button>
+            <label>{t("Product")}<select value={adjustment.productId} onChange={(event) => setAdjustment({ ...adjustment, productId: event.target.value })} required><option value="">{t("Select product")}</option>{products.filter((product) => product.active !== false).map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select></label>
+            <label>{t("Quantity change")}<input type="number" step="0.001" value={adjustment.quantity} onChange={(event) => setAdjustment({ ...adjustment, quantity: event.target.value })} placeholder={t("Use negative quantity to reduce stock")} required /></label>
+            <label>{t("Reason")}<textarea value={adjustment.notes} onChange={(event) => setAdjustment({ ...adjustment, notes: event.target.value })} rows="3" required /></label>
+            <button type="submit" className="stock-movements-primary">{t("Record adjustment")}</button>
           </form>
         </section>
       </div>}

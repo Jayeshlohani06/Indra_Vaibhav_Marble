@@ -39,8 +39,10 @@ public class CashReportService {
             long count, BigDecimal total) {
     }
 
+    /** {@code balance} is monthly salary minus salary and advances paid; null when no monthly salary is set. */
     public record StaffPaymentRow(Long staffMemberId, String staffName, LocalDate salaryPeriod,
-            BigDecimal salary, BigDecimal advances, BigDecimal otherPayments, BigDecimal total) {
+            BigDecimal salary, BigDecimal advances, BigDecimal otherPayments, BigDecimal total,
+            BigDecimal monthlySalary, BigDecimal balance) {
     }
 
     public record AuditRow(Long id, String entityType, Long entityId, String action, String actor,
@@ -82,7 +84,7 @@ public class CashReportService {
         LocalDate[] range = range(from, to);
         @SuppressWarnings("unchecked")
         List<Object[]> rows = entityManager.createNativeQuery("""
-                SELECT sm.id, sm.name, e.salary_period,
+                SELECT sm.id, sm.name, e.salary_period, sm.monthly_salary,
                        COALESCE(SUM(e.amount) FILTER (WHERE c.staff_payment_type = 'SALARY'), 0),
                        COALESCE(SUM(e.amount) FILTER (WHERE c.staff_payment_type = 'ADVANCE'), 0),
                        COALESCE(SUM(e.amount) FILTER (WHERE c.staff_payment_type IS NULL), 0),
@@ -91,12 +93,19 @@ public class CashReportService {
                 JOIN staff_members sm ON sm.id = e.staff_member_id
                 LEFT JOIN expense_categories c ON lower(c.name) = lower(e.category)
                 WHERE e.status = 'ACTIVE' AND e.expense_date BETWEEN :from AND :to
-                GROUP BY sm.id, sm.name, e.salary_period
+                GROUP BY sm.id, sm.name, e.salary_period, sm.monthly_salary
                 ORDER BY sm.name, e.salary_period NULLS LAST
                 """).setParameter("from", range[0]).setParameter("to", range[1]).getResultList();
-        return rows.stream().map(row -> new StaffPaymentRow(((Number) row[0]).longValue(),
-                (String) row[1], row[2] instanceof java.sql.Date date ? date.toLocalDate() : (LocalDate) row[2],
-                (BigDecimal) row[3], (BigDecimal) row[4], (BigDecimal) row[5], (BigDecimal) row[6])).toList();
+        return rows.stream().map(row -> {
+            LocalDate period = row[2] instanceof java.sql.Date date ? date.toLocalDate() : (LocalDate) row[2];
+            BigDecimal monthly = (BigDecimal) row[3];
+            BigDecimal salary = (BigDecimal) row[4];
+            BigDecimal advances = (BigDecimal) row[5];
+            BigDecimal balance = monthly == null || period == null ? null
+                    : monthly.subtract(salary).subtract(advances);
+            return new StaffPaymentRow(((Number) row[0]).longValue(), (String) row[1], period,
+                    salary, advances, (BigDecimal) row[6], (BigDecimal) row[7], monthly, balance);
+        }).toList();
     }
 
     public List<AuditRow> recentAudit() {

@@ -22,3 +22,11 @@ export async function getPaymentDateSummary() {
   return httpClient.get("/api/reports/payment-date-summary");
 }
 
+
+export async function getPaymentReminders(minDays = 30) {
+  return httpClient.get(`/api/reports/payment-reminders?minDays=${encodeURIComponent(minDays)}`);
+}
+
+export async function getMonthlyProfit(from, to) {
+  return httpClient.get(`/api/reports/monthly-profit?${new URLSearchParams({ from, to }).toString()}`);
+}

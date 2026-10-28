@@ -2,6 +2,7 @@ package com.indravaibhavmarble.cash.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -25,13 +26,32 @@ public final class CashSessionDtos {
      * @param requestId    makes a retried close (after a network error) safe
      */
     public record CloseRequest(List<CountLine> counts, String note, BigDecimal expectedCash,
-            UUID requestId) {
+            UUID requestId, List<DigitalTotal> digitalTotals) {
+
+        public CloseRequest(List<CountLine> counts, String note, BigDecimal expectedCash, UUID requestId) {
+            this(counts, note, expectedCash, requestId, null);
+        }
+    }
+
+    /** What the UPI app or bank statement showed as received for the day. */
+    public record DigitalTotal(String paymentMethod, BigDecimal amount) {
+    }
+
+    /** Received per the app's payments vs. what the person read from the UPI app / bank. */
+    public record DigitalCheck(String paymentMethod, BigDecimal recorded, BigDecimal reported,
+            BigDecimal difference) {
     }
 
     public record ReopenRequest(String reason) {
     }
 
-    public record SettingsRequest(BigDecimal approvalThreshold) {
+    /** Fields left null keep their current value. */
+    public record SettingsRequest(BigDecimal approvalThreshold, String ownerWhatsapp,
+            LocalTime closingReminderTime, BigDecimal largeExpenseThreshold) {
+    }
+
+    public record SettingsResponse(BigDecimal approvalThreshold, String ownerWhatsapp,
+            LocalTime closingReminderTime, BigDecimal largeExpenseThreshold) {
     }
 
     public record SessionResponse(
@@ -63,7 +83,8 @@ public final class CashSessionDtos {
             SessionResponse session,
             CashSummary summary,
             List<LedgerLine> lines,
-            List<AuditEntry> history
+            List<AuditEntry> history,
+            List<DigitalCheck> digitalChecks
     ) {
     }
 
@@ -75,7 +96,9 @@ public final class CashSessionDtos {
             SessionResponse lastClosed,
             BigDecimal suggestedOpening,
             BigDecimal approvalThreshold,
-            List<BigDecimal> denominations
+            List<BigDecimal> denominations,
+            SettingsResponse settings,
+            boolean closingReminderDue
     ) {
     }
 }

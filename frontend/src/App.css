@@ -152,7 +152,7 @@
   padding: 10px 12px 10px 24px;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-panel);
-  background: linear-gradient(160deg, rgb(255 255 255 / 86%), rgb(255 255 255 / 70%));
+  background: linear-gradient(160deg, light-dark(rgb(255 255 255 / 86%), rgb(28 25 22 / 86%)), light-dark(rgb(255 255 255 / 70%), rgb(28 25 22 / 70%)));
   box-shadow: var(--shadow-soft);
 }
 
@@ -180,7 +180,7 @@
   background: var(--bronze);
   box-shadow: var(--bronze-shadow);
   color: #fff;
-  text-shadow: 0 -1px 0 rgb(0 0 0 / 30%);
+  text-shadow: 0 -1px 0 light-dark(rgb(0 0 0 / 30%), rgb(0 0 0 / 60%));
   font-size: var(--text-base);
   font-weight: 700;
 }
@@ -206,11 +206,11 @@
   height: var(--control-height-sm);
   margin-left: 8px;
   padding: 0 14px;
-  border: 1px solid #e3dbcf;
+  border: 1px solid light-dark(#e3dbcf, #342e25);
   border-radius: var(--radius-sm);
   background: var(--neu-surface);
   box-shadow: var(--neu-raised);
-  color: #4a4238;
+  color: light-dark(#4a4238, #c6bcb0);
   font-size: var(--text-sm);
   font-weight: 600;
   cursor: pointer;
@@ -351,9 +351,9 @@
   .erp-more-logout {
     min-height: 48px;
     margin-top: 10px;
-    border: 1px solid #f3c6c6;
+    border: 1px solid light-dark(#f3c6c6, #4b2a2b);
     border-radius: 12px;
-    background: #fff;
+    background: light-dark(#fff, #1c1916);
     color: var(--color-danger);
     font: inherit;
     font-weight: 650;
@@ -394,4 +394,9 @@
   margin: 0;
   padding: 24px 4px;
   color: var(--color-text-muted);
+}
+
+/* English / Hindi switch in the top bar; stays visible on phones. */
+.erp-language-toggle {
+  margin-left: 4px;
 }

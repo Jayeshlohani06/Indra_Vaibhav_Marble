@@ -33,8 +33,9 @@ export function getCashDays({ from, to, withDifference } = {}) {
   return httpClient.get(withQuery("/api/cash/sessions", { from, to, withDifference }));
 }
 
-export function updateCashSettings(approvalThreshold) {
-  return httpClient.put("/api/cash/settings", { approvalThreshold });
+// Fields left out keep their current value.
+export function updateCashSettings(settings) {
+  return httpClient.put("/api/cash/settings", settings);
 }
 
 export function getCashMovements({ from, to } = {}) {
@@ -59,4 +60,8 @@ export function getExpenseCategoryReport({ from, to } = {}) {
 
 export function getStaffPaymentReport({ from, to } = {}) {
   return httpClient.get(withQuery("/api/cash/reports/staff-payments", { from, to }));
+}
+
+export function getCashActivity() {
+  return httpClient.get("/api/cash/reports/audit");
 }

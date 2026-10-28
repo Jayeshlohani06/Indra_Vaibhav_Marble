@@ -5,6 +5,9 @@ import static com.indravaibhavmarble.cash.service.CashPeriodGuard.DISPLAY_DATE;
 import com.indravaibhavmarble.cash.dto.CashSessionDtos.AuditEntry;
 import com.indravaibhavmarble.cash.dto.CashSessionDtos.CloseRequest;
 import com.indravaibhavmarble.cash.dto.CashSessionDtos.CountLine;
+import com.indravaibhavmarble.cash.dto.CashSessionDtos.DigitalCheck;
+import com.indravaibhavmarble.cash.dto.CashSessionDtos.DigitalTotal;
+import com.indravaibhavmarble.cash.dto.CashSessionDtos.SettingsResponse;
 import com.indravaibhavmarble.cash.dto.CashSessionDtos.OpenRequest;
 import com.indravaibhavmarble.cash.dto.CashSessionDtos.ReopenRequest;
 import com.indravaibhavmarble.cash.dto.CashSessionDtos.SessionDetail;
@@ -14,9 +17,11 @@ import com.indravaibhavmarble.cash.dto.CashSessionDtos.TodayResponse;
 import com.indravaibhavmarble.cash.dto.CashSummary;
 import com.indravaibhavmarble.cash.dto.LedgerLine;
 import com.indravaibhavmarble.cash.entity.CashCountLine;
+import com.indravaibhavmarble.cash.entity.CashDigitalCheck;
 import com.indravaibhavmarble.cash.entity.CashSession;
 import com.indravaibhavmarble.cash.entity.CashSettings;
 import com.indravaibhavmarble.cash.repository.CashCountLineRepository;
+import com.indravaibhavmarble.cash.repository.CashDigitalCheckRepository;
 import com.indravaibhavmarble.cash.repository.CashSessionRepository;
 import com.indravaibhavmarble.cash.repository.CashSettingsRepository;
 import com.indravaibhavmarble.cash.repository.FinancialAuditRepository;
@@ -26,10 +31,12 @@ import com.indravaibhavmarble.common.time.BusinessDate;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import org.springframework.security.access.AccessDeniedException;
@@ -62,15 +69,18 @@ public class CashSessionService {
     private final FinancialAuditRepository auditRepository;
     private final CashLedgerService ledgerService;
     private final FinancialAuditService auditService;
+    private final CashDigitalCheckRepository digitalCheckRepository;
 
     public CashSessionService(CashSessionRepository sessionRepository,
             CashCountLineRepository countRepository,
+            CashDigitalCheckRepository digitalCheckRepository,
             CashSettingsRepository settingsRepository,
             FinancialAuditRepository auditRepository,
             CashLedgerService ledgerService,
             FinancialAuditService auditService) {
         this.sessionRepository = sessionRepository;
         this.countRepository = countRepository;
+        this.digitalCheckRepository = digitalCheckRepository;
         this.settingsRepository = settingsRepository;
         this.auditRepository = auditRepository;
         this.ledgerService = ledgerService;
@@ -85,9 +95,13 @@ public class CashSessionService {
         SessionResponse lastClosed = sessionRepository.findFirstByOrderByBusinessDateDesc()
                 .filter(CashSession::isClosed)
                 .map(this::toResponse).orElse(null);
-        return new TodayResponse(BusinessDate.today(), sessionRepository.findLockedThrough(),
+        LocalDate today = BusinessDate.today();
+        // Remind to close when a day is still open after closing time, or from an earlier date.
+        boolean reminderDue = open != null && (open.session().businessDate().isBefore(today)
+                || !LocalTime.now(BusinessDate.ZONE).isBefore(settings.getClosingReminderTime()));
+        return new TodayResponse(today, sessionRepository.findLockedThrough(),
                 open, lastClosed, lastClosed == null ? null : lastClosed.countedCash(),
-                settings.getApprovalThreshold(), DENOMINATIONS);
+                settings.getApprovalThreshold(), DENOMINATIONS, toSettings(settings), reminderDue);
     }
 
     public SessionDetail open(OpenRequest request) {
@@ -157,6 +171,7 @@ public class CashSessionService {
         }
 
         List<CountLine> counts = validateCounts(request.counts());
+        List<DigitalTotal> digitalTotals = validateDigitalTotals(request.digitalTotals());
         BigDecimal counted = counts.stream()
                 .map(line -> line.denomination().multiply(BigDecimal.valueOf(line.quantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
@@ -180,9 +195,13 @@ public class CashSessionService {
         }
 
         countRepository.deleteBySessionId(session.getId());
+        digitalCheckRepository.deleteBySessionId(session.getId());
         session = find(id);
         for (CountLine line : counts) {
             countRepository.save(new CashCountLine(session.getId(), line.denomination(), line.quantity()));
+        }
+        for (DigitalTotal total : digitalTotals) {
+            digitalCheckRepository.save(new CashDigitalCheck(session.getId(), total.paymentMethod(), total.amount()));
         }
         session.setStatus(CashSession.CLOSED);
         session.setExpectedCash(expected);
@@ -221,6 +240,7 @@ public class CashSessionService {
 
         SessionResponse before = toResponse(session);
         countRepository.deleteBySessionId(session.getId());
+        digitalCheckRepository.deleteBySessionId(session.getId());
         session = find(id);
         session.setStatus(CashSession.OPEN);
         session.setExpectedCash(null);
@@ -256,20 +276,43 @@ public class CashSessionService {
                 .toList();
     }
 
-    public BigDecimal updateApprovalThreshold(SettingsRequest request) {
+    public SettingsResponse updateSettings(SettingsRequest request) {
         if (!CurrentUser.has("CASH_APPROVE")) {
             throw new AccessDeniedException("Only the owner can change cash settings.");
         }
-        BigDecimal threshold = money(request == null ? null : request.approvalThreshold(),
-                "Approval limit", true);
+        if (request == null) {
+            throw new IllegalArgumentException("Settings are required.");
+        }
         CashSettings settings = settingsRepository.lockForClosing();
-        BigDecimal before = settings.getApprovalThreshold();
-        settings.setApprovalThreshold(threshold);
+        SettingsResponse before = toSettings(settings);
+        if (request.approvalThreshold() != null) {
+            settings.setApprovalThreshold(money(request.approvalThreshold(), "Approval limit", true));
+        }
+        if (request.largeExpenseThreshold() != null) {
+            settings.setLargeExpenseThreshold(money(request.largeExpenseThreshold(), "Large expense limit", true));
+        }
+        if (request.closingReminderTime() != null) {
+            settings.setClosingReminderTime(request.closingReminderTime());
+        }
+        if (request.ownerWhatsapp() != null) {
+            String digits = request.ownerWhatsapp().replaceAll("[\\s+()-]", "");
+            if (!digits.isEmpty() && !digits.matches("\\d{10,15}")) {
+                throw new IllegalArgumentException(
+                        "Enter the WhatsApp number with country code, for example 919876543210.");
+            }
+            // A 10-digit Indian mobile number gets the 91 country code.
+            settings.setOwnerWhatsapp(digits.isEmpty() ? null : digits.length() == 10 ? "91" + digits : digits);
+        }
         settings.setUpdatedBy(CurrentUser.name());
         settings.setUpdatedAt(OffsetDateTime.now());
-        auditService.record("CASH_SETTINGS", 1L, "UPDATE", null,
-                Map.of("approvalThreshold", before), Map.of("approvalThreshold", threshold));
-        return threshold;
+        SettingsResponse after = toSettings(settings);
+        auditService.record("CASH_SETTINGS", 1L, "UPDATE", null, before, after);
+        return after;
+    }
+
+    private static SettingsResponse toSettings(CashSettings settings) {
+        return new SettingsResponse(settings.getApprovalThreshold(), settings.getOwnerWhatsapp(),
+                settings.getClosingReminderTime(), settings.getLargeExpenseThreshold());
     }
 
     LocalDate periodStart(CashSession session) {
@@ -288,7 +331,17 @@ public class CashSessionService {
                 .map(entry -> new AuditEntry(entry.getAction(), entry.getActor(),
                         entry.getOccurredAt(), entry.getReason()))
                 .toList();
-        return new SessionDetail(toResponse(session, start), summary, lines, history);
+        List<DigitalCheck> digitalChecks = digitalCheckRepository.findBySessionId(session.getId()).stream()
+                .map(check -> {
+                    BigDecimal recorded = summary.byMethod().stream()
+                            .filter(method -> method.paymentMethod().equals(check.getPaymentMethod()))
+                            .map(method -> method.saleReceipts().add(method.collections()))
+                            .findFirst().orElse(BigDecimal.ZERO);
+                    return new DigitalCheck(check.getPaymentMethod(), recorded, check.getReportedAmount(),
+                            check.getReportedAmount().subtract(recorded));
+                })
+                .toList();
+        return new SessionDetail(toResponse(session, start), summary, lines, history, digitalChecks);
     }
 
     private SessionResponse toResponse(CashSession session) {
@@ -339,6 +392,30 @@ public class CashSessionService {
             if (quantity > 0) {
                 result.add(new CountLine(denomination, quantity));
             }
+        }
+        return result;
+    }
+
+    /** UPI/bank totals are optional; each method at most once and never cash. */
+    private static List<DigitalTotal> validateDigitalTotals(List<DigitalTotal> totals) {
+        if (totals == null) {
+            return List.of();
+        }
+        Set<String> seen = new HashSet<>();
+        List<DigitalTotal> result = new ArrayList<>();
+        for (DigitalTotal total : totals) {
+            if (total == null || total.amount() == null) {
+                continue;
+            }
+            String method = total.paymentMethod() == null ? ""
+                    : total.paymentMethod().trim().toUpperCase(Locale.ROOT);
+            if (!Set.of("UPI", "BANK_TRANSFER", "CARD", "CHEQUE").contains(method)) {
+                throw new IllegalArgumentException("Unsupported payment method for the bank check: " + method);
+            }
+            if (!seen.add(method)) {
+                throw new IllegalArgumentException(method + " is listed twice.");
+            }
+            result.add(new DigitalTotal(method, money(total.amount(), "Amount for " + method, true)));
         }
         return result;
     }

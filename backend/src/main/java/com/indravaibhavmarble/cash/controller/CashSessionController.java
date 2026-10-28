@@ -6,12 +6,11 @@ import com.indravaibhavmarble.cash.dto.CashSessionDtos.ReopenRequest;
 import com.indravaibhavmarble.cash.dto.CashSessionDtos.SessionDetail;
 import com.indravaibhavmarble.cash.dto.CashSessionDtos.SessionResponse;
 import com.indravaibhavmarble.cash.dto.CashSessionDtos.SettingsRequest;
+import com.indravaibhavmarble.cash.dto.CashSessionDtos.SettingsResponse;
 import com.indravaibhavmarble.cash.dto.CashSessionDtos.TodayResponse;
 import com.indravaibhavmarble.cash.service.CashSessionService;
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -61,7 +60,7 @@ public class CashSessionController {
     }
 
     @PutMapping("/settings")
-    public Map<String, BigDecimal> updateSettings(@RequestBody SettingsRequest request) {
-        return Map.of("approvalThreshold", service.updateApprovalThreshold(request));
+    public SettingsResponse updateSettings(@RequestBody SettingsRequest request) {
+        return service.updateSettings(request);
     }
 }

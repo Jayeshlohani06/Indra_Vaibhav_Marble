@@ -1,22 +1,22 @@
 
 :root {
   /* Brand brown, used for every primary action. */
-  --color-primary: #806443;
-  --color-primary-hover: #694f32;
-  --color-primary-soft: #f4eee6;
-  --color-background: #ebe9e5;
-  --color-surface: #ffffff;
-  --color-text: #1f1b16;
-  --color-text-muted: #6b6359;
-  --color-border: #e2ddd5;
-  --color-success: #15803d;
-  --color-danger: #b91c1c;
+  --color-primary: light-dark(#806443, #bf9a6c);
+  --color-primary-hover: light-dark(#694f32, #dbbb93);
+  --color-primary-soft: light-dark(#f4eee6, #2e261d);
+  --color-background: light-dark(#ebe9e5, #14120f);
+  --color-surface: light-dark(#ffffff, #1f1b17);
+  --color-text: light-dark(#1f1b16, #ece6de);
+  --color-text-muted: light-dark(#6b6359, #aba195);
+  --color-border: light-dark(#e2ddd5, #3a332b);
+  --color-success: light-dark(#15803d, #5fc786);
+  --color-danger: light-dark(#b91c1c, #f2827a);
   --radius-md: 10px;
   --sidebar-width: 248px;
   --topbar-height: 64px;
 
   /* One type scale for every page. */
-  --font-sans: "Manrope", "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+  --font-sans: "Manrope", "Noto Sans Devanagari", "Segoe UI", "Nirmala UI", system-ui, -apple-system, Arial, sans-serif;
   --text-xs: 12px;
   --text-sm: 13px;
   --text-base: 14px;
@@ -33,20 +33,20 @@
   --radius-panel: 18px;
 
   /* Frosted glass laid over the marble background. */
-  --glass-bg: rgb(255 255 255 / 62%);
-  --glass-bg-strong: rgb(255 255 255 / 86%);
-  --glass-border: rgb(255 255 255 / 70%);
-  --glass-edge: rgb(94 74 48 / 12%);
+  --glass-bg: light-dark(rgb(255 255 255 / 62%), rgb(31 27 23 / 62%));
+  --glass-bg-strong: light-dark(rgb(255 255 255 / 86%), rgb(31 27 23 / 90%));
+  --glass-border: light-dark(rgb(255 255 255 / 70%), rgb(255 255 255 / 8%));
+  --glass-edge: light-dark(rgb(94 74 48 / 12%), rgb(255 255 255 / 6%));
   --glass-blur: blur(18px) saturate(140%);
-  --shadow-soft: 0 1px 2px rgb(60 44 24 / 6%), 0 8px 24px rgb(60 44 24 / 7%);
-  --shadow-raised: 0 2px 6px rgb(60 44 24 / 8%), 0 24px 60px rgb(40 28 14 / 22%);
-  --focus-ring: 0 0 0 3px rgb(128 100 67 / 28%);
+  --shadow-soft: 0 1px 2px light-dark(rgb(60 44 24 / 6%), rgb(0 0 0 / 30%)), 0 8px 24px light-dark(rgb(60 44 24 / 7%), rgb(0 0 0 / 28%));
+  --shadow-raised: 0 2px 6px light-dark(rgb(60 44 24 / 8%), rgb(0 0 0 / 35%)), 0 24px 60px light-dark(rgb(40 28 14 / 22%), rgb(0 0 0 / 55%));
+  --focus-ring: 0 0 0 3px light-dark(rgb(128 100 67 / 28%), rgb(201 166 124 / 40%));
 
   /* Neumorphism: soft controls pressed out of (or into) the stone surface. */
-  --neu-surface: #f6f3ee;
-  --neu-raised: 3px 3px 8px rgb(150 128 100 / 24%), -3px -3px 8px rgb(255 255 255 / 90%);
-  --neu-pressed: inset 2px 2px 5px rgb(150 128 100 / 26%), inset -2px -2px 5px rgb(255 255 255 / 90%);
-  --neu-well: inset 1px 2px 4px rgb(150 128 100 / 16%), inset -1px -1px 3px rgb(255 255 255 / 80%);
+  --neu-surface: light-dark(#f6f3ee, #27221d);
+  --neu-raised: 3px 3px 8px light-dark(rgb(150 128 100 / 24%), rgb(0 0 0 / 40%)), -3px -3px 8px light-dark(rgb(255 255 255 / 90%), rgb(255 255 255 / 4%));
+  --neu-pressed: inset 2px 2px 5px light-dark(rgb(150 128 100 / 26%), rgb(0 0 0 / 45%)), inset -2px -2px 5px light-dark(rgb(255 255 255 / 90%), rgb(255 255 255 / 4%));
+  --neu-well: inset 1px 2px 4px light-dark(rgb(150 128 100 / 16%), rgb(0 0 0 / 35%)), inset -1px -1px 3px light-dark(rgb(255 255 255 / 80%), rgb(255 255 255 / 3%));
 
   /* Skeuomorphism: polished bronze for the main action and the brand plate. */
   --bronze: linear-gradient(180deg, #a98863 0%, #8c6f4d 48%, #74583a 100%);
@@ -58,6 +58,26 @@
 
   /* Claymorphism: puffy, soft cards for friendly highlights. */
   --clay-shadow:
-    8px 10px 22px rgb(150 128 100 / 22%), inset -5px -5px 12px rgb(160 135 105 / 16%),
-    inset 5px 5px 12px rgb(255 255 255 / 85%);
+    8px 10px 22px light-dark(rgb(150 128 100 / 22%), rgb(0 0 0 / 40%)), inset -5px -5px 12px light-dark(rgb(160 135 105 / 16%), rgb(0 0 0 / 25%)),
+    inset 5px 5px 12px light-dark(rgb(255 255 255 / 85%), rgb(255 255 255 / 4%));
+
+  /* Status colours shared by every badge and pill. */
+  --status-success-bg: light-dark(#dcfce7, #11291a);
+  --status-success-text: light-dark(#166534, #7bd39a);
+  --status-warning-bg: light-dark(#fef3c7, #2e2410);
+  --status-warning-text: light-dark(#92400e, #f0b46a);
+  --status-danger-bg: light-dark(#fee2e2, #34181a);
+  --status-danger-text: light-dark(#991b1b, #f59a92);
+  --status-neutral-bg: light-dark(#f1ece4, #2c2620);
+  --status-neutral-text: light-dark(#5c4f40, #cdbfae);
+
+  /* Motion: one set of speeds for every hover, popup and list. */
+  --motion-fast: 120ms;
+  --motion-base: 180ms;
+  --motion-slow: 260ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* Placeholder shimmer while lists load. */
+  --skeleton-base: light-dark(rgb(128 100 67 / 9%), rgb(255 255 255 / 6%));
+  --skeleton-shine: light-dark(rgb(255 255 255 / 70%), rgb(255 255 255 / 8%));
 }

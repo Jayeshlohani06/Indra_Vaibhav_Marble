@@ -30,6 +30,15 @@ public class PurchasePaymentController {
         return paymentService.recordPayment(purchaseId, request);
     }
 
+    @PostMapping("/{paymentId}/method")
+    public PurchasePaymentResponse changeMethod(
+            @PathVariable Long purchaseId,
+            @PathVariable Long paymentId,
+            @RequestBody com.indravaibhavmarble.common.payment.ChangePaymentMethodRequest request
+    ) {
+        return paymentService.changeMethod(purchaseId, paymentId, request);
+    }
+
     @GetMapping
     public List<PurchasePaymentResponse> getPayments(
             @PathVariable Long purchaseId

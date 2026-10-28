@@ -6,13 +6,16 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.indravaibhavmarble.cash.dto.CashMovementDtos.MovementRequest;
 import com.indravaibhavmarble.cash.dto.CashSessionDtos.CloseRequest;
 import com.indravaibhavmarble.cash.dto.CashSessionDtos.CountLine;
+import com.indravaibhavmarble.cash.dto.CashSessionDtos.DigitalTotal;
 import com.indravaibhavmarble.cash.dto.CashSessionDtos.OpenRequest;
 import com.indravaibhavmarble.cash.dto.CashSessionDtos.ReopenRequest;
 import com.indravaibhavmarble.cash.dto.CashSessionDtos.SessionDetail;
+import com.indravaibhavmarble.cash.dto.CashSessionDtos.SettingsRequest;
 import com.indravaibhavmarble.cash.dto.CashSummary;
 import com.indravaibhavmarble.cash.service.CashMovementService;
 import com.indravaibhavmarble.cash.service.CashReportService;
 import com.indravaibhavmarble.cash.service.CashSessionService;
+import com.indravaibhavmarble.common.payment.ChangePaymentMethodRequest;
 import com.indravaibhavmarble.common.time.BusinessDate;
 import com.indravaibhavmarble.expense.dto.ExpenseRequest;
 import com.indravaibhavmarble.expense.dto.ExpenseVoidRequest;
@@ -28,9 +31,11 @@ import com.indravaibhavmarble.salesorder.dto.SalesReturnRequest;
 import com.indravaibhavmarble.salesorder.service.SalesOrderPaymentService;
 import com.indravaibhavmarble.salesorder.service.SalesOrderService;
 import com.indravaibhavmarble.salesorder.service.SalesReturnService;
+import com.indravaibhavmarble.report.service.BusinessInsightsService;
 import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.IntStream;
@@ -65,6 +70,7 @@ class CashClosingFlowTest {
     @Autowired private SalesOrderPaymentService salesPaymentService;
     @Autowired private PurchasePaymentService purchasePaymentService;
     @Autowired private SalesReturnService returnService;
+    @Autowired private BusinessInsightsService insightsService;
 
     private final LocalDate today = BusinessDate.today();
     private String tag;
@@ -76,9 +82,20 @@ class CashClosingFlowTest {
     @BeforeEach
     void setUp() {
         runAs(OWNER);
-        // Start from an empty cash book inside this (rolled back) transaction.
+        // Start from an empty cash book inside this (rolled back) transaction:
+        // no days, and any money entries already in this database moved ten
+        // years back so they stay out of the days these tests count.
+        entityManager.createNativeQuery("DELETE FROM cash_digital_checks").executeUpdate();
         entityManager.createNativeQuery("DELETE FROM cash_count_lines").executeUpdate();
         entityManager.createNativeQuery("DELETE FROM cash_sessions").executeUpdate();
+        for (String[] table : new String[][] {
+                {"sales_order_payments", "payment_date"}, {"purchase_payments", "payment_date"},
+                {"expenses", "expense_date"}, {"cash_movements", "movement_date"},
+                {"sales_orders", "order_date"}, {"purchases", "purchase_date"},
+                {"sales_returns", "return_date"}}) {
+            entityManager.createNativeQuery("UPDATE " + table[0] + " SET " + table[1] + " = " + table[1]
+                    + " - 3650").executeUpdate();
+        }
 
         tag = Long.toString(System.nanoTime(), 36);
         Long unitId = insert("INSERT INTO measurement_units (code, name, is_active, created_at) VALUES ('T" + tag
@@ -289,6 +306,106 @@ class CashClosingFlowTest {
                 .hasMessageContaining("Choose a category");
         assertThatThrownBy(() -> expense("Miscellaneous", "10", "CASH", null))
                 .hasMessageContaining("description");
+    }
+
+    @Test
+    void upiCheckComparesWhatTheAppShowsWithRecordedPayments() {
+        Long sessionId = sessionService.open(new OpenRequest(BigDecimal.ZERO, null)).session().id();
+        SalesOrderResponse bill = bill(today, 10);
+        pay(bill, "500", "UPI");
+        SessionDetail closed = sessionService.close(sessionId, new CloseRequest(List.of(), null, null, null,
+                List.of(new DigitalTotal("UPI", new BigDecimal("450")))));
+        assertThat(closed.digitalChecks()).hasSize(1);
+        assertThat(closed.digitalChecks().get(0).recorded()).isEqualByComparingTo("500");
+        assertThat(closed.digitalChecks().get(0).difference()).isEqualByComparingTo("-50");
+        assertThatThrownBy(() -> sessionService.close(sessionId, new CloseRequest(List.of(), null, null,
+                UUID.randomUUID(), List.of(new DigitalTotal("CASH", BigDecimal.ONE)))))
+                .hasMessageContaining("already closed");
+    }
+
+    @Test
+    void doubleTappedPaymentIsRecordedOnce() {
+        SalesOrderResponse bill = bill(today, 10);
+        UUID requestId = UUID.randomUUID();
+        SalesOrderPaymentRequest request = new SalesOrderPaymentRequest(today, new BigDecimal("100"), "CASH",
+                null, null, requestId);
+        Long first = salesPaymentService.recordPayment(bill.id(), request).id();
+        Long second = salesPaymentService.recordPayment(bill.id(), request).id();
+        assertThat(second).isEqualTo(first);
+        assertThat(salesPaymentService.getBalance(bill.id()).totalPaid()).isEqualByComparingTo("100");
+    }
+
+    @Test
+    void ownerCanFixAWrongPaymentMethodUntilTheDayCloses() {
+        Long sessionId = sessionService.open(new OpenRequest(BigDecimal.ZERO, null)).session().id();
+        SalesOrderResponse bill = bill(today, 10);
+        Long paymentId = salesPaymentService.recordPayment(bill.id(),
+                new SalesOrderPaymentRequest(today, new BigDecimal("300"), "CASH", null, null)).id();
+        assertThat(sessionService.get(sessionId).summary().expectedCash()).isEqualByComparingTo("300");
+
+        runAs("CASH_READ", "CASH_MANAGE", "PAYMENT_MANAGE");
+        assertThatThrownBy(() -> salesPaymentService.changeMethod(bill.id(), paymentId,
+                new ChangePaymentMethodRequest("UPI", "Customer paid by UPI")))
+                .isInstanceOf(AccessDeniedException.class);
+
+        runAs(OWNER);
+        assertThatThrownBy(() -> salesPaymentService.changeMethod(bill.id(), paymentId,
+                new ChangePaymentMethodRequest("UPI", " "))).hasMessageContaining("reason");
+        salesPaymentService.changeMethod(bill.id(), paymentId,
+                new ChangePaymentMethodRequest("UPI", "Customer paid by UPI"));
+        entityManager.flush();
+        assertThat(sessionService.get(sessionId).summary().expectedCash()).isEqualByComparingTo("0");
+
+        sessionService.close(sessionId, new CloseRequest(List.of(), null, null, null));
+        assertThatThrownBy(() -> salesPaymentService.changeMethod(bill.id(), paymentId,
+                new ChangePaymentMethodRequest("CASH", "Back to cash"))).hasMessageContaining("closed");
+    }
+
+    @Test
+    void largeExpensesNeedABillNumberUnlessTheOwnerEntersThem() {
+        runAs("EXPENSE_MANAGE");
+        assertThatThrownBy(() -> expense("Shop repairs", "6000", "CASH", null))
+                .hasMessageContaining("bill or receipt number");
+        expenseService.createExpense(new ExpenseRequest(today, "Shop repairs", null, new BigDecimal("6000"),
+                "CASH", null, "BILL-77", null, null, null, null, null));
+        runAs(OWNER);
+        expense("Shop repairs", "6000", "CASH", null);
+    }
+
+    @Test
+    void ownerSettingsAreSavedAndWhatsappNumberGetsCountryCode() {
+        var saved = sessionService.updateSettings(new SettingsRequest(null, "98765 43210",
+                LocalTime.of(19, 30), new BigDecimal("3000")));
+        assertThat(saved.ownerWhatsapp()).isEqualTo("919876543210");
+        assertThat(saved.closingReminderTime()).isEqualTo(LocalTime.of(19, 30));
+        assertThat(saved.largeExpenseThreshold()).isEqualByComparingTo("3000");
+        assertThat(saved.approvalThreshold()).isEqualByComparingTo("500");
+        assertThatThrownBy(() -> sessionService.updateSettings(new SettingsRequest(null, "12ab", null, null)))
+                .hasMessageContaining("country code");
+        runAs("CASH_READ", "CASH_MANAGE");
+        assertThatThrownBy(() -> sessionService.updateSettings(new SettingsRequest(BigDecimal.ZERO, null, null, null)))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void remindersListOldUnpaidBillsAndProfitIsEstimated() {
+        SalesOrderResponse old = bill(today, 10);
+        entityManager.createNativeQuery("UPDATE sales_orders SET order_date = :d WHERE id = :id")
+                .setParameter("d", today.minusDays(40)).setParameter("id", old.id()).executeUpdate();
+        assertThat(insightsService.paymentReminders(30))
+                .anyMatch(row -> row.customerId().equals(customerId)
+                        && row.amountDue().compareTo(new BigDecimal("1180")) == 0
+                        && row.daysOverdue() == 40);
+
+        bill(today, 10);
+        expense("Tea & snacks", "100", "CASH", null);
+        expense("GST payment", "999", "BANK_TRANSFER", null);
+        entityManager.flush();
+        var month = insightsService.monthlyProfit(today, today).get(0);
+        // The sale is 1000 without GST and cost 10 x 60; GST paid is not a cost.
+        assertThat(month.sales()).isGreaterThanOrEqualTo(new BigDecimal("1000"));
+        assertThat(month.estimatedProfit()).isEqualByComparingTo(
+                month.sales().subtract(month.returns()).subtract(month.costOfGoods()).subtract(month.expenses()));
     }
 
     // --- helpers ---

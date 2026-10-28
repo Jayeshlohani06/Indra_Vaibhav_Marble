@@ -32,3 +32,7 @@ export async function createSalesReturn(orderId, salesReturn) {
 export async function cancelSalesOrder(orderId, cancellation) {
   return httpClient.post(`/api/sales-orders/${orderId}/cancel`, cancellation);
 }
+
+export async function changeSalesPaymentMethod(orderId, paymentId, paymentMethod, reason) {
+  return httpClient.post(`/api/sales-orders/${orderId}/payments/${paymentId}/method`, { paymentMethod, reason });
+}

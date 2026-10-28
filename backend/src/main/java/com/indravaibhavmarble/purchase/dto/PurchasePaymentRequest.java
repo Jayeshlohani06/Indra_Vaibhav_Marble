@@ -9,6 +9,7 @@ import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.UUID;
 
 public record PurchasePaymentRequest(
 
@@ -29,6 +30,14 @@ public record PurchasePaymentRequest(
         String referenceNumber,
 
         @Size(max = 1000, message = "Notes cannot exceed 1000 characters.")
-        String notes
+        String notes,
+
+        /** Set once per form so a double-tapped save records the payment once. */
+        UUID requestId
 ) {
+
+    public PurchasePaymentRequest(LocalDate paymentDate, BigDecimal amount, String paymentMethod,
+            String referenceNumber, String notes) {
+        this(paymentDate, amount, paymentMethod, referenceNumber, notes, null);
+    }
 }

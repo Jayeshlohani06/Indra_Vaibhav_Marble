@@ -2,10 +2,10 @@
 .stock-operations-panel {
   margin: 24px 0;
   padding: 24px;
-  border: 1px solid var(--border-color, #e7e1d8);
+  border: 1px solid var(--border-color, light-dark(#e7e1d8, #2f2b24));
   border-radius: 12px;
-  background: var(--card-bg, #fff);
-  color: var(--text-color, #1f1b16);
+  background: var(--card-bg, light-dark(#fff, #1c1916));
+  color: var(--text-color, light-dark(#1f1b16, #e4ded7));
 }
 
 .stock-operations-heading,
@@ -23,7 +23,7 @@
 
 .stock-operations-heading p {
   margin: 0 0 20px;
-  color: var(--muted-text, #6b6359);
+  color: var(--muted-text, light-dark(#6b6359, #ada499));
 }
 
 .stock-product-selector,
@@ -51,9 +51,9 @@
   width: 100%;
   min-width: 0;
   padding: 10px 12px;
-  border: 1px solid var(--input-border, #d4cabc);
+  border: 1px solid var(--input-border, light-dark(#d4cabc, #40382d));
   border-radius: 7px;
-  background: var(--input-bg, #fff);
+  background: var(--input-bg, light-dark(#fff, #1c1916));
   color: inherit;
   font: inherit;
   box-sizing: border-box;
@@ -67,7 +67,7 @@
   padding: 16px;
   margin-bottom: 20px;
   border-radius: 8px;
-  background: var(--surface-muted, #f3efe9);
+  background: var(--surface-muted, light-dark(#f3efe9, #221f1c));
 }
 
 .stock-current-balance strong {
@@ -97,7 +97,7 @@
 }
 
 .stock-refresh-button {
-  background: var(--surface-muted, #e7e1d8);
+  background: var(--surface-muted, light-dark(#e7e1d8, #282521));
   color: inherit;
 }
 
@@ -109,7 +109,7 @@
 
 .stock-form-note {
   margin: 12px 0 0;
-  color: var(--muted-text, #6b6359);
+  color: var(--muted-text, light-dark(#6b6359, #ada499));
   font-size: 13px;
   line-height: 1.5;
 }
@@ -122,13 +122,13 @@
 }
 
 .stock-message-error {
-  background: #fee2e2;
-  color: #991b1b;
+  background: light-dark(#fee2e2, #2c1e1f);
+  color: light-dark(#991b1b, #ff8579);
 }
 
 .stock-message-success {
-  background: #dcfce7;
-  color: #166534;
+  background: light-dark(#dcfce7, #122319);
+  color: light-dark(#166534, #7bc58e);
 }
 
 .stock-history-section {
@@ -153,13 +153,13 @@
 .stock-history-table th,
 .stock-history-table td {
   padding: 11px 12px;
-  border-bottom: 1px solid var(--border-color, #e7e1d8);
+  border-bottom: 1px solid var(--border-color, light-dark(#e7e1d8, #2f2b24));
   text-align: left;
   white-space: nowrap;
 }
 
 .stock-history-table th {
-  background: var(--surface-muted, #f3efe9);
+  background: var(--surface-muted, light-dark(#f3efe9, #221f1c));
   font-weight: 600;
 }
 

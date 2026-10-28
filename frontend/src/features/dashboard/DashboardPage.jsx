@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { getProducts } from "../../services/api/inventoryApi";
+import { getCashToday } from "../../services/api/cashApi";
 import {
   getCustomerOutstanding,
   getFinancialSummary,
@@ -9,7 +10,9 @@ import {
 } from "../../services/api/reportApi";
 
 import "./DashboardPage.css";
+import Skeleton from "../../components/Skeleton";
 import { usePermission } from "../../auth/PermissionsContext";
+import { getLanguage, t } from "../../i18n";
 
 const currencyFormatter = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -61,13 +64,13 @@ function getMonthStart() {
 
 function greeting() {
   const hour = new Date().getHours();
-  if (hour < 12) return "Good morning";
-  if (hour < 17) return "Good afternoon";
-  return "Good evening";
+  if (hour < 12) return t("Good morning");
+  if (hour < 17) return t("Good afternoon");
+  return t("Good evening");
 }
 
 function todayLabel() {
-  return new Date().toLocaleDateString("en-IN", {
+  return new Date().toLocaleDateString(getLanguage() === "hi" ? "hi-IN" : "en-IN", {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -75,10 +78,60 @@ function todayLabel() {
   });
 }
 
+// Today's drawer at a glance: open or not, what it should hold, and a
+// reminder when it is time to count and close.
+function CashStatusCard() {
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getCashToday()
+      .then((response) => { if (!cancelled) setData(response); })
+      .catch(() => { /* the card simply stays hidden */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  if (!data) return null;
+  const open = data.openSession;
+  const stale = open && open.session.businessDate < data.today;
+  const closedToday = !open && data.lastClosed?.businessDate === data.today;
+
+  let tone = "is-ok";
+  let title;
+  let detail;
+  if (stale) {
+    tone = "is-alert";
+    title = t("Yesterday's cash was not closed");
+    detail = t("Count the drawer and close that day first.");
+  } else if (open) {
+    tone = data.closingReminderDue ? "is-alert" : "is-ok";
+    title = t("Drawer should have {amount}", { amount: formatCurrency(open.summary.expectedCash) });
+    detail = data.closingReminderDue
+      ? t("It is past closing time. Count the drawer and close today.")
+      : t("Day open since {time}", { time: new Date(open.session.openedAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }) });
+  } else if (closedToday) {
+    title = t("Today is closed");
+    detail = t("Counted {amount}", { amount: formatCurrency(data.lastClosed.countedCash) });
+  } else {
+    tone = "is-alert";
+    title = t("Today's cash is not opened yet");
+    detail = t("Count the drawer and open the day.");
+  }
+
+  return (
+    <a className={`erp-cash-status ${tone}`} href="#cash">
+      <span>{t("Cash drawer")}</span>
+      <strong>{title}</strong>
+      <small>{detail} <span aria-hidden="true">→</span></small>
+    </a>
+  );
+}
+
 function DashboardPage() {
   const canManageSales = usePermission("SALES_MANAGE");
   const canReadReports = usePermission("REPORT_READ");
   const canReadProducts = usePermission("PRODUCT_READ");
+  const canReadCash = usePermission("CASH_READ");
   const [dashboard, setDashboard] = useState({
     loading: true,
     error: "",
@@ -150,9 +203,7 @@ function DashboardPage() {
 
     setDashboard({
       loading: false,
-      error: errors.length
-        ? `Could not load: ${errors.join(", ")}. Check your internet connection and press “Try again”.`
-        : "",
+      error: errors.length ? errors : "",
       todaySales,
       weekSales,
       financial,
@@ -206,9 +257,9 @@ function DashboardPage() {
   );
 
   const salesCards = [
-    { key: "today", tag: "Today", data: todaySales },
-    { key: "week", tag: "This week", data: weekSales },
-    { key: "month", tag: "This month", data: financial },
+    { key: "today", tag: t("Today"), data: todaySales },
+    { key: "week", tag: t("This week"), data: weekSales },
+    { key: "month", tag: t("This month"), data: financial },
   ];
 
   const attentionItems = [
@@ -216,22 +267,28 @@ function DashboardPage() {
       key: "out",
       href: "#inventory",
       icon: "!",
-      title: `${outOfStockProducts.length} ${outOfStockProducts.length === 1 ? "product is" : "products are"} out of stock`,
+      title: outOfStockProducts.length === 1
+        ? t("{count} product is out of stock", { count: outOfStockProducts.length })
+        : t("{count} products are out of stock", { count: outOfStockProducts.length }),
       detail: outOfStockProducts.slice(0, 3).map((product) => product.name).join(", "),
     },
     lowStockProducts.length > 0 && {
       key: "low",
       href: "#inventory",
       icon: "▦",
-      title: `${lowStockProducts.length} ${lowStockProducts.length === 1 ? "product is" : "products are"} running low`,
+      title: lowStockProducts.length === 1
+        ? t("{count} product is running low", { count: lowStockProducts.length })
+        : t("{count} products are running low", { count: lowStockProducts.length }),
       detail: lowStockProducts.slice(0, 3).map((product) => product.name).join(", "),
     },
     unpricedProducts.length > 0 && {
       key: "price",
       href: "#inventory",
       icon: "₹",
-      title: `${unpricedProducts.length} ${unpricedProducts.length === 1 ? "product has" : "products have"} no selling price`,
-      detail: "Set prices so they fill in on bills automatically",
+      title: unpricedProducts.length === 1
+        ? t("{count} product has no selling price", { count: unpricedProducts.length })
+        : t("{count} products have no selling price", { count: unpricedProducts.length }),
+      detail: t("Set prices so they fill in on bills automatically"),
     },
   ].filter(Boolean);
 
@@ -241,13 +298,13 @@ function DashboardPage() {
         <div className="erp-welcome-copy">
           <p className="erp-welcome-date">{todayLabel()}</p>
           <h2>{greeting()}</h2>
-          <p>Here is how the shop is doing today.</p>
+          <p>{t("Here is how the shop is doing today.")}</p>
           <div className="erp-welcome-actions">
             {canManageSales && <a href="#billing" className="erp-primary-action">
-              + New sale
+              {t("+ New sale")}
             </a>}
             {canReadReports && <a href="#reports" className="erp-secondary-action">
-              See reports <span aria-hidden="true">→</span>
+              {t("See reports")} <span aria-hidden="true">→</span>
             </a>}
           </div>
         </div>
@@ -256,20 +313,22 @@ function DashboardPage() {
       {error && (
         <div className="erp-dashboard-alert" role="alert">
           <div>
-            <strong>Some numbers could not be loaded.</strong>
-            <p>{error}</p>
+            <strong>{t("Some numbers could not be loaded.")}</strong>
+            <p>{t("Could not load: {items}. Check your internet connection and press “Try again”.", { items: error.map((item) => t(item)).join(", ") })}</p>
           </div>
           <button type="button" onClick={loadDashboard}>
-            Try again
+            {t("Try again")}
           </button>
         </div>
       )}
+
+      {canReadCash && <CashStatusCard />}
 
       {canReadReports && (
         <section className="erp-section erp-sales-period-section">
           <div className="erp-section-heading">
             <div>
-              <h2>Sales</h2>
+              <h2>{t("Sales")}</h2>
             </div>
           </div>
 
@@ -279,14 +338,16 @@ function DashboardPage() {
                 <p className="erp-sales-period-title">{card.tag}</p>
                 <h3>
                   {loading
-                    ? "Loading…"
+                    ? <Skeleton.Inline label={t("Loading…")} />
                     : card.data
                       ? formatCurrency(card.data.salesOrderTotal)
-                      : "Unavailable"}
+                      : t("Unavailable")}
                 </h3>
                 <p className="erp-sales-period-note">
                   {card.data
-                    ? `${card.data.salesOrderCount ?? 0} ${Number(card.data.salesOrderCount) === 1 ? "bill" : "bills"}`
+                    ? (Number(card.data.salesOrderCount) === 1
+                      ? t("{count} bill", { count: card.data.salesOrderCount ?? 0 })
+                      : t("{count} bills", { count: card.data.salesOrderCount ?? 0 }))
                     : " "}
                 </p>
               </article>
@@ -299,26 +360,30 @@ function DashboardPage() {
         <section className="erp-section">
           <div className="erp-section-heading">
             <div>
-              <h2>Money owed</h2>
+              <h2>{t("Money owed")}</h2>
             </div>
           </div>
           <div className="erp-money-grid">
             <a className="erp-money-card is-in" href="#customers">
-              <span>Customers owe you</span>
-              <strong>{loading ? "Loading…" : formatCurrency(customerDues)}</strong>
+              <span>{t("Customers owe you")}</span>
+              <strong>{loading ? <Skeleton.Inline label={t("Loading…")} /> : formatCurrency(customerDues)}</strong>
               <small>
                 {customerCount
-                  ? `From ${customerCount} ${customerCount === 1 ? "customer" : "customers"} · see who`
-                  : "Nobody owes you right now"}
+                  ? (customerCount === 1
+                    ? t("From {count} customer · see who", { count: customerCount })
+                    : t("From {count} customers · see who", { count: customerCount }))
+                  : t("Nobody owes you right now")}
               </small>
             </a>
             <a className="erp-money-card is-out" href="#purchases">
-              <span>You owe suppliers</span>
-              <strong>{loading ? "Loading…" : formatCurrency(supplierDues)}</strong>
+              <span>{t("You owe suppliers")}</span>
+              <strong>{loading ? <Skeleton.Inline label={t("Loading…")} /> : formatCurrency(supplierDues)}</strong>
               <small>
                 {supplierCount
-                  ? `To ${supplierCount} ${supplierCount === 1 ? "supplier" : "suppliers"} · see bills`
-                  : "All suppliers are paid"}
+                  ? (supplierCount === 1
+                    ? t("To {count} supplier · see bills", { count: supplierCount })
+                    : t("To {count} suppliers · see bills", { count: supplierCount }))
+                  : t("All suppliers are paid")}
               </small>
             </a>
           </div>
@@ -329,15 +394,15 @@ function DashboardPage() {
         <section className="erp-section erp-attention-section">
           <div className="erp-section-heading">
             <div>
-              <h2>Needs your attention</h2>
+              <h2>{t("Needs your attention")}</h2>
             </div>
           </div>
 
           {loading ? (
-            <p className="erp-attention-empty">Checking stock…</p>
+            <p className="erp-attention-empty">{t("Checking stock…")}</p>
           ) : attentionItems.length === 0 ? (
             <p className="erp-attention-empty">
-              <span aria-hidden="true">✓</span> All good. Nothing needs your attention right now.
+              <span aria-hidden="true">✓</span> {t("All good. Nothing needs your attention right now.")}
             </p>
           ) : (
             <div className="erp-attention-grid">

@@ -16,7 +16,7 @@
   overflow: hidden;
   border: 1px solid var(--glass-border);
   border-radius: 28px;
-  background: rgb(255 255 255 / 55%);
+  background: light-dark(rgb(255 255 255 / 55%), rgb(28 25 22 / 55%));
   box-shadow: var(--shadow-raised);
 }
 
@@ -132,12 +132,13 @@
 /* ===== Right: the sign-in card ===== */
 
 .login-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   justify-content: center;
   gap: 24px;
   padding: 44px 40px;
-  background: rgb(255 255 255 / 82%);
+  background: light-dark(rgb(255 255 255 / 82%), rgb(28 25 22 / 82%));
 }
 
 .login-card-heading h2 {
@@ -177,7 +178,7 @@
 }
 
 .login-field label {
-  color: #3d362e;
+  color: light-dark(#3d362e, #cfc6bc);
   font-size: var(--text-sm);
   font-weight: 650;
 }
@@ -186,9 +187,9 @@
   width: 100%;
   min-height: 46px;
   padding: 0 14px;
-  border: 1px solid #e0d7ca;
+  border: 1px solid light-dark(#e0d7ca, #373026);
   border-radius: 10px;
-  background: #f9f6f1;
+  background: light-dark(#f9f6f1, #201c19);
   box-shadow: var(--neu-well);
   color: var(--color-text);
   font: inherit;
@@ -196,13 +197,13 @@
 }
 
 .login-field input::placeholder {
-  color: #a39a8e;
+  color: light-dark(#a39a8e, #887f74);
 }
 
 .login-field input:focus {
   border-color: var(--color-primary);
   outline: none;
-  background: #fff;
+  background: light-dark(#fff, #1c1916);
   box-shadow: var(--neu-well), var(--focus-ring);
 }
 
@@ -246,17 +247,17 @@
 }
 
 .login-hint--warning {
-  color: #92400e;
+  color: light-dark(#92400e, #ec9165);
   font-weight: 600;
 }
 
 .login-error {
   margin: 0;
   padding: 12px 14px;
-  border: 1px solid #f3c6c6;
+  border: 1px solid light-dark(#f3c6c6, #4b2a2b);
   border-radius: 10px;
-  background: #fef2f2;
-  color: #991b1b;
+  background: light-dark(#fef2f2, #221c1c);
+  color: light-dark(#991b1b, #ff8579);
   font-size: var(--text-sm);
   font-weight: 600;
 }
@@ -273,7 +274,7 @@
   font: inherit;
   font-size: var(--text-md);
   font-weight: 700;
-  text-shadow: 0 -1px 0 rgb(0 0 0 / 25%);
+  text-shadow: 0 -1px 0 light-dark(rgb(0 0 0 / 25%), rgb(0 0 0 / 55%));
   cursor: pointer;
 }
 
@@ -298,10 +299,19 @@
 .login-help {
   margin: 0;
   padding-top: 18px;
-  border-top: 1px solid #ebe5dc;
+  border-top: 1px solid light-dark(#ebe5dc, #2d2822);
   color: var(--color-text-muted);
   font-size: var(--text-sm);
   line-height: 1.5;
+}
+
+/* Language switch, top-right of the sign-in card. */
+.login-toggles {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  gap: 8px;
 }
 
 /* ===== Smaller screens ===== */
