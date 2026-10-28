@@ -6,6 +6,8 @@ import {
 
   createSalesOrder,
   getSalesOrderBalance,
+  getSalesOrderPayments,
+  changeSalesPaymentMethod,
   recordSalesOrderPayment,
   createSalesReturn,
   cancelSalesOrder,
@@ -35,6 +37,12 @@ import SalesOrderInvoice from "./SalesOrderInvoice";
 import SearchSelect from "../../components/SearchSelect";
 import { taxTypeForGstin } from "../../utils/business";
 import { formatDate, label, paymentBadgeClass } from "../../utils/format";
+import { newRequestId } from "../../utils/requestId";
+import { backdateWarning } from "../../utils/backdate";
+import { whatsappLink } from "../../utils/whatsapp";
+import { t } from "../../i18n";
+import ChangeMethodDialog from "../../components/ChangeMethodDialog";
+import Skeleton from "../../components/Skeleton";
 
 function formatCurrency(value) {
 
@@ -203,6 +211,9 @@ function SalesOrdersPage() {
   const canManageSales = usePermission("SALES_MANAGE");
   const canManagePayments = usePermission("PAYMENT_MANAGE");
   const canViewPayments = usePermission("PAYMENT_READ");
+  const canFixPayments = usePermission("CASH_APPROVE");
+  const [orderPayments, setOrderPayments] = useState([]);
+  const [fixingPayment, setFixingPayment] = useState(null);
 
   const [orders, setOrders] = useState([]);
 
@@ -347,7 +358,7 @@ function SalesOrdersPage() {
 
         err.message ||
 
-          "Unable to load customers, products, and units."
+          t("Unable to load customers, products, and units.")
 
       );
 
@@ -373,8 +384,8 @@ function SalesOrdersPage() {
 
       setError(
         err.message === "An unexpected error occurred"
-          ? "Bills could not be loaded. Check your internet connection and press Refresh."
-          : err.message || "Unable to load sales orders."
+          ? t("Bills could not be loaded. Check your internet connection and press Refresh.")
+          : err.message || t("Unable to load sales orders.")
       );
 
     } finally {
@@ -393,7 +404,7 @@ function SalesOrdersPage() {
 
   function getProductUnit(product) {
 
-    if (!product) return "Unit";
+    if (!product) return t("Unit");
 
     // Prefer the unit code returned directly with the product.
 
@@ -407,7 +418,7 @@ function SalesOrdersPage() {
 
     );
 
-    return unit?.code || unit?.name || "Unit";
+    return unit?.code || unit?.name || t("Unit");
 
   }
 
@@ -540,7 +551,7 @@ function SalesOrdersPage() {
       setNewChargeCategory("");
       setShowChargeCategoryForm(false);
     } catch (err) {
-      setError(err.message || "Unable to add charge category.");
+      setError(err.message || t("Unable to add charge category."));
     }
   }
 
@@ -564,7 +575,7 @@ function SalesOrdersPage() {
 
     if (!name || !phone) {
 
-      setError("Customer name and phone number are required.");
+      setError(t("Customer name and phone number are required."));
 
       return;
 
@@ -572,7 +583,7 @@ function SalesOrdersPage() {
 
     if (!Number.isFinite(creditLimit) || creditLimit < 0) {
 
-      setError("Credit limit must be zero or greater.");
+      setError(t("Credit limit must be zero or greater."));
 
       return;
 
@@ -580,7 +591,7 @@ function SalesOrdersPage() {
 
     if (gstin && gstin.length !== 15) {
 
-      setError("GSTIN must contain exactly 15 characters.");
+      setError(t("GSTIN must contain exactly 15 characters."));
 
       return;
 
@@ -639,13 +650,13 @@ function SalesOrdersPage() {
 
       setSuccess(
 
-        `Customer "${createdCustomer.name}" created and selected successfully.`
+        t("Customer \"{name}\" created and selected successfully.", { name: createdCustomer.name })
 
       );
 
     } catch (err) {
 
-      setError(err.message || "Unable to create customer.");
+      setError(err.message || t("Unable to create customer."));
 
     } finally {
 
@@ -665,7 +676,7 @@ function SalesOrdersPage() {
 
     if (!customerId) {
 
-      setError("Please select a customer.");
+      setError(t("Please select a customer."));
 
       return;
 
@@ -673,7 +684,7 @@ function SalesOrdersPage() {
 
     if (!orderDate) {
 
-      setError("Please select an order date.");
+      setError(t("Please select an order date."));
 
       return;
 
@@ -681,7 +692,7 @@ function SalesOrdersPage() {
 
     if (items.length === 0) {
 
-      setError("Add at least one product.");
+      setError(t("Add at least one product."));
 
       return;
 
@@ -699,7 +710,7 @@ function SalesOrdersPage() {
 
         setError(
 
-          `Please select a valid product for item ${index + 1}.`
+          t("Please select a valid product for item {number}.", { number: index + 1 })
 
         );
 
@@ -718,7 +729,7 @@ function SalesOrdersPage() {
 
         setError(
 
-          `Enter a quantity greater than zero for item ${index + 1}.`
+          t("Enter a quantity greater than zero for item {number}.", { number: index + 1 })
 
         );
 
@@ -730,7 +741,7 @@ function SalesOrdersPage() {
 
         setError(
 
-          `Enter a valid price for item ${index + 1}.`
+          t("Enter a valid price for item {number}.", { number: index + 1 })
 
         );
 
@@ -742,7 +753,7 @@ function SalesOrdersPage() {
 
         setError(
 
-          `${product.name} has only ${stock} ${getProductUnit(product)} available.`
+          t("{product} has only {stock} {unit} available.", { product: product.name, stock, unit: getProductUnit(product) })
 
         );
 
@@ -752,7 +763,7 @@ function SalesOrdersPage() {
       if (product.secondaryUnitId != null
         && (!Number.isFinite(secondaryQuantity) || secondaryQuantity <= 0
           || secondaryQuantity > Number(product.secondaryStockQuantity || 0))) {
-        setError(`${product.name} needs a valid secondary quantity within available stock.`);
+        setError(t("{product} needs a valid secondary quantity within available stock.", { product: product.name }));
         return;
       }
 
@@ -802,7 +813,7 @@ function SalesOrdersPage() {
 
       setSuccess(
 
-        `Sales order ${createdOrder.orderNumber} was saved successfully.`
+        t("Sales order {number} was saved successfully.", { number: createdOrder.orderNumber })
 
       );
 
@@ -810,7 +821,7 @@ function SalesOrdersPage() {
 
       setError(
 
-        err.message || "Unable to save the sales order."
+        err.message || t("Unable to save the sales order.")
 
       );
 
@@ -873,12 +884,45 @@ function SalesOrdersPage() {
   async function openOrderDetails(order) {
     setDetailsOrder(order);
     setPaymentBalance(null);
+    setOrderPayments([]);
     if (!canViewPayments) return;
     try {
-      setPaymentBalance(await getSalesOrderBalance(order.id));
+      const [balance, payments] = await Promise.all([
+        getSalesOrderBalance(order.id),
+        getSalesOrderPayments(order.id),
+      ]);
+      setPaymentBalance(balance);
+      setOrderPayments(Array.isArray(payments) ? payments : []);
     } catch (err) {
-      setError(err.message || "Unable to load payment balance.");
+      setError(err.message || t("Unable to load payment balance."));
     }
+  }
+
+  async function fixPaymentMethod(method, reason) {
+    await changeSalesPaymentMethod(detailsOrder.id, fixingPayment.id, method, reason);
+    setFixingPayment(null);
+    setOrderPayments(await getSalesOrderPayments(detailsOrder.id));
+    setSuccess(t("Payment method changed."));
+  }
+
+  // Bill summary for the customer, sent from the shop's own WhatsApp.
+  function billWhatsappLink(order) {
+    const phone = customers.find((customer) => customer.id === order.customerId)?.phone;
+    const lines = [
+      `Indra Vaibhav Marble`,
+      `Bill ${order.orderNumber} · ${formatDate(order.orderDate)}`,
+      `Customer: ${order.customerName}`,
+      "",
+      ...(order.items || []).map((item) => `${item.productName}: ${item.quantity} ${item.unitCode} × ${formatCurrency(item.unitPrice)}`),
+      ...(order.charges || []).map((charge) => `${charge.description}: ${formatCurrency(charge.amount)}`),
+      "",
+      `Bill total: ${formatCurrency(order.netTotal ?? order.grandTotal)}`,
+    ];
+    if (paymentBalance) {
+      lines.push(`Paid: ${formatCurrency(paymentBalance.totalPaid)}`, `Still to pay: ${formatCurrency(paymentBalance.outstandingBalance)}`);
+    }
+    lines.push("", "Thank you!");
+    return whatsappLink(phone, lines.join("\n"));
   }
 
   function openReturnForm(mode) {
@@ -908,7 +952,7 @@ function SalesOrdersPage() {
       }))
       .filter((line) => line.quantity > 0 || line.secondaryQuantity > 0);
     if (!cancelling && items.length === 0) {
-      setReturnError("Enter how much of at least one item is coming back.");
+      setReturnError(t("Enter how much of at least one item is coming back."));
       return;
     }
     setSavingReturn(true);
@@ -930,13 +974,13 @@ function SalesOrdersPage() {
       setDetailsOrder(null);
       await refreshOrders();
       const refund = Number(result.refundAmount) > 0
-        ? ` ${formatCurrency(result.refundAmount)} refund recorded.`
+        ? ` ${t("{amount} refund recorded.", { amount: formatCurrency(result.refundAmount) })}`
         : "";
       setSuccess(cancelling
-        ? `Bill ${detailsOrder.orderNumber} cancelled. Stock has been added back.${refund}`
-        : `Return ${result.returnNumber} saved. Stock has been added back.${refund}`);
+        ? t("Bill {number} cancelled. Stock has been added back.", { number: detailsOrder.orderNumber }) + refund
+        : t("Return {number} saved. Stock has been added back.", { number: result.returnNumber }) + refund);
     } catch (err) {
-      setReturnError(err.message || "Unable to save the return.");
+      setReturnError(err.message || t("Unable to save the return."));
     } finally {
       setSavingReturn(false);
     }
@@ -955,11 +999,12 @@ function SalesOrdersPage() {
       setPaymentForm({ paymentDate: today(), amount: "", paymentMethod: "CASH", referenceNumber: "", notes: "" });
       setShowPaymentForm(false);
       setPaymentBalance(await getSalesOrderBalance(detailsOrder.id));
+      setOrderPayments(await getSalesOrderPayments(detailsOrder.id));
       // Refresh the list so the bill's Paid / Part-paid badge updates.
       await refreshOrders();
-      setSuccess("Payment recorded successfully.");
+      setSuccess(t("Payment recorded successfully."));
     } catch (err) {
-      setPaymentError(err.message || "Unable to record payment.");
+      setPaymentError(err.message || t("Unable to record payment."));
     } finally {
       setSavingPayment(false);
     }
@@ -972,7 +1017,7 @@ function SalesOrdersPage() {
       <div className="sales-orders-heading">
 
         <p className="sales-orders-intro">
-          Create bills, collect payments and print invoices.
+          {t("Create bills, collect payments and print invoices.")}
         </p>
 
         <div className="sales-orders-actions">
@@ -989,7 +1034,7 @@ function SalesOrdersPage() {
 
           >
 
-            Refresh
+            {t("Refresh")}
 
           </button>
 
@@ -1003,7 +1048,7 @@ function SalesOrdersPage() {
 
           >
 
-            + New sale
+            {t("+ New sale")}
           </button>}
 
         </div>
@@ -1068,11 +1113,11 @@ function SalesOrdersPage() {
 
               <div>
 
-                <h2>Add New Customer</h2>
+                <h2>{t("Add New Customer")}</h2>
 
                 <p>
 
-                  Create a customer without leaving Sales &amp; Billing.
+                  {t("Create a customer without leaving Sales & Billing.")}
 
                 </p>
 
@@ -1088,7 +1133,7 @@ function SalesOrdersPage() {
 
                 disabled={customerSaving}
 
-                aria-label="Close customer form"
+                aria-label={t("Close customer form")}
 
               >
 
@@ -1102,7 +1147,7 @@ function SalesOrdersPage() {
 
               <label>
 
-                Customer Name <span className="required">*</span>
+                {t("Customer Name")} <span className="required">*</span>
 
                 <input
 
@@ -1122,7 +1167,7 @@ function SalesOrdersPage() {
 
                   }
 
-                  placeholder="Enter customer name"
+                  placeholder={t("Enter customer name")}
 
                   required
 
@@ -1132,7 +1177,7 @@ function SalesOrdersPage() {
 
               <label>
 
-                Phone Number <span className="required">*</span>
+                {t("Phone Number")} <span className="required">*</span>
 
                 <input
 
@@ -1152,7 +1197,7 @@ function SalesOrdersPage() {
 
                   }
 
-                  placeholder="Enter phone number"
+                  placeholder={t("Enter phone number")}
 
                   required
 
@@ -1162,7 +1207,7 @@ function SalesOrdersPage() {
 
               <label>
 
-                Email
+                {t("Email")}
 
                 <input
 
@@ -1212,7 +1257,7 @@ function SalesOrdersPage() {
 
                   }
 
-                  placeholder="15-character GSTIN"
+                  placeholder={t("15-character GSTIN")}
 
                 />
 
@@ -1220,7 +1265,7 @@ function SalesOrdersPage() {
 
               <label>
 
-                Credit Limit (₹)
+                {t("Credit Limit (₹)")}
 
                 <input
 
@@ -1250,7 +1295,7 @@ function SalesOrdersPage() {
 
               <label>
 
-                Billing Address
+                {t("Billing Address")}
 
                 <textarea
 
@@ -1270,7 +1315,7 @@ function SalesOrdersPage() {
 
                   }
 
-                  placeholder="Enter billing address"
+                  placeholder={t("Enter billing address")}
 
                 />
 
@@ -1278,7 +1323,7 @@ function SalesOrdersPage() {
 
               <label>
 
-                Shipping Address
+                {t("Shipping Address")}
 
                 <textarea
 
@@ -1298,7 +1343,7 @@ function SalesOrdersPage() {
 
                   }
 
-                  placeholder="Enter shipping address"
+                  placeholder={t("Enter shipping address")}
 
                 />
 
@@ -1320,7 +1365,7 @@ function SalesOrdersPage() {
 
               >
 
-                Cancel
+                {t("Cancel")}
 
               </button>
 
@@ -1336,9 +1381,9 @@ function SalesOrdersPage() {
 
                 {customerSaving
 
-                  ? "Saving Customer..."
+                  ? t("Saving Customer...")
 
-                  : "Save & Select Customer"}
+                  : t("Save & Select Customer")}
 
               </button>
 
@@ -1368,9 +1413,9 @@ function SalesOrdersPage() {
 
             <div>
 
-              <h2>New sale</h2>
+              <h2>{t("New sale")}</h2>
 
-              <p>Choose the customer, add what they are buying, then save.</p>
+              <p>{t("Choose the customer, add what they are buying, then save.")}</p>
 
             </div>
 
@@ -1392,7 +1437,7 @@ function SalesOrdersPage() {
 
             >
 
-              Close
+              {t("Close")}
 
             </button>
 
@@ -1400,11 +1445,7 @@ function SalesOrdersPage() {
 
           {formLoading ? (
 
-            <p className="sales-orders-message">
-
-              Loading customers, products, and units...
-
-            </p>
+            <Skeleton label={t("Loading customers, products, and units...")} rows={4} columns={2} />
 
           ) : (
 
@@ -1418,7 +1459,7 @@ function SalesOrdersPage() {
 
                     <label htmlFor="sales-order-customer">
 
-                      Customer <span className="required">*</span>
+                      {t("Customer")} <span className="required">*</span>
 
                     </label>
 
@@ -1438,7 +1479,7 @@ function SalesOrdersPage() {
 
                     >
 
-                      + Add New Customer
+                      {t("+ Add New Customer")}
 
                     </button>}
 
@@ -1454,8 +1495,8 @@ function SalesOrdersPage() {
                     }))}
                     value={customerId}
                     onChange={handleCustomerChange}
-                    placeholder="Search customer by name or phone"
-                    emptyText="No customer found. Use “+ Add New Customer”."
+                    placeholder={t("Search customer by name or phone")}
+                    emptyText={t("No customer found. Use “+ Add New Customer”.")}
                     required
                   />
 
@@ -1463,9 +1504,7 @@ function SalesOrdersPage() {
 
                     <small>
 
-                      No active customers found. Add a new customer
-
-                      to continue.
+                      {t("No active customers found. Add a new customer to continue.")}
 
                     </small>
 
@@ -1475,7 +1514,7 @@ function SalesOrdersPage() {
 
                 <label>
 
-                  Order date <span className="required">*</span>
+                  {t("Order date")} <span className="required">*</span>
 
                   <input
 
@@ -1496,37 +1535,37 @@ function SalesOrdersPage() {
                 </label>
 
                 <label>
-                  Bill type <span className="required">*</span>
+                  {t("Bill type")} <span className="required">*</span>
                   <select
                     value={withGst ? "GST" : "NONE"}
                     onChange={(event) => setWithGst(event.target.value === "GST")}
                     required
                   >
-                    <option value="GST">GST bill (tax invoice)</option>
-                    <option value="NONE">Without GST (estimate)</option>
+                    <option value="GST">{t("GST bill (tax invoice)")}</option>
+                    <option value="NONE">{t("Without GST (estimate)")}</option>
                   </select>
                   <small className="sales-order-field-hint">
                     {withGst
-                      ? "GST added on top. Numbered INV-0001…"
-                      : "No GST on the bill. Numbered EST-0001…"}
+                      ? t("GST added on top. Numbered INV-0001…")
+                      : t("No GST on the bill. Numbered EST-0001…")}
                   </small>
                 </label>
 
                 {withGst && (
                   <label>
 
-                    Customer location <span className="required">*</span>
+                    {t("Customer location")} <span className="required">*</span>
 
                     <select
                       value={taxType}
                       onChange={(event) => setTaxType(event.target.value)}
                       required
                     >
-                      <option value="INTRA">Same state as us (CGST + SGST)</option>
-                      <option value="INTER">Other state (IGST)</option>
+                      <option value="INTRA">{t("Same state as us (CGST + SGST)")}</option>
+                      <option value="INTER">{t("Other state (IGST)")}</option>
                     </select>
                     <small className="sales-order-field-hint">
-                      Filled in from the customer&apos;s GSTIN. Change it only if needed.
+                      {t("Filled in from the customer's GSTIN. Change it only if needed.")}
                     </small>
 
                   </label>
@@ -1536,7 +1575,7 @@ function SalesOrdersPage() {
 
               <div className="sales-order-items-heading">
 
-                <h3>Products</h3>
+                <h3>{t("Products")}</h3>
 
                 <button
 
@@ -1548,7 +1587,7 @@ function SalesOrdersPage() {
 
                 >
 
-                  + Add product
+                  {t("+ Add product")}
 
                 </button>
 
@@ -1587,7 +1626,7 @@ function SalesOrdersPage() {
 
                       <label className="sales-order-product-field">
 
-                        Product <span className="required">*</span>
+                        {t("Product")} <span className="required">*</span>
 
                         <SearchSelect
                           options={products.map((entry) => {
@@ -1597,32 +1636,32 @@ function SalesOrdersPage() {
                             return {
                               value: entry.id,
                               label: entry.name,
-                              hint: `In stock: ${Number(entry.stockQuantity || 0)} ${getProductUnit(entry)}`
+                              hint: t("In stock: {quantity} {unit}", { quantity: Number(entry.stockQuantity || 0), unit: getProductUnit(entry) })
                                 + (entrySecondary ? ` + ${Number(entry.secondaryStockQuantity || 0)} ${entrySecondary.code}` : ""),
                             };
                           })}
                           value={item.productId}
                           onChange={(value) => updateItem(index, "productId", value)}
-                          placeholder="Search product by name"
+                          placeholder={t("Search product by name")}
                           required
                         />
 
                       </label>
                       {secondaryUnit && <label>
-                        Quantity ({secondaryUnit.code}) <span className="required">*</span>
+                        {t("Quantity ({unit})", { unit: secondaryUnit.code })} <span className="required">*</span>
                         <input type="number" min="0.001" step="0.001" value={item.secondaryQuantity} onChange={(event) => updateItem(index, "secondaryQuantity", event.target.value)} required />
                       </label>}
                       {product && <label>
-                        Price basis
+                        {t("Price basis")}
                         <select value={item.pricingUnit} onChange={(event) => updateItem(index, "pricingUnit", event.target.value)}>
-                          <option value="PRIMARY">Per {unit}</option>
-                          {secondaryUnit && <option value="SECONDARY">Per {secondaryUnit.code}</option>}
+                          <option value="PRIMARY">{t("Per {unit}", { unit })}</option>
+                          {secondaryUnit && <option value="SECONDARY">{t("Per {unit}", { unit: secondaryUnit.code })}</option>}
                         </select>
                       </label>}
 
                       <label>
 
-                        Quantity ({product ? unit : "unit"})
+                        {t("Quantity ({unit})", { unit: product ? unit : t("unit") })}
 
                         <span className="required"> *</span>
 
@@ -1667,7 +1706,7 @@ function SalesOrdersPage() {
                       </label>
 
                       <label>
-                        Price per {product ? unit : "unit"} (₹)
+                        {t("Price per {unit} (₹)", { unit: product ? unit : t("unit") })}
 
                         <input
 
@@ -1701,7 +1740,7 @@ function SalesOrdersPage() {
 
                       {withGst && (
                         <label>
-                          GST (%)
+                          {t("GST (%)")}
                           <input
                             type="number"
                             min="0"
@@ -1717,7 +1756,7 @@ function SalesOrdersPage() {
 
                       <div className="sales-order-line-total">
 
-                        <span>Line subtotal</span>
+                        <span>{t("Line subtotal")}</span>
 
                         <strong>
 
@@ -1728,7 +1767,7 @@ function SalesOrdersPage() {
                         {withGst && (
                           <small>
 
-                            GST: {Number(item.gstRate || 0)}%
+                            {t("GST: {rate}%", { rate: Number(item.gstRate || 0) })}
 
                           </small>
                         )}
@@ -1745,13 +1784,13 @@ function SalesOrdersPage() {
 
                         disabled={items.length === 1}
 
-                        aria-label={`Remove product ${index + 1}`}
+                        aria-label={t("Remove product {number}", { number: index + 1 })}
 
-                        title="Remove product"
+                        title={t("Remove product")}
 
                       >
 
-                        Remove
+                        {t("Remove")}
 
                       </button>
 
@@ -1767,9 +1806,7 @@ function SalesOrdersPage() {
 
                 <p className="sales-orders-message">
 
-                  No active products found. Add or activate products
-
-                  in Inventory before creating an order.
+                  {t("No active products found. Add or activate products in Inventory before creating an order.")}
 
                 </p>
 
@@ -1777,7 +1814,7 @@ function SalesOrdersPage() {
 
               <label className="sales-order-notes">
 
-                Notes
+                {t("Notes")}
 
                 <textarea
 
@@ -1787,7 +1824,7 @@ function SalesOrdersPage() {
 
                   rows="3"
 
-                  placeholder="Optional notes for this order"
+                  placeholder={t("Optional notes for this order")}
 
                 />
 
@@ -1796,11 +1833,11 @@ function SalesOrdersPage() {
               <section className="sales-order-charges">
                 <div className="sales-order-items-heading">
                   <div>
-                    <h3>Additional bill charges</h3>
-                    <p>Optional charges such as labour, transport, loading, or delivery.</p>
+                    <h3>{t("Additional bill charges")}</h3>
+                    <p>{t("Optional charges such as labour, transport, loading, or delivery.")}</p>
                   </div>
                   <button type="button" className="sales-orders-secondary" onClick={addCharge}>
-                    + Add charge
+                    {t("+ Add charge")}
                   </button>
                 </div>
                 {charges.length > 0 && (
@@ -1811,7 +1848,7 @@ function SalesOrdersPage() {
                           value={charge.description}
                           onChange={(event) => updateCharge(index, "description", event.target.value)}
                         >
-                          <option value="">Select charge category</option>
+                          <option value="">{t("Select charge category")}</option>
                           {chargeCategories.map((category) => (
                             <option key={category.id || category.name} value={category.name}>
                               {category.name}
@@ -1824,10 +1861,10 @@ function SalesOrdersPage() {
                           step="0.01"
                           value={charge.amount}
                           onChange={(event) => updateCharge(index, "amount", event.target.value)}
-                          placeholder="Amount (₹)"
+                          placeholder={t("Amount (₹)")}
                         />
                         <button type="button" className="sales-order-remove" onClick={() => removeCharge(index)}>
-                          Remove
+                          {t("Remove")}
                         </button>
                       </div>
                     ))}
@@ -1841,17 +1878,17 @@ function SalesOrdersPage() {
                     setShowChargeCategoryForm(true);
                   }}
                 >
-                  + Add new charge category
+                  {t("+ Add new charge category")}
                 </button>
               </section>
 
               <div className="sales-order-totals">
 
-                <h3>Order Summary</h3>
+                <h3>{t("Order Summary")}</h3>
 
                 <div>
 
-                  <span>Subtotal</span>
+                  <span>{t("Subtotal")}</span>
 
                   <strong>{formatCurrency(totals.subtotal)}</strong>
 
@@ -1905,7 +1942,7 @@ function SalesOrdersPage() {
 
                 {withGst && (
                   <div>
-                    <span>Total GST</span>
+                    <span>{t("Total GST")}</span>
 
                     <strong>{formatCurrency(totals.totalTax)}</strong>
 
@@ -1913,14 +1950,14 @@ function SalesOrdersPage() {
                 )}
                 {totals.chargesTotal > 0 && (
                   <div>
-                    <span>Additional charges</span>
+                    <span>{t("Additional charges")}</span>
                     <strong>{formatCurrency(totals.chargesTotal)}</strong>
                   </div>
                 )}
 
                 <div className="sales-order-grand-total">
 
-                  <span>Total after tax</span>
+                  <span>{t("Total after tax")}</span>
 
                   <strong>
 
@@ -1935,7 +1972,7 @@ function SalesOrdersPage() {
               <div className="sales-order-form-actions sales-order-sticky-actions">
 
                 <div className="sales-order-sticky-total">
-                  <span>Total</span>
+                  <span>{t("Total")}</span>
                   <strong>{formatCurrency(totals.grandTotal)}</strong>
                 </div>
 
@@ -1951,7 +1988,7 @@ function SalesOrdersPage() {
 
                 >
 
-                  Clear
+                  {t("Clear")}
 
                 </button>
 
@@ -1975,7 +2012,7 @@ function SalesOrdersPage() {
 
                 >
 
-                  {saving ? "Saving..." : "Save order"}
+                  {saving ? t("Saving...") : t("Save order")}
 
                 </button>
 
@@ -1990,18 +2027,14 @@ function SalesOrdersPage() {
       )}
 
       <div className="sales-orders-summary">
-        <div className="sales-orders-summary-card is-green"><span>Sales today</span><strong>{formatCurrency(todaySales)}</strong><small>{todayOrders.length} {todayOrders.length === 1 ? "bill" : "bills"}</small></div>
-        <div className="sales-orders-summary-card is-blue"><span>Sales this month</span><strong>{formatCurrency(monthSales)}</strong><small>{monthOrders.length} {monthOrders.length === 1 ? "bill" : "bills"}</small></div>
-        <div className="sales-orders-summary-card is-amber"><span>To collect from customers</span><strong>{formatCurrency(toCollect)}</strong><small>{unpaidOrders.length} {unpaidOrders.length === 1 ? "bill" : "bills"} not fully paid</small></div>
+        <div className="sales-orders-summary-card is-green"><span>{t("Sales today")}</span><strong>{formatCurrency(todaySales)}</strong><small>{todayOrders.length === 1 ? t("{count} bill", { count: todayOrders.length }) : t("{count} bills", { count: todayOrders.length })}</small></div>
+        <div className="sales-orders-summary-card is-blue"><span>{t("Sales this month")}</span><strong>{formatCurrency(monthSales)}</strong><small>{monthOrders.length === 1 ? t("{count} bill", { count: monthOrders.length }) : t("{count} bills", { count: monthOrders.length })}</small></div>
+        <div className="sales-orders-summary-card is-amber"><span>{t("To collect from customers")}</span><strong>{formatCurrency(toCollect)}</strong><small>{unpaidOrders.length === 1 ? t("{count} bill not fully paid", { count: unpaidOrders.length }) : t("{count} bills not fully paid", { count: unpaidOrders.length })}</small></div>
       </div>
 
       {loading && (
 
-        <p className="sales-orders-message">
-
-          Loading sales orders...
-
-        </p>
+        <Skeleton label={t("Loading sales orders...")} rows={6} />
 
       )}
 
@@ -2009,33 +2042,33 @@ function SalesOrdersPage() {
         <div className="sales-orders-directory">
           <div className="sales-orders-filters">
             <div>
-              <h2>Bills</h2>
-              <p>Tap a bill to see details, take a payment or print it.</p>
+              <h2>{t("Bills")}</h2>
+              <p>{t("Tap a bill to see details, take a payment or print it.")}</p>
             </div>
             <div className="sales-orders-filter-controls">
               <input
                 type="search"
                 value={orderSearch}
-                placeholder="Search bill number or customer"
-                aria-label="Search sales orders"
+                placeholder={t("Search bill number or customer")}
+                aria-label={t("Search sales orders")}
                 onChange={(event) => {
                   setOrderSearch(event.target.value);
                   setOrderPage(1);
                 }}
               />
-              <select value={statusFilter} aria-label="Filter by payment" onChange={(event) => { setStatusFilter(event.target.value); setOrderPage(1); }}>
-                <option value="ALL">All payments</option>
-                <option value="UNPAID">Unpaid</option>
-                <option value="PARTIALLY_PAID">Part-paid</option>
-                <option value="PAID">Paid</option>
+              <select value={statusFilter} aria-label={t("Filter by payment")} onChange={(event) => { setStatusFilter(event.target.value); setOrderPage(1); }}>
+                <option value="ALL">{t("All payments")}</option>
+                <option value="UNPAID">{t("Unpaid")}</option>
+                <option value="PARTIALLY_PAID">{t("Part-paid")}</option>
+                <option value="PAID">{t("Paid")}</option>
               </select>
-              <select value={dateFilter} aria-label="Filter order date" onChange={(event) => { setDateFilter(event.target.value); setOrderPage(1); }}>
-                <option value="ALL">All dates</option>
-                <option value="TODAY">Today</option>
-                <option value="WEEK">Last 7 days</option>
-                <option value="MONTH">Last 30 days</option>
+              <select value={dateFilter} aria-label={t("Filter order date")} onChange={(event) => { setDateFilter(event.target.value); setOrderPage(1); }}>
+                <option value="ALL">{t("All dates")}</option>
+                <option value="TODAY">{t("Today")}</option>
+                <option value="WEEK">{t("Last 7 days")}</option>
+                <option value="MONTH">{t("Last 30 days")}</option>
               </select>
-              <button type="button" className="sales-orders-secondary" onClick={() => { setOrderSearch(""); setStatusFilter("ALL"); setDateFilter("ALL"); setOrderPage(1); }}>Clear</button>
+              <button type="button" className="sales-orders-secondary" onClick={() => { setOrderSearch(""); setStatusFilter("ALL"); setDateFilter("ALL"); setOrderPage(1); }}>{t("Clear")}</button>
             </div>
           </div>
         <div className="sales-orders-table-wrapper has-mobile-cards">
@@ -2046,16 +2079,16 @@ function SalesOrdersPage() {
 
               <tr>
 
-                <th>Bill no.</th>
+                <th>{t("Bill no.")}</th>
 
-                <th>Date</th>
+                <th>{t("Date")}</th>
 
-                <th>Customer</th>
+                <th>{t("Customer")}</th>
 
-                <th>Payment</th>
+                <th>{t("Payment")}</th>
 
-                <th className="sales-orders-amount">Total</th>
-                <th><span className="visually-hidden">Actions</span></th>
+                <th className="sales-orders-amount">{t("Total")}</th>
+                <th><span className="visually-hidden">{t("Actions")}</span></th>
 
               </tr>
 
@@ -2069,7 +2102,7 @@ function SalesOrdersPage() {
 
                   <td colSpan="6" className="sales-orders-empty">
 
-                    No bills found. Use “+ New sale” to create one.
+                    {t("No bills found. Use “+ New sale” to create one.")}
 
                   </td>
 
@@ -2084,7 +2117,7 @@ function SalesOrdersPage() {
                     <td>
                       <strong>{order.orderNumber}</strong>
                       {order.taxType === "NONE" && (
-                        <span className="sales-orders-status">No GST</span>
+                        <span className="sales-orders-status">{t("No GST")}</span>
                       )}
                       {order.status !== "CONFIRMED" && (
                         <span className={`sales-orders-status sales-orders-status-${String(order.status).toLowerCase()}`}>
@@ -2108,10 +2141,10 @@ function SalesOrdersPage() {
                         ? <s>{formatCurrency(order.grandTotal)}</s>
                         : formatCurrency(order.netTotal ?? order.grandTotal)}
                       {order.status !== "CANCELLED" && Number(order.returnedTotal) > 0 && (
-                        <span className="amount-due">{formatCurrency(order.returnedTotal)} returned</span>
+                        <span className="amount-due">{t("{amount} returned", { amount: formatCurrency(order.returnedTotal) })}</span>
                       )}
                       {order.status !== "CANCELLED" && Number(order.balanceDue) > 0 && Number(order.balanceDue) < Number(order.netTotal ?? order.grandTotal) && (
-                        <span className="amount-due">{formatCurrency(order.balanceDue)} due</span>
+                        <span className="amount-due">{t("{amount} due", { amount: formatCurrency(order.balanceDue) })}</span>
                       )}
                     </td>
                     <td>
@@ -2120,7 +2153,7 @@ function SalesOrdersPage() {
                         className="sales-orders-secondary"
                         onClick={() => openOrderDetails(order)}
                       >
-                        View
+                        {t("View")}
                       </button>
                     </td>
 
@@ -2136,7 +2169,7 @@ function SalesOrdersPage() {
 
           <div className="mobile-cards">
             {visibleOrders.length === 0 ? (
-              <p className="sales-orders-empty">No bills found.</p>
+              <p className="sales-orders-empty">{t("No bills found.")}</p>
             ) : visibleOrders.map((order) => (
               <button
                 type="button"
@@ -2155,7 +2188,7 @@ function SalesOrdersPage() {
                 <span className="mobile-card__row">
                   <span className="mobile-card__meta">{order.orderNumber} · {formatDate(order.orderDate)}</span>
                   {order.status === "CANCELLED"
-                    ? <span className="sales-orders-status sales-orders-status-cancelled">Cancelled</span>
+                    ? <span className="sales-orders-status sales-orders-status-cancelled">{t("Cancelled")}</span>
                     : <span className={paymentBadgeClass(order.paymentStatus)}>{label(order.paymentStatus)}</span>}
                 </span>
               </button>
@@ -2164,11 +2197,11 @@ function SalesOrdersPage() {
 
         </div>
         <div className="sales-orders-pagination">
-          <span>Showing {filteredOrders.length ? (orderPage - 1) * PAGE_SIZE + 1 : 0}–{Math.min(orderPage * PAGE_SIZE, filteredOrders.length)} of {filteredOrders.length}</span>
+          <span>{t("Showing {from}–{to} of {total}", { from: filteredOrders.length ? (orderPage - 1) * PAGE_SIZE + 1 : 0, to: Math.min(orderPage * PAGE_SIZE, filteredOrders.length), total: filteredOrders.length })}</span>
           <div>
-            <button type="button" disabled={orderPage <= 1} onClick={() => setOrderPage((current) => current - 1)}>Previous</button>
-            <strong>Page {orderPage} of {orderPageCount}</strong>
-            <button type="button" disabled={orderPage >= orderPageCount} onClick={() => setOrderPage((current) => current + 1)}>Next</button>
+            <button type="button" disabled={orderPage <= 1} onClick={() => setOrderPage((current) => current - 1)}>{t("Previous")}</button>
+            <strong>{t("Page {page} of {count}", { page: orderPage, count: orderPageCount })}</strong>
+            <button type="button" disabled={orderPage >= orderPageCount} onClick={() => setOrderPage((current) => current + 1)}>{t("Next")}</button>
           </div>
         </div>
         </div>
@@ -2178,41 +2211,53 @@ function SalesOrdersPage() {
         <div className="sales-order-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setDetailsOrder(null)}>
           <section className="sales-order-details-modal" role="dialog" aria-modal="true" aria-labelledby="sales-order-details-title">
             <div className="sales-order-form-heading">
-              <div><h2 id="sales-order-details-title">Bill {detailsOrder.orderNumber}</h2><p>{detailsOrder.customerName} · {formatDate(detailsOrder.orderDate)}</p></div>
-              <button type="button" className="sales-orders-refresh" onClick={() => setDetailsOrder(null)} aria-label="Close order details">Close</button>
+              <div><h2 id="sales-order-details-title">{t("Bill {number}", { number: detailsOrder.orderNumber })}</h2><p>{detailsOrder.customerName} · {formatDate(detailsOrder.orderDate)}</p></div>
+              <button type="button" className="sales-orders-refresh" onClick={() => setDetailsOrder(null)} aria-label={t("Close order details")}>{t("Close")}</button>
             </div>
             <div className="sales-order-detail-summary">
-              <div><span>Status</span><strong>{label(detailsOrder.status)}</strong></div>
+              <div><span>{t("Status")}</span><strong>{label(detailsOrder.status)}</strong></div>
               {detailsOrder.taxType === "NONE"
-                ? <div><span>Bill type</span><strong>Without GST</strong></div>
-                : <div><span>Customer location</span><strong>{label(detailsOrder.taxType)}</strong></div>}
-              <div><span>Subtotal</span><strong>{formatCurrency(detailsOrder.subtotal)}</strong></div>
-              <div><span>Total tax</span><strong>{formatCurrency(detailsOrder.totalTax)}</strong></div>
-              {detailsOrder.charges?.length > 0 && <div><span>Additional charges</span><strong>{formatCurrency(detailsOrder.charges.reduce((sum, charge) => sum + Number(charge.amount || 0), 0))}</strong></div>}
-              <div><span>Grand total</span><strong>{formatCurrency(detailsOrder.grandTotal)}</strong></div>
-              {Number(detailsOrder.returnedTotal) > 0 && <div><span>Returned</span><strong>− {formatCurrency(detailsOrder.returnedTotal)}</strong></div>}
-              {Number(detailsOrder.returnedTotal) > 0 && <div><span>Bill now worth</span><strong>{formatCurrency(detailsOrder.netTotal)}</strong></div>}
-              {detailsOrder.status === "CANCELLED" && <div><span>Reason for cancelling</span><strong>{detailsOrder.cancelReason || "—"}</strong></div>}
-              {paymentBalance && detailsOrder.status !== "CANCELLED" && <div><span>Payment</span><strong><span className={paymentBadgeClass(paymentBalance.paymentStatus)}>{label(paymentBalance.paymentStatus)}</span></strong></div>}
-              {paymentBalance && detailsOrder.status !== "CANCELLED" && <div><span>Still to collect</span><strong>{formatCurrency(paymentBalance.outstandingBalance)}</strong></div>}
+                ? <div><span>{t("Bill type")}</span><strong>{t("Without GST")}</strong></div>
+                : <div><span>{t("Customer location")}</span><strong>{label(detailsOrder.taxType)}</strong></div>}
+              <div><span>{t("Subtotal")}</span><strong>{formatCurrency(detailsOrder.subtotal)}</strong></div>
+              <div><span>{t("Total tax")}</span><strong>{formatCurrency(detailsOrder.totalTax)}</strong></div>
+              {detailsOrder.charges?.length > 0 && <div><span>{t("Additional charges")}</span><strong>{formatCurrency(detailsOrder.charges.reduce((sum, charge) => sum + Number(charge.amount || 0), 0))}</strong></div>}
+              <div><span>{t("Grand total")}</span><strong>{formatCurrency(detailsOrder.grandTotal)}</strong></div>
+              {Number(detailsOrder.returnedTotal) > 0 && <div><span>{t("Returned")}</span><strong>− {formatCurrency(detailsOrder.returnedTotal)}</strong></div>}
+              {Number(detailsOrder.returnedTotal) > 0 && <div><span>{t("Bill now worth")}</span><strong>{formatCurrency(detailsOrder.netTotal)}</strong></div>}
+              {detailsOrder.status === "CANCELLED" && <div><span>{t("Reason for cancelling")}</span><strong>{detailsOrder.cancelReason || "—"}</strong></div>}
+              {paymentBalance && detailsOrder.status !== "CANCELLED" && <div><span>{t("Payment")}</span><strong><span className={paymentBadgeClass(paymentBalance.paymentStatus)}>{label(paymentBalance.paymentStatus)}</span></strong></div>}
+              {paymentBalance && detailsOrder.status !== "CANCELLED" && <div><span>{t("Still to collect")}</span><strong>{formatCurrency(paymentBalance.outstandingBalance)}</strong></div>}
             </div>
             <div className="sales-order-detail-items">
-              <h3>Products</h3>
-              {detailsOrder.items?.map((item) => <div className="sales-order-detail-item" key={item.id}><span>{item.productName} <small>{item.productCode}</small></span><span>{item.quantity} {item.unitCode} × {formatCurrency(item.unitPrice)}{detailsOrder.taxType !== "NONE" && ` · GST ${item.gstRate}%`}</span><strong>{formatCurrency(item.lineTotal)}{Number(item.returnedQuantity) > 0 && <small>{roundQuantity(Number(item.returnedQuantity))} {item.unitCode} returned</small>}</strong></div>)}
+              <h3>{t("Products")}</h3>
+              {detailsOrder.items?.map((item) => <div className="sales-order-detail-item" key={item.id}><span>{item.productName} <small>{item.productCode}</small></span><span>{item.quantity} {item.unitCode} × {formatCurrency(item.unitPrice)}{detailsOrder.taxType !== "NONE" && ` · GST ${item.gstRate}%`}</span><strong>{formatCurrency(item.lineTotal)}{Number(item.returnedQuantity) > 0 && <small>{t("{quantity} {unit} returned", { quantity: roundQuantity(Number(item.returnedQuantity)), unit: item.unitCode })}</small>}</strong></div>)}
               {detailsOrder.charges?.map((charge) => <div className="sales-order-detail-item" key={`charge-${charge.id}`}><span>{charge.description}</span><strong>{formatCurrency(charge.amount)}</strong></div>)}
             </div>
+            {orderPayments.length > 0 && (
+              <div className="sales-order-detail-items">
+                <h3>{t("Payments")}</h3>
+                {orderPayments.map((payment) => (
+                  <div className="sales-order-detail-item" key={payment.id}>
+                    <span>{formatDate(payment.paymentDate)} · {label(payment.paymentMethod)}{payment.referenceNumber ? <small>{t("Ref: {reference}", { reference: payment.referenceNumber })}</small> : null}</span>
+                    <span>{canFixPayments && detailsOrder.status !== "CANCELLED" && <button type="button" className="sales-orders-secondary sales-payment-fix" onClick={() => setFixingPayment(payment)}>{t("Change method")}</button>}</span>
+                    <strong>{Number(payment.amount) < 0 ? t("− {amount} refund", { amount: formatCurrency(-payment.amount) }) : formatCurrency(payment.amount)}</strong>
+                  </div>
+                ))}
+              </div>
+            )}
             {detailsOrder.returns?.length > 0 && (
               <div className="sales-order-detail-items">
-                <h3>Returns</h3>
+                <h3>{t("Returns")}</h3>
                 {detailsOrder.returns.map((salesReturn) => (
                   <div className="sales-order-detail-item" key={salesReturn.id}>
                     <span>
-                      {salesReturn.cancelsOrder ? "Bill cancelled" : salesReturn.returnNumber} · {formatDate(salesReturn.returnDate)}
-                      <small>{salesReturn.reason}{salesReturn.createdBy ? ` · by ${salesReturn.createdBy}` : ""}</small>
+                      {salesReturn.cancelsOrder ? t("Bill cancelled") : salesReturn.returnNumber} · {formatDate(salesReturn.returnDate)}
+                      <small>{salesReturn.reason}{salesReturn.createdBy ? ` · ${t("by {name}", { name: salesReturn.createdBy })}` : ""}</small>
                     </span>
                     <span>
-                      {salesReturn.items.map((line) => `${roundQuantity(Number(line.quantity))} ${line.unitCode} ${line.productName}`).join(", ") || "Extra charges only"}
-                      {Number(salesReturn.refundAmount) > 0 && <small>Refunded {formatCurrency(salesReturn.refundAmount)}</small>}
+                      {salesReturn.items.map((line) => `${roundQuantity(Number(line.quantity))} ${line.unitCode} ${line.productName}`).join(", ") || t("Extra charges only")}
+                      {Number(salesReturn.refundAmount) > 0 && <small>{t("Refunded {amount}", { amount: formatCurrency(salesReturn.refundAmount) })}</small>}
                     </span>
                     <strong>− {formatCurrency(salesReturn.totalAmount)}</strong>
                   </div>
@@ -2220,11 +2265,12 @@ function SalesOrdersPage() {
               </div>
             )}
             <div className="sales-order-form-actions">
-              <button type="button" className="sales-orders-secondary" onClick={() => setDetailsOrder(null)}>Close</button>
-              <button type="button" className="sales-orders-secondary" onClick={() => { setInvoiceOrderId(detailsOrder.id); setDetailsOrder(null); }}>Print invoice</button>
-              {canManageSales && detailsOrder.status === "CONFIRMED" && <button type="button" className="sales-orders-danger" onClick={() => openReturnForm("cancel")}>Cancel bill</button>}
-              {canManageSales && detailsOrder.status === "CONFIRMED" && detailsOrder.items?.some((item) => quantityLeft(item) > 0) && <button type="button" className="sales-orders-secondary" onClick={() => openReturnForm("return")}>Return items</button>}
-              {canManagePayments && detailsOrder.status !== "CANCELLED" && paymentBalance?.outstandingBalance > 0 && <button type="button" className="sales-orders-primary" onClick={() => { setPaymentError(""); setShowPaymentForm(true); }}>Take payment</button>}
+              <button type="button" className="sales-orders-secondary" onClick={() => setDetailsOrder(null)}>{t("Close")}</button>
+              <button type="button" className="sales-orders-secondary" onClick={() => { setInvoiceOrderId(detailsOrder.id); setDetailsOrder(null); }}>{t("Print invoice")}</button>
+              <a className="sales-orders-secondary sales-whatsapp" href={billWhatsappLink(detailsOrder)} target="_blank" rel="noopener noreferrer">{t("Send on WhatsApp")}</a>
+              {canManageSales && detailsOrder.status === "CONFIRMED" && <button type="button" className="sales-orders-danger" onClick={() => openReturnForm("cancel")}>{t("Cancel bill")}</button>}
+              {canManageSales && detailsOrder.status === "CONFIRMED" && detailsOrder.items?.some((item) => quantityLeft(item) > 0) && <button type="button" className="sales-orders-secondary" onClick={() => openReturnForm("return")}>{t("Return items")}</button>}
+              {canManagePayments && detailsOrder.status !== "CANCELLED" && paymentBalance?.outstandingBalance > 0 && <button type="button" className="sales-orders-primary" onClick={() => { setPaymentError(""); setPaymentForm((current) => ({ ...current, requestId: newRequestId() })); setShowPaymentForm(true); }}>{t("Take payment")}</button>}
             </div>
           </section>
         </div>
@@ -2243,12 +2289,12 @@ function SalesOrdersPage() {
             <form className="sales-order-details-modal sales-payment-modal sales-return-modal" onSubmit={handleReturnSubmit} aria-labelledby="sales-return-title">
               <div className="sales-order-form-heading">
                 <div>
-                  <h2 id="sales-return-title">{cancelling ? `Cancel bill ${detailsOrder.orderNumber}?` : "Return items"}</h2>
+                  <h2 id="sales-return-title">{cancelling ? t("Cancel bill {number}?", { number: detailsOrder.orderNumber }) : t("Return items")}</h2>
                   <p>{cancelling
-                    ? "Everything still on the bill goes back into stock and the bill stops counting as a sale. The bill is kept, marked Cancelled."
-                    : `Bill ${detailsOrder.orderNumber} · enter how much of each item is coming back.`}</p>
+                    ? t("Everything still on the bill goes back into stock and the bill stops counting as a sale. The bill is kept, marked Cancelled.")
+                    : t("Bill {number} · enter how much of each item is coming back.", { number: detailsOrder.orderNumber })}</p>
                 </div>
-                <button type="button" className="sales-orders-refresh" onClick={close}>Close</button>
+                <button type="button" className="sales-orders-refresh" onClick={close}>{t("Close")}</button>
               </div>
 
               {!cancelling && (
@@ -2261,13 +2307,13 @@ function SalesOrdersPage() {
                         <div>
                           <strong>{item.productName}</strong>
                           <small>
-                            Sold {roundQuantity(Number(item.quantity))} {item.unitCode}
-                            {Number(item.returnedQuantity) > 0 && ` · ${roundQuantity(Number(item.returnedQuantity))} already returned`}
-                            {` · ${left} left`}
+                            {t("Sold {quantity} {unit}", { quantity: roundQuantity(Number(item.quantity)), unit: item.unitCode })}
+                            {Number(item.returnedQuantity) > 0 && ` · ${t("{quantity} already returned", { quantity: roundQuantity(Number(item.returnedQuantity)) })}`}
+                            {` · ${t("{quantity} left", { quantity: left })}`}
                           </small>
                         </div>
                         <label>
-                          Returning ({item.unitCode})
+                          {t("Returning ({unit})", { unit: item.unitCode })}
                           <input
                             type="number" min="0" max={left} step="0.001" inputMode="decimal"
                             value={returnLines[item.id]?.quantity ?? ""}
@@ -2277,12 +2323,12 @@ function SalesOrdersPage() {
                         </label>
                         {dualUnit && (
                           <label>
-                            Second quantity
+                            {t("Second quantity")}
                             <input
                               type="number" min="0" step="0.001" inputMode="decimal"
                               value={returnLines[item.id]?.secondaryQuantity ?? ""}
                               onChange={(event) => updateReturnLine(item.id, "secondaryQuantity", event.target.value)}
-                              placeholder="Auto"
+                              placeholder={t("Auto")}
                             />
                           </label>
                         )}
@@ -2293,30 +2339,32 @@ function SalesOrdersPage() {
               )}
 
               <div className="sales-payment-grid">
-                <label>{cancelling ? "Cancel date" : "Return date"}<input type="date" min={detailsOrder.orderDate} max={today()} value={returnForm.date} onChange={(event) => setReturnForm({ ...returnForm, date: event.target.value })} required /></label>
+                <label>{cancelling ? t("Cancel date") : t("Return date")}<input type="date" min={detailsOrder.orderDate} max={today()} value={returnForm.date} onChange={(event) => setReturnForm({ ...returnForm, date: event.target.value })} required /></label>
                 {refund > 0 && (
                   <label>
-                    Refund given by
-                    <select value={returnForm.refundMethod} onChange={(event) => setReturnForm({ ...returnForm, refundMethod: event.target.value })}><option value="CASH">Cash</option><option value="UPI">UPI</option><option value="BANK_TRANSFER">Bank transfer</option><option value="CHEQUE">Cheque</option><option value="CARD">Card</option><option value="OTHER">Other</option></select>
+                    {t("Refund given by")}
+                    <select value={returnForm.refundMethod} onChange={(event) => setReturnForm({ ...returnForm, refundMethod: event.target.value })}><option value="CASH">{t("Cash")}</option><option value="UPI">{t("UPI")}</option><option value="BANK_TRANSFER">{t("Bank transfer")}</option><option value="CHEQUE">{t("Cheque")}</option><option value="CARD">{t("Card")}</option><option value="OTHER">{t("Other")}</option></select>
                   </label>
                 )}
                 <label className="sales-payment-full-width">
-                  <span>Reason <span className="required">*</span></span>
-                  <textarea rows="2" value={returnForm.reason} onChange={(event) => setReturnForm({ ...returnForm, reason: event.target.value })} maxLength={1000} required placeholder={cancelling ? "e.g. Customer cancelled the order" : "e.g. Wrong shade, broken in transport"} />
+                  <span>{t("Reason")} <span className="required">*</span></span>
+                  <textarea rows="2" value={returnForm.reason} onChange={(event) => setReturnForm({ ...returnForm, reason: event.target.value })} maxLength={1000} required placeholder={cancelling ? t("e.g. Customer cancelled the order") : t("e.g. Wrong shade, broken in transport")} />
                 </label>
               </div>
 
               {refund > 0 && (
                 <p className="sales-return-refund">
-                  {cancelling ? "" : "About "}{formatCurrency(refund)} will be recorded as a refund to the customer.
-                  {!canManagePayments && " You can't record refunds, so ask someone who can take payments to do this."}
+                  {cancelling
+                    ? t("{amount} will be recorded as a refund to the customer.", { amount: formatCurrency(refund) })
+                    : t("About {amount} will be recorded as a refund to the customer.", { amount: formatCurrency(refund) })}
+                  {!canManagePayments && ` ${t("You can't record refunds, so ask someone who can take payments to do this.")}`}
                 </p>
               )}
               {returnError && <div className="sales-orders-error" role="alert">{returnError}</div>}
               <div className="sales-order-form-actions">
-                <button type="button" className="sales-orders-secondary" onClick={close}>{cancelling ? "Keep bill" : "Back"}</button>
+                <button type="button" className="sales-orders-secondary" onClick={close}>{cancelling ? t("Keep bill") : t("Back")}</button>
                 <button type="submit" className={cancelling ? "sales-orders-danger" : "sales-orders-primary"} disabled={savingReturn}>
-                  {savingReturn ? "Saving..." : cancelling ? "Cancel bill" : "Save return"}
+                  {savingReturn ? t("Saving...") : cancelling ? t("Cancel bill") : t("Save return")}
                 </button>
               </div>
             </form>
@@ -2324,19 +2372,20 @@ function SalesOrdersPage() {
         );
       })()}
 
+      {fixingPayment && <ChangeMethodDialog payment={fixingPayment} onSave={fixPaymentMethod} onClose={() => setFixingPayment(null)} />}
       {showPaymentForm && detailsOrder && (
         <div className="sales-order-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setShowPaymentForm(false)}>
           <form className="sales-order-details-modal sales-payment-modal" onSubmit={handlePaymentSubmit}>
-            <div className="sales-order-form-heading"><div><h2>Take payment</h2><p>Bill {detailsOrder.orderNumber} · {formatCurrency(paymentBalance?.outstandingBalance)} still to collect</p></div><button type="button" className="sales-orders-refresh" onClick={() => setShowPaymentForm(false)}>Close</button></div>
+            <div className="sales-order-form-heading"><div><h2>{t("Take payment")}</h2><p>{t("Bill {number} · {amount} still to collect", { number: detailsOrder.orderNumber, amount: formatCurrency(paymentBalance?.outstandingBalance) })}</p></div><button type="button" className="sales-orders-refresh" onClick={() => setShowPaymentForm(false)}>{t("Close")}</button></div>
             <div className="sales-payment-grid">
-              <label>Payment date<input type="date" max={today()} value={paymentForm.paymentDate} onChange={(event) => setPaymentForm({ ...paymentForm, paymentDate: event.target.value })} required /></label>
-              <label>Amount (₹)<input type="number" min="0.01" step="0.01" max={paymentBalance?.outstandingBalance} value={paymentForm.amount} onChange={(event) => setPaymentForm({ ...paymentForm, amount: event.target.value })} required /></label>
-              <label>Payment method<select value={paymentForm.paymentMethod} onChange={(event) => setPaymentForm({ ...paymentForm, paymentMethod: event.target.value })}><option value="CASH">Cash</option><option value="UPI">UPI</option><option value="BANK_TRANSFER">Bank transfer</option><option value="CHEQUE">Cheque</option><option value="CARD">Card</option><option value="OTHER">Other</option></select></label>
-              <label>Reference number<input value={paymentForm.referenceNumber} onChange={(event) => setPaymentForm({ ...paymentForm, referenceNumber: event.target.value })} maxLength={100} /></label>
-              <label className="sales-payment-full-width">Notes<textarea rows="3" value={paymentForm.notes} onChange={(event) => setPaymentForm({ ...paymentForm, notes: event.target.value })} maxLength={1000} /></label>
+              <label>{t("Payment date")}<input type="date" max={today()} value={paymentForm.paymentDate} onChange={(event) => setPaymentForm({ ...paymentForm, paymentDate: event.target.value })} required />{backdateWarning(paymentForm.paymentDate) && <small className="sales-backdate-warning">{backdateWarning(paymentForm.paymentDate)}</small>}</label>
+              <label>{t("Amount (₹)")}<input type="number" min="0.01" step="0.01" max={paymentBalance?.outstandingBalance} value={paymentForm.amount} onChange={(event) => setPaymentForm({ ...paymentForm, amount: event.target.value })} required /></label>
+              <label>{t("Payment method")}<select value={paymentForm.paymentMethod} onChange={(event) => setPaymentForm({ ...paymentForm, paymentMethod: event.target.value })}><option value="CASH">{t("Cash")}</option><option value="UPI">{t("UPI")}</option><option value="BANK_TRANSFER">{t("Bank transfer")}</option><option value="CHEQUE">{t("Cheque")}</option><option value="CARD">{t("Card")}</option><option value="OTHER">{t("Other")}</option></select></label>
+              <label>{t("Reference number")}<input value={paymentForm.referenceNumber} onChange={(event) => setPaymentForm({ ...paymentForm, referenceNumber: event.target.value })} maxLength={100} /></label>
+              <label className="sales-payment-full-width">{t("Notes")}<textarea rows="3" value={paymentForm.notes} onChange={(event) => setPaymentForm({ ...paymentForm, notes: event.target.value })} maxLength={1000} /></label>
             </div>
             {paymentError && <div className="sales-orders-error" role="alert">{paymentError}</div>}
-            <div className="sales-order-form-actions"><button type="button" className="sales-orders-secondary" onClick={() => setShowPaymentForm(false)}>Cancel</button><button type="submit" className="sales-orders-primary" disabled={savingPayment}>{savingPayment ? "Saving..." : "Save payment"}</button></div>
+            <div className="sales-order-form-actions"><button type="button" className="sales-orders-secondary" onClick={() => setShowPaymentForm(false)}>{t("Cancel")}</button><button type="submit" className="sales-orders-primary" disabled={savingPayment}>{savingPayment ? t("Saving...") : t("Save payment")}</button></div>
           </form>
         </div>
       )}
@@ -2349,27 +2398,27 @@ function SalesOrdersPage() {
           <form className="sales-customer-modal sales-charge-category-modal" onSubmit={addChargeCategory}>
             <div className="sales-customer-modal-heading">
               <div>
-                <h2>Add charge category</h2>
-                <p>Use this category in future bills and expense records.</p>
+                <h2>{t("Add charge category")}</h2>
+                <p>{t("Use this category in future bills and expense records.")}</p>
               </div>
-              <button type="button" className="sales-customer-modal-close" onClick={() => setShowChargeCategoryForm(false)} aria-label="Close">
+              <button type="button" className="sales-customer-modal-close" onClick={() => setShowChargeCategoryForm(false)} aria-label={t("Close")}>
                 ×
               </button>
             </div>
             <label className="sales-charge-category-input">
-              Category name
+              {t("Category name")}
               <input
                 autoFocus
                 value={newChargeCategory}
                 onChange={(event) => setNewChargeCategory(event.target.value)}
-                placeholder="e.g. Cutting charges"
+                placeholder={t("e.g. Cutting charges")}
                 maxLength={100}
                 required
               />
             </label>
             <div className="sales-order-form-actions">
-              <button type="button" className="sales-orders-secondary" onClick={() => setShowChargeCategoryForm(false)}>Cancel</button>
-              <button type="submit" className="sales-orders-primary">Add category</button>
+              <button type="button" className="sales-orders-secondary" onClick={() => setShowChargeCategoryForm(false)}>{t("Cancel")}</button>
+              <button type="submit" className="sales-orders-primary">{t("Add category")}</button>
             </div>
           </form>
         </div>

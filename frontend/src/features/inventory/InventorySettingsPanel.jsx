@@ -5,6 +5,7 @@ import {
   getInventorySettings,
   saveInventorySettings,
 } from "../../services/api/inventoryApi";
+import { t } from "../../i18n";
 
 const EMPTY_SETTINGS = {
   trackingType: "STANDARD",
@@ -86,10 +87,10 @@ function InventorySettingsPanel({ products = [] }) {
 
         const errorText = String(err.message || "");
         if (/404|not found|no inventory setting/i.test(errorText)) {
-          setMessage("No saved settings found. Configure this product below.");
+          setMessage(t("No saved settings found. Configure this product below."));
         } else {
           setError(
-            `Could not load saved settings: ${errorText}. You can try saving a configuration.`
+            t("Could not load saved settings: {error}. You can try saving a configuration.", { error: errorText })
           );
         }
       } finally {
@@ -136,7 +137,7 @@ function InventorySettingsPanel({ products = [] }) {
     setError("");
 
     if (!productId) {
-      setError("Select a product first.");
+      setError(t("Select a product first."));
       return;
     }
 
@@ -164,7 +165,7 @@ function InventorySettingsPanel({ products = [] }) {
         pieces <= 0
       ) {
         setError(
-          "Enter positive tile dimensions and a positive whole number of pieces per box."
+          t("Enter positive tile dimensions and a positive whole number of pieces per box.")
         );
         return;
       }
@@ -186,9 +187,9 @@ function InventorySettingsPanel({ products = [] }) {
         piecesPerBox: saved.piecesPerBox ?? "",
       });
 
-      setMessage("Inventory settings saved successfully.");
+      setMessage(t("Inventory settings saved successfully."));
     } catch (err) {
-      setError(err.message || "Unable to save inventory settings.");
+      setError(err.message || t("Unable to save inventory settings."));
     } finally {
       setSaving(false);
     }
@@ -198,10 +199,9 @@ function InventorySettingsPanel({ products = [] }) {
     <section className="inventory-panel inventory-settings-panel">
       <div className="inventory-panel-heading">
         <div>
-          <h2>Inventory Settings &amp; Tile Packaging</h2>
+          <h2>{t("Inventory Settings & Tile Packaging")}</h2>
           <p>
-            Configure how each product is tracked. These settings do not
-            change the product's existing stock quantity.
+            {t("Configure how each product is tracked. These settings do not change the product's existing stock quantity.")}
           </p>
         </div>
       </div>
@@ -221,13 +221,13 @@ function InventorySettingsPanel({ products = [] }) {
       <form className="inventory-form" onSubmit={handleSubmit}>
         <div className="inventory-form-grid">
           <label>
-            Product *
+            {t("Product *")}
             <select
               value={productId}
               onChange={(event) => setProductId(event.target.value)}
               required
             >
-              <option value="">Select a product</option>
+              <option value="">{t("Select a product")}</option>
               {activeProducts.map((product) => (
                 <option key={product.id} value={product.id}>
                   {product.productCode} — {product.name}
@@ -237,24 +237,24 @@ function InventorySettingsPanel({ products = [] }) {
           </label>
 
           <label>
-            Inventory Tracking Type *
+            {t("Inventory Tracking Type *")}
             <select
               value={settings.trackingType}
               onChange={handleTrackingTypeChange}
               disabled={!productId || loadingSettings || saving}
               required
             >
-              <option value="STANDARD">Standard Quantity</option>
-              <option value="TILE">Tiles — Boxes &amp; Coverage</option>
-              <option value="SLAB">Individual Slabs</option>
-              <option value="BAG">Bags</option>
+              <option value="STANDARD">{t("Standard Quantity")}</option>
+              <option value="TILE">{t("Tiles — Boxes & Coverage")}</option>
+              <option value="SLAB">{t("Individual Slabs")}</option>
+              <option value="BAG">{t("Bags")}</option>
             </select>
           </label>
 
           {isTile && (
             <>
             <label>
-              Tile Length (feet) *
+              {t("Tile Length (feet) *")}
               <input
                 name="tileLengthFt"
                 type="number"
@@ -268,7 +268,7 @@ function InventorySettingsPanel({ products = [] }) {
             </label>
 
             <label>
-              Tile Width (feet) *
+              {t("Tile Width (feet) *")}
               <input
                 name="tileWidthFt"
                 type="number"
@@ -282,7 +282,7 @@ function InventorySettingsPanel({ products = [] }) {
             </label>
 
             <label>
-              Pieces per Box *
+              {t("Pieces per Box *")}
               <input
                 name="piecesPerBox"
                 type="number"
@@ -300,29 +300,27 @@ function InventorySettingsPanel({ products = [] }) {
 
         {isTile && (
           <div className="inventory-coverage-preview">
-            <span>Calculated coverage per box</span>
+            <span>{t("Calculated coverage per box")}</span>
             <strong>
               {tileCoverage !== null
                 ? `${tileCoverage.toFixed(3)} sq. ft.`
-                : "Enter valid tile dimensions"}
+                : t("Enter valid tile dimensions")}
             </strong>
             <p>
-              Tile length × tile width × pieces per box. The calculation
-              assumes the dimensions are in feet.
+              {t("Tile length × tile width × pieces per box. The calculation assumes the dimensions are in feet.")}
             </p>
           </div>
         )}
 
         {selectedProduct && (
           <div className="inventory-settings-stock-note">
-            <strong>Current stock:</strong>{" "}
+            <strong>{t("Current stock:")}</strong>{" "}
             {Number(selectedProduct.stockQuantity ?? 0).toLocaleString(
               "en-IN"
             )}{" "}
             {selectedProduct.unitCode || selectedProduct.unit || ""}
             <p>
-              Saving tracking settings will not convert or overwrite this
-              quantity.
+              {t("Saving tracking settings will not convert or overwrite this quantity.")}
             </p>
           </div>
         )}
@@ -334,10 +332,10 @@ function InventorySettingsPanel({ products = [] }) {
             disabled={!productId || loadingSettings || saving}
           >
             {loadingSettings
-              ? "Loading settings..."
+              ? t("Loading settings...")
               : saving
-                ? "Saving..."
-                : "Save Inventory Settings"}
+                ? t("Saving...")
+                : t("Save Inventory Settings")}
           </button>
         </div>
       </form>

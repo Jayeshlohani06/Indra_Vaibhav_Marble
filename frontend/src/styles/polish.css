@@ -1,0 +1,368 @@
+/*
+  Finishing touches shared by every page: dark mode switch, Hindi text,
+  number alignment, loading placeholders, empty states, motion and touch
+  sizes. Loaded after theme.css; nothing here replaces a page's own look.
+*/
+
+/* ===== Dark mode =====
+   Colours are written as light-dark(light, dark) across the stylesheets; this
+   picks the side. Printing always uses the light side. */
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+@media print {
+  :root,
+  :root[data-theme="dark"] {
+    color-scheme: light;
+  }
+}
+
+/* ===== Hindi =====
+   Devanagari has tall marks above and below the line, so it needs more line
+   height, and the tight letter spacing used for English headings would join
+   the letters. */
+
+html:lang(hi) body {
+  line-height: 1.6;
+}
+
+html:lang(hi) :is(h1, h2, h3, h4, strong, b, button, th) {
+  letter-spacing: 0 !important;
+}
+
+/* ===== Numbers =====
+   Digits all the same width so ₹ amounts line up, and money columns
+   right-aligned so the rupees and paise sit under each other. */
+
+:is(input[type="number"], input[inputmode="decimal"], input[inputmode="numeric"], .mobile-card__amount) {
+  font-variant-numeric: tabular-nums;
+}
+
+#root .erp-content table:not(.sales-invoice-items) :is(th, td).num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* ===== Tables: a light stripe on every other row ===== */
+
+#root .erp-content table:not(.sales-invoice-items) tbody tr:nth-child(even) {
+  background: light-dark(rgb(128 100 67 / 2.5%), rgb(255 255 255 / 2.5%));
+}
+
+#root .erp-content table:not(.sales-invoice-items) tbody tr:hover {
+  background: light-dark(rgb(128 100 67 / 5%), rgb(255 255 255 / 5%));
+}
+
+/* ===== Status pills: same colours on every page ===== */
+
+#root :is(.pay-badge--paid, .expense-status, .users-active, .customer-status.is-active,
+  .inventory-stock-badge-ok, .sales-orders-status-confirmed, .cash-status.is-closed) {
+  background: var(--status-success-bg);
+  color: var(--status-success-text);
+}
+
+#root :is(.pay-badge--partial, .inventory-stock-badge-low, .cash-status.is-open,
+  .sales-orders-status-draft) {
+  background: var(--status-warning-bg);
+  color: var(--status-warning-text);
+}
+
+#root :is(.pay-badge--unpaid, .sales-orders-status-cancelled) {
+  background: var(--status-danger-bg);
+  color: var(--status-danger-text);
+}
+
+#root :is(.expense-status.is-voided, .users-inactive, .customer-status.is-inactive) {
+  background: var(--status-neutral-bg);
+  color: var(--status-neutral-text);
+}
+
+/* ===== Loading placeholders ===== */
+
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+}
+
+.skeleton__row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.skeleton__bar {
+  height: 12px;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, transparent 0%, var(--skeleton-shine) 50%, transparent 100%) -150% 0 / 60% 100% no-repeat,
+    var(--skeleton-base);
+  animation: skeleton-shine 1.4s ease-in-out infinite;
+}
+
+.skeleton__bar:first-child {
+  flex: 2;
+}
+
+.skeleton__bar:nth-child(2) {
+  flex: 3;
+}
+
+.skeleton__bar:nth-child(3) {
+  flex: 1.2;
+}
+
+.skeleton__bar:last-child:not(:first-child) {
+  flex: 0 0 72px;
+}
+
+.skeleton--cards .skeleton__row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-card);
+  background: light-dark(rgb(255 255 255 / 60%), rgb(255 255 255 / 3%));
+}
+
+.skeleton--cards .skeleton__bar {
+  flex: none;
+  width: 70%;
+}
+
+.skeleton--cards .skeleton__bar:nth-child(2) {
+  width: 45%;
+}
+
+@keyframes skeleton-shine {
+  to {
+    background-position: 250% 0, 0 0;
+  }
+}
+
+/* ===== Empty states ===== */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.empty-state__icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  margin-bottom: 4px;
+  border-radius: 14px;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.empty-state__icon svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+.empty-state__title {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--text-md);
+  font-weight: 700;
+}
+
+.empty-state__text {
+  max-width: 420px;
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.empty-state__action {
+  margin-top: 8px;
+}
+
+/* ===== Motion: popups fade in and rise slightly ===== */
+
+#root :is([class*="modal-backdrop"], .users-modal-bg, .change-method-backdrop, .erp-more-backdrop) {
+  animation: fade-in var(--motion-base) var(--ease-out);
+}
+
+#root :is(
+  .customer-modal, .sales-order-modal, .sales-order-details-modal,
+  .sales-customer-modal, .purchase-modal, .supplier-modal, .supplier-details-modal,
+  .inventory-modal, .expenses-modal, .expenses-small-modal, .stock-movement-modal,
+  .users-modal, .cash-modal, .change-method-dialog
+) {
+  animation: rise-in var(--motion-slow) var(--ease-out);
+}
+
+#root .erp-more-sheet {
+  animation: slide-up var(--motion-slow) var(--ease-out);
+}
+
+/* Each page fades in when you move to it. */
+#root .erp-content > * {
+  animation: fade-in var(--motion-base) var(--ease-out);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #root *,
+  #root *::before,
+  #root *::after {
+    animation: none !important;
+  }
+
+  .skeleton__bar {
+    animation: none;
+  }
+}
+
+/* ===== Phones and tablets ===== */
+
+/* Finger-sized controls on touch screens. */
+@media (pointer: coarse) {
+  :root {
+    --control-height: 44px;
+    --control-height-sm: 40px;
+  }
+}
+
+/* Save / Cancel stay in reach at the bottom of long popups on phones. */
+@media (max-width: 700px) {
+  #root :is(
+    .sales-order-form-actions, .expenses-form-actions, .purchase-form-actions,
+    .inventory-form-actions, .users-modal-actions, .supplier-form-actions,
+    .customer-form-actions, .sales-customer-modal-actions, .change-method-actions,
+    .cash-modal .cash-actions
+  ) {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    padding-top: 12px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--color-border);
+    background: var(--glass-bg-strong);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+  }
+
+  /* Popups rise from the bottom edge on phones. */
+  #root :is(
+    .customer-modal, .sales-order-modal, .sales-order-details-modal,
+    .sales-customer-modal, .purchase-modal, .supplier-modal, .supplier-details-modal,
+    .inventory-modal, .expenses-modal, .expenses-small-modal, .stock-movement-modal,
+    .users-modal, .cash-modal, .change-method-dialog
+  ) {
+    animation-name: slide-up-short;
+  }
+
+  @keyframes slide-up-short {
+    from {
+      opacity: 0;
+      transform: translateY(40px);
+    }
+  }
+
+  /* Tables without their own phone cards turn each row into a card, with the
+     column name shown beside each value. */
+  #root .stack-on-phone {
+    min-width: 0 !important;
+  }
+
+  #root .stack-on-phone thead {
+    display: none;
+  }
+
+  #root .stack-on-phone,
+  #root .stack-on-phone tbody,
+  #root .stack-on-phone tr,
+  #root .stack-on-phone td {
+    display: block;
+    width: 100%;
+  }
+
+  #root .stack-on-phone tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  #root .erp-content .stack-on-phone tbody tr {
+    padding: 6px 14px;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-card);
+    background: light-dark(rgb(255 255 255 / 85%), rgb(255 255 255 / 4%));
+    box-shadow: var(--shadow-soft);
+  }
+
+  #root .erp-content .stack-on-phone td {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: 4px 8px;
+    padding: 7px 0;
+    border: 0;
+    text-align: right;
+    white-space: normal;
+  }
+
+  #root .erp-content .stack-on-phone td + td {
+    border-top: 1px dashed var(--color-border);
+  }
+
+  #root .stack-on-phone td[data-label]::before {
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+    margin-right: auto;
+    font-weight: 600;
+    text-align: left;
+    content: attr(data-label);
+  }
+
+  #root .stack-on-phone td:first-child {
+    font-weight: 700;
+  }
+}
+
+.skeleton__bar--inline {
+  display: inline-block;
+  width: 96px;
+  height: 0.9em;
+  vertical-align: middle;
+}

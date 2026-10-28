@@ -10,7 +10,8 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/staff")
 public class StaffController {
 
-    public record StaffRequest(String name, String phone, String jobTitle, Boolean active) {
+    public record StaffRequest(String name, String phone, String jobTitle, Boolean active,
+            java.math.BigDecimal monthlySalary) {
     }
 
     private final StaffMemberRepository repository;
@@ -69,6 +70,11 @@ public class StaffController {
         if (request.active() != null) {
             staff.setActive(request.active());
         }
+        if (request.monthlySalary() != null && (request.monthlySalary().signum() < 0
+                || request.monthlySalary().scale() > 2 || request.monthlySalary().precision() > 14)) {
+            throw new IllegalArgumentException("Monthly salary must be zero or more, with at most 2 decimal places");
+        }
+        staff.setMonthlySalary(request.monthlySalary());
     }
 
     private static String blankToNull(String value) {

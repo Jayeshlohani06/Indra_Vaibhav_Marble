@@ -32,6 +32,9 @@ public class PurchasePayment {
     @Column(columnDefinition = "TEXT")
     private String notes;
 
+    @Column(name = "request_id", unique = true, updatable = false)
+    private java.util.UUID requestId;
+
     @Column(name = "created_by", updatable = false)
     private String createdBy;
 
@@ -103,5 +106,13 @@ public class PurchasePayment {
 
     public void setCreatedBy(String createdBy) {
         this.createdBy = createdBy;
+    }
+
+    public java.util.UUID getRequestId() {
+        return requestId;
+    }
+
+    public void setRequestId(java.util.UUID requestId) {
+        this.requestId = requestId;
     }
 }

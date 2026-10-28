@@ -23,6 +23,9 @@ public class StaffMember {
     @Column(name = "job_title", length = 80)
     private String jobTitle;
 
+    @Column(name = "monthly_salary", precision = 14, scale = 2)
+    private java.math.BigDecimal monthlySalary;
+
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
@@ -51,6 +54,8 @@ public class StaffMember {
     public void setPhone(String phone) { this.phone = phone; }
     public String getJobTitle() { return jobTitle; }
     public void setJobTitle(String jobTitle) { this.jobTitle = jobTitle; }
+    public java.math.BigDecimal getMonthlySalary() { return monthlySalary; }
+    public void setMonthlySalary(java.math.BigDecimal monthlySalary) { this.monthlySalary = monthlySalary; }
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
     public OffsetDateTime getCreatedAt() { return createdAt; }

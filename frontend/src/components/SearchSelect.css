@@ -8,16 +8,16 @@
   width: 100%;
   min-height: 44px;
   padding: 10px 36px 10px 12px;
-  border: 1px solid #d9d1c5;
+  border: 1px solid light-dark(#d9d1c5, #3a342b);
   border-radius: 8px;
-  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%2364748b' stroke-width='1.5' d='M2 4l4 4 4-4'/%3E%3C/svg%3E") no-repeat right 12px center;
-  color: #1f1b16;
+  background: light-dark(#fff, #1c1916) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%2364748b' stroke-width='1.5' d='M2 4l4 4 4-4'/%3E%3C/svg%3E") no-repeat right 12px center;
+  color: light-dark(#1f1b16, #e4ded7);
   font: inherit;
   font-size: 14px;
 }
 
 .search-select input::placeholder {
-  color: #6b6359;
+  color: light-dark(#6b6359, #ada499);
 }
 
 .search-select input:focus {
@@ -28,7 +28,7 @@
 .search-select__hint {
   display: block;
   margin-top: 5px;
-  color: #6b6359;
+  color: light-dark(#6b6359, #ada499);
   font-size: 12px;
   font-weight: 500;
 }
@@ -43,10 +43,10 @@
   margin: 0;
   padding: 4px;
   overflow-y: auto;
-  border: 1px solid #e7e1d8;
+  border: 1px solid light-dark(#e7e1d8, #2f2b24);
   border-radius: 10px;
-  background: #fff;
-  box-shadow: 0 12px 30px rgb(40 30 20 / 14%);
+  background: light-dark(#fff, #1c1916);
+  box-shadow: 0 12px 30px light-dark(rgb(40 30 20 / 14%), rgb(0 0 0 / 31%));
   list-style: none;
 }
 
@@ -56,14 +56,14 @@
   gap: 2px;
   padding: 9px 10px;
   border-radius: 7px;
-  color: #1f1b16;
+  color: light-dark(#1f1b16, #e4ded7);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
 }
 
 .search-select__option small {
-  color: #6b6359;
+  color: light-dark(#6b6359, #ada499);
   font-size: 12px;
 }
 
@@ -77,6 +77,6 @@
 
 .search-select__empty {
   padding: 12px 10px;
-  color: #6b6359;
+  color: light-dark(#6b6359, #ada499);
   font-size: 13px;
 }

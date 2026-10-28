@@ -1,0 +1,35 @@
+.theme-toggle {
+  display: inline-grid;
+  width: var(--control-height-sm);
+  height: var(--control-height-sm);
+  flex-shrink: 0;
+  place-items: center;
+  padding: 0;
+  border: 1px solid light-dark(#e3dbcf, #342e25);
+  border-radius: var(--radius-sm);
+  background: var(--neu-surface);
+  box-shadow: var(--neu-raised);
+  color: light-dark(#4a4238, #e2c597);
+  cursor: pointer;
+  transition: border-color var(--motion-fast) ease, color var(--motion-fast) ease;
+}
+
+.theme-toggle:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.theme-toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.theme-toggle svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}

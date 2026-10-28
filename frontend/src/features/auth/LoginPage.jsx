@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { login } from "../../services/api/authApi";
 import "./LoginPage.css";
+import { t } from "../../i18n";
+import LanguageToggle from "../../i18n/LanguageToggle";
+import ThemeToggle from "../../components/ThemeToggle";
 
 // Line icons for the panel, drawn on a 24px grid like the sidebar icons.
 const HIGHLIGHTS = [
@@ -18,7 +21,7 @@ const HIGHLIGHTS = [
   },
 ];
 
-function LoginPage({ onLoginSuccess }) {
+function LoginPage({ onLoginSuccess, onLanguageChange, theme, onThemeChange }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -36,7 +39,7 @@ function LoginPage({ onLoginSuccess }) {
       setPassword("");
       onLoginSuccess(response);
     } catch (err) {
-      setError(err.message || "Unable to sign in. Please try again.");
+      setError(err.message || t("Unable to sign in. Please try again."));
     } finally {
       setLoading(false);
     }
@@ -54,19 +57,19 @@ function LoginPage({ onLoginSuccess }) {
             <div className="login-mark" aria-hidden="true">IV</div>
             <div>
               <p className="login-brand-name">Indra Vaibhav Marble</p>
-              <p className="login-brand-tagline">Selling quality marble since 2006</p>
+              <p className="login-brand-tagline">{t("Selling quality marble since 2006")}</p>
             </div>
           </div>
 
           <div className="login-panel-body">
-            <h1>Your shop, in one place.</h1>
+            <h1>{t("Your shop, in one place.")}</h1>
             <ul className="login-highlights">
               {HIGHLIGHTS.map((item) => (
                 <li key={item.text}>
                   <span className="login-highlight-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24"><path d={item.icon} /></svg>
                   </span>
-                  {item.text}
+                  {t(item.text)}
                 </li>
               ))}
             </ul>
@@ -76,18 +79,22 @@ function LoginPage({ onLoginSuccess }) {
         </section>
 
         <section className="login-card">
+          <div className="login-toggles">
+            {onThemeChange && <ThemeToggle theme={theme} onChange={onThemeChange} />}
+            {onLanguageChange && <LanguageToggle onChange={onLanguageChange} />}
+          </div>
           <div className="login-card-heading">
             <div className="login-phone-brand">
               <div className="login-mark" aria-hidden="true">IV</div>
               <span>Indra Vaibhav Marble</span>
             </div>
-            <h2>Welcome back</h2>
-            <p>Sign in with the email and password your shop admin gave you.</p>
+            <h2>{t("Welcome back")}</h2>
+            <p>{t("Sign in with the email and password your shop admin gave you.")}</p>
           </div>
 
           <form onSubmit={handleSubmit} className="login-form">
             <div className="login-field">
-              <label htmlFor="email">Email</label>
+              <label htmlFor="email">{t("Email")}</label>
               <input
                 id="email"
                 type="email"
@@ -101,7 +108,7 @@ function LoginPage({ onLoginSuccess }) {
             </div>
 
             <div className="login-field">
-              <label htmlFor="password">Password</label>
+              <label htmlFor="password">{t("Password")}</label>
               <div className="login-password">
                 <input
                   id="password"
@@ -121,12 +128,12 @@ function LoginPage({ onLoginSuccess }) {
                   onClick={() => setShowPassword((visible) => !visible)}
                   aria-pressed={showPassword}
                 >
-                  {showPassword ? "Hide" : "Show"}
+                  {showPassword ? t("Hide") : t("Show")}
                 </button>
               </div>
               {capsLockOn && (
                 <p className="login-hint login-hint--warning" id="caps-lock-warning">
-                  Caps Lock is on
+                  {t("Caps Lock is on")}
                 </p>
               )}
             </div>
@@ -138,13 +145,12 @@ function LoginPage({ onLoginSuccess }) {
             )}
 
             <button type="submit" className="login-submit" disabled={loading}>
-              {loading ? "Signing in…" : "Sign in"}
+              {loading ? t("Signing in…") : t("Sign in")}
             </button>
           </form>
 
           <p className="login-help">
-            Forgot your password? Ask your shop admin to set a new one from the
-            Users page.
+            {t("Forgot your password? Ask your shop admin to set a new one from the Users page.")}
           </p>
         </section>
       </div>

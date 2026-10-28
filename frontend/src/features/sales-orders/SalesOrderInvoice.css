@@ -67,11 +67,11 @@
 .sales-invoice-message button {
   min-height: var(--control-height);
   padding: 0 16px;
-  border: 1px solid #d9d1c5;
+  border: 1px solid light-dark(#d9d1c5, #3a342b);
   border-radius: var(--radius-sm);
-  background: #f6f3ee;
+  background: light-dark(#f6f3ee, #211e1a);
   box-shadow: var(--neu-raised);
-  color: #3d362e;
+  color: light-dark(#3d362e, #cfc6bc);
   font: inherit;
   font-size: var(--text-base);
   font-weight: 600;
@@ -151,7 +151,7 @@
     position: absolute !important;
     inset: 0 !important;
     padding: 0 !important;
-    background: #fff !important;
+    background: light-dark(#fff, #1c1916) !important;
     backdrop-filter: none !important;
   }
 

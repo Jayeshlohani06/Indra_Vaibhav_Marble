@@ -8,10 +8,10 @@
   width: 36px;
   height: 36px;
   place-items: center;
-  border: 1px solid #e7e1d8;
+  border: 1px solid light-dark(#e7e1d8, #2f2b24);
   border-radius: 8px;
-  background: #fff;
-  color: #4f463b;
+  background: light-dark(#fff, #1c1916);
+  color: light-dark(#4f463b, #c3b9ac);
   font-size: 18px;
   line-height: 1;
   cursor: pointer;
@@ -38,10 +38,10 @@
   min-width: 160px;
   flex-direction: column;
   padding: 4px;
-  border: 1px solid #e7e1d8;
+  border: 1px solid light-dark(#e7e1d8, #2f2b24);
   border-radius: 10px;
-  background: #fff;
-  box-shadow: 0 12px 30px rgb(40 30 20 / 14%);
+  background: light-dark(#fff, #1c1916);
+  box-shadow: 0 12px 30px light-dark(rgb(40 30 20 / 14%), rgb(0 0 0 / 31%));
 }
 
 .row-menu__item {
@@ -49,7 +49,7 @@
   border: 0;
   border-radius: 7px;
   background: transparent;
-  color: #1f1b16;
+  color: light-dark(#1f1b16, #e4ded7);
   font: inherit;
   font-size: 13px;
   text-align: left;
@@ -58,13 +58,13 @@
 }
 
 .row-menu__item:hover {
-  background: #f3efe9;
+  background: light-dark(#f3efe9, #221f1c);
 }
 
 .row-menu__item.is-danger {
-  color: #b91c1c;
+  color: light-dark(#b91c1c, #f9786c);
 }
 
 .row-menu__item.is-danger:hover {
-  background: #fef2f2;
+  background: light-dark(#fef2f2, #221c1c);
 }

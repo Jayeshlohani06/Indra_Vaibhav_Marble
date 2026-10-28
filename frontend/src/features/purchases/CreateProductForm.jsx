@@ -7,6 +7,8 @@ import {
   getMeasurementUnits,
   saveInventorySettings,
 } from "../../services/api/inventoryApi";
+import { t } from "../../i18n";
+import Skeleton from "../../components/Skeleton";
 const initialForm = {
   productCode: "",
   name: "",
@@ -58,7 +60,7 @@ function CreateProductForm({ onClose, onCreated }) {
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(err.message || "Unable to load categories and units.");
+          setError(err.message || t("Unable to load categories and units."));
         }
       })
       .finally(() => {
@@ -75,7 +77,7 @@ function CreateProductForm({ onClose, onCreated }) {
   async function addCategory() {
     const name = newCategoryName.trim();
     if (!name) {
-      setError("Enter a category name first.");
+      setError(t("Enter a category name first."));
       return;
     }
     try {
@@ -84,9 +86,9 @@ function CreateProductForm({ onClose, onCreated }) {
       setCategories((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
       setForm((current) => ({ ...current, categoryId: String(created.id) }));
       setNewCategoryName("");
-      setNotice("Category created and selected.");
+      setNotice(t("Category created and selected."));
     } catch (err) {
-      setError(err.message || "Unable to create category.");
+      setError(err.message || t("Unable to create category."));
     } finally {
       setAddingReference("");
     }
@@ -95,7 +97,7 @@ function CreateProductForm({ onClose, onCreated }) {
     const name = newUnitName.trim();
     const code = newUnitCode.trim().toUpperCase();
     if (!name || !code) {
-      setError("Enter both a unit name and code.");
+      setError(t("Enter both a unit name and code."));
       return;
     }
     try {
@@ -105,9 +107,9 @@ function CreateProductForm({ onClose, onCreated }) {
       setForm((current) => ({ ...current, unitId: String(created.id) }));
       setNewUnitName("");
       setNewUnitCode("");
-      setNotice("Measurement unit created and selected.");
+      setNotice(t("Measurement unit created and selected."));
     } catch (err) {
-      setError(err.message || "Unable to create measurement unit.");
+      setError(err.message || t("Unable to create measurement unit."));
     } finally {
       setAddingReference("");
     }
@@ -133,11 +135,11 @@ function CreateProductForm({ onClose, onCreated }) {
       lowStockThreshold: Number(form.lowStockThreshold),
     };
     if (!product.name) {
-      setError("Product name is required.");
+      setError(t("Product name is required."));
       return;
     }
     if (product.hsnCode && !/^\d{4}(\d{2}){0,2}$/.test(product.hsnCode)) {
-      setError("HSN code must be 4, 6 or 8 digits, or left empty.");
+      setError(t("HSN code must be 4, 6 or 8 digits, or left empty."));
       return;
     }
     // Number("") is 0, so a cleared field would otherwise save as ₹0.
@@ -145,20 +147,20 @@ function CreateProductForm({ onClose, onCreated }) {
       [form.purchasePrice, form.sellingPrice, form.gstRate]
         .some((value) => String(value ?? "").trim() === "")
     ) {
-      setError("Enter the purchase price, selling price, and GST rate.");
+      setError(t("Enter the purchase price, selling price, and GST rate."));
       return;
     }
     if (!product.categoryId || !product.unitId) {
-      setError("Select a category and measurement unit.");
+      setError(t("Select a category and measurement unit."));
       return;
     }
     if (product.secondaryUnitId && product.secondaryUnitId === product.unitId) {
-      setError("Primary and secondary units must be different.");
+      setError(t("Primary and secondary units must be different."));
       return;
     }
     if (product.secondaryUnitId && product.secondaryPerPrimary !== null
       && (!Number.isFinite(product.secondaryPerPrimary) || product.secondaryPerPrimary <= 0)) {
-      setError("Enter a positive secondary-units-per-primary conversion.");
+      setError(t("Enter a positive secondary-units-per-primary conversion."));
       return;
     }
     if (
@@ -170,7 +172,7 @@ function CreateProductForm({ onClose, onCreated }) {
       ].some((value) => !Number.isFinite(value) || value < 0) ||
       product.gstRate > 100
     ) {
-      setError("Enter valid prices and thresholds. GST must be between 0 and 100.");
+      setError(t("Enter valid prices and thresholds. GST must be between 0 and 100."));
       return;
     }
     if (
@@ -187,14 +189,14 @@ function CreateProductForm({ onClose, onCreated }) {
         Number(piecesPerBox) <= 0
       )
     ) {
-      setError("For tiles, enter positive dimensions and a positive whole number of pieces per box.");
+      setError(t("For tiles, enter positive dimensions and a positive whole number of pieces per box."));
       return;
     }
     setSaving(true);
     try {
       const createdProduct = await createProduct(product);
       if (!createdProduct?.id) {
-        setError("The product response did not contain an ID. Check Inventory before retrying.");
+        setError(t("The product response did not contain an ID. Check Inventory before retrying."));
         return;
       }
       try {
@@ -206,14 +208,14 @@ function CreateProductForm({ onClose, onCreated }) {
         });
       } catch (settingsError) {
         setNotice(
-          `Product "${createdProduct.name}" was created with zero stock, but inventory settings could not be saved: ${settingsError.message}. Do not create it again. Configure its tracking settings in Inventory.`
+          t("Product \"{name}\" was created with zero stock, but inventory settings could not be saved: {error}. Do not create it again. Configure its tracking settings in Inventory.", { name: createdProduct.name, error: settingsError.message })
         );
         onCreated(createdProduct, false);
         return;
       }
       onCreated(createdProduct, true);
     } catch (err) {
-      setError(err.message || "Unable to create product.");
+      setError(err.message || t("Unable to create product."));
     } finally {
       setSaving(false);
     }
@@ -228,8 +230,8 @@ function CreateProductForm({ onClose, onCreated }) {
       >
         <div className="purchase-section-heading">
           <div>
-            <h3 id="create-purchase-product-title">Create New Product</h3>
-            <p>The product will be added to your catalogue with zero stock.</p>
+            <h3 id="create-purchase-product-title">{t("Create New Product")}</h3>
+            <p>{t("The product will be added to your catalogue with zero stock.")}</p>
           </div>
           <button
             type="button"
@@ -237,29 +239,29 @@ function CreateProductForm({ onClose, onCreated }) {
             onClick={onClose}
             disabled={saving}
           >
-            Close
+            {t("Close")}
           </button>
         </div>
         {error && <div className="purchase-alert purchase-error" role="alert">{error}</div>}
         {notice && <div className="purchase-alert purchase-error" role="alert">{notice}</div>}
         {loading ? (
-          <p>Loading categories and measurement units...</p>
+          <Skeleton label={t("Loading categories and measurement units...")} rows={3} columns={2} />
         ) : (
           <form onSubmit={handleSubmit}>
             <div className="purchase-form-grid">
               <label>
-                Product code
+                {t("Product code")}
                 <input
                   name="productCode"
                   value={form.productCode}
                   onChange={handleChange}
                   maxLength={50}
-                  placeholder="Optional — generated from product name"
+                  placeholder={t("Optional — generated from product name")}
                 />
-                <small>Leave blank to generate a unique code automatically.</small>
+                <small>{t("Leave blank to generate a unique code automatically.")}</small>
               </label>
               <label>
-                Product name *
+                {t("Product name")} *
                 <input
                   name="name"
                   value={form.name}
@@ -269,105 +271,105 @@ function CreateProductForm({ onClose, onCreated }) {
                 />
               </label>
               <label>
-                Category *
+                {t("Category")} *
                 <div className="purchase-reference-row">
                   <select name="categoryId" value={form.categoryId} onChange={handleChange} required>
-                    <option value="">Select category</option>
+                    <option value="">{t("Select category")}</option>
                     {categories.filter((item) => item.active !== false && item.isActive !== false).map((item) => (
                       <option key={item.id} value={item.id}>{item.name}</option>
                     ))}
                   </select>
-                  <button type="button" className="purchase-secondary-button" onClick={() => setAddingReference(addingReference === "category-form" ? "" : "category-form")}>+ Add</button>
+                  <button type="button" className="purchase-secondary-button" onClick={() => setAddingReference(addingReference === "category-form" ? "" : "category-form")}>{t("+ Add")}</button>
                 </div>
-                {addingReference === "category-form" && <div className="purchase-reference-creator"><input value={newCategoryName} onChange={(event) => setNewCategoryName(event.target.value)} placeholder="New category name" maxLength={100} /><button type="button" className="purchase-secondary-button" onClick={addCategory} disabled={addingReference === "category"}>Add category</button></div>}
+                {addingReference === "category-form" && <div className="purchase-reference-creator"><input value={newCategoryName} onChange={(event) => setNewCategoryName(event.target.value)} placeholder={t("New category name")} maxLength={100} /><button type="button" className="purchase-secondary-button" onClick={addCategory} disabled={addingReference === "category"}>{t("Add category")}</button></div>}
               </label>
               <label>
-                Measurement unit *
+                {t("Measurement unit")} *
                 <div className="purchase-reference-row">
                   <select name="unitId" value={form.unitId} onChange={handleChange} required>
-                    <option value="">Select unit</option>
+                    <option value="">{t("Select unit")}</option>
                     {units.filter((item) => item.active !== false && item.isActive !== false).map((item) => (
                       <option key={item.id} value={item.id}>{item.name} ({item.code})</option>
                     ))}
                   </select>
-                  <button type="button" className="purchase-secondary-button" onClick={() => setAddingReference(addingReference === "unit-form" ? "" : "unit-form")}>+ Add</button>
+                  <button type="button" className="purchase-secondary-button" onClick={() => setAddingReference(addingReference === "unit-form" ? "" : "unit-form")}>{t("+ Add")}</button>
                 </div>
-                {addingReference === "unit-form" && <div className="purchase-reference-creator"><input value={newUnitName} onChange={(event) => setNewUnitName(event.target.value)} placeholder="Unit name" maxLength={50} /><input value={newUnitCode} onChange={(event) => setNewUnitCode(event.target.value)} placeholder="Code" maxLength={20} /><button type="button" className="purchase-secondary-button" onClick={addUnit} disabled={addingReference === "unit"}>Add unit</button></div>}
+                {addingReference === "unit-form" && <div className="purchase-reference-creator"><input value={newUnitName} onChange={(event) => setNewUnitName(event.target.value)} placeholder={t("Unit name")} maxLength={50} /><input value={newUnitCode} onChange={(event) => setNewUnitCode(event.target.value)} placeholder={t("Code")} maxLength={20} /><button type="button" className="purchase-secondary-button" onClick={addUnit} disabled={addingReference === "unit"}>{t("Add unit")}</button></div>}
               </label>
               <label>
-                Second unit (optional)
+                {t("Second unit (optional)")}
                 <select name="secondaryUnitId" value={form.secondaryUnitId} onChange={handleChange}>
-                  <option value="">No second unit</option>
+                  <option value="">{t("No second unit")}</option>
                   {units.filter((item) => String(item.id) !== String(form.unitId) && item.active !== false && item.isActive !== false).map((item) => (
                     <option key={item.id} value={item.id}>{item.name} ({item.code})</option>
                   ))}
                 </select>
               </label>
               {form.secondaryUnitId && <label>
-                Second units in one main unit (optional)
-                <input name="secondaryPerPrimary" type="number" min="0.000001" step="0.000001" value={form.secondaryPerPrimary} onChange={handleChange} placeholder="Example: 4" />
-                <small>Used to calculate a missing quantity when possible.</small>
+                {t("Second units in one main unit (optional)")}
+                <input name="secondaryPerPrimary" type="number" min="0.000001" step="0.000001" value={form.secondaryPerPrimary} onChange={handleChange} placeholder={t("Example: 4")} />
+                <small>{t("Used to calculate a missing quantity when possible.")}</small>
               </label>}
               <label>
-                Purchase price (₹) *
-                <input name="purchasePrice" type="number" min="0" step="0.01" value={form.purchasePrice} onChange={handleChange} placeholder="What you pay, e.g. 450" required />
+                {t("Purchase price (₹)")} *
+                <input name="purchasePrice" type="number" min="0" step="0.01" value={form.purchasePrice} onChange={handleChange} placeholder={t("What you pay, e.g. 450")} required />
               </label>
               <label>
-                Selling price (₹) *
-                <input name="sellingPrice" type="number" min="0" step="0.01" value={form.sellingPrice} onChange={handleChange} placeholder="What you charge, e.g. 600" required />
+                {t("Selling price (₹)")} *
+                <input name="sellingPrice" type="number" min="0" step="0.01" value={form.sellingPrice} onChange={handleChange} placeholder={t("What you charge, e.g. 600")} required />
               </label>
               <label>
-                GST rate (%) *
+                {t("GST rate (%)")} *
                 <input name="gstRate" type="number" min="0" max="100" step="0.01" value={form.gstRate} onChange={handleChange} required />
               </label>
               <label>
-                HSN code
-                <input name="hsnCode" value={form.hsnCode} onChange={handleChange} inputMode="numeric" maxLength={10} placeholder="e.g. 6802 (optional)" />
+                {t("HSN code")}
+                <input name="hsnCode" value={form.hsnCode} onChange={handleChange} inputMode="numeric" maxLength={10} placeholder={t("e.g. 6802 (optional)")} />
               </label>
               <label>
-                Warn me when stock falls below
-                <input name="lowStockThreshold" type="number" min="0" step="0.001" value={form.lowStockThreshold} onChange={handleChange} placeholder="e.g. 20 (optional)" />
+                {t("Warn me when stock falls below")}
+                <input name="lowStockThreshold" type="number" min="0" step="0.001" value={form.lowStockThreshold} onChange={handleChange} placeholder={t("e.g. 20 (optional)")} />
               </label>
               <label>
-                Inventory tracking type *
+                {t("Inventory tracking type")} *
                 <select value={trackingType} onChange={(event) => setTrackingType(event.target.value)} required>
-                  <option value="STANDARD">Standard quantity</option>
-                  <option value="TILE">Tiles — boxes and coverage</option>
-                  <option value="SLAB">Individual slabs</option>
-                  <option value="BAG">Bags</option>
+                  <option value="STANDARD">{t("Standard quantity")}</option>
+                  <option value="TILE">{t("Tiles — boxes and coverage")}</option>
+                  <option value="SLAB">{t("Individual slabs")}</option>
+                  <option value="BAG">{t("Bags")}</option>
                 </select>
               </label>
               {trackingType === "TILE" && (
                 <>
                   <label>
-                    Tile length (feet) *
+                    {t("Tile length (feet)")} *
                     <input type="number" min="0.001" step="0.001" value={tileLengthFt} onChange={(event) => setTileLengthFt(event.target.value)} required />
                   </label>
                   <label>
-                    Tile width (feet) *
+                    {t("Tile width (feet)")} *
                     <input type="number" min="0.001" step="0.001" value={tileWidthFt} onChange={(event) => setTileWidthFt(event.target.value)} required />
                   </label>
                   <label>
-                    Pieces per box *
+                    {t("Pieces per box")} *
                     <input type="number" min="1" step="1" value={piecesPerBox} onChange={(event) => setPiecesPerBox(event.target.value)} required />
                   </label>
                 </>
               )}
               <label className="purchase-wide-field">
-                Description
+                {t("Description")}
                 <textarea name="description" rows={2} value={form.description} onChange={handleChange} />
               </label>
             </div>
             <div className="purchase-note">
-              <strong>Stock protection</strong>
-              <p>This form does not add opening stock. Record and receive the purchase separately when the goods arrive.</p>
+              <strong>{t("Stock protection")}</strong>
+              <p>{t("This form does not add opening stock. Record and receive the purchase separately when the goods arrive.")}</p>
             </div>
             <div className="purchase-form-actions">
               <button type="button" className="purchase-secondary-button" onClick={onClose} disabled={saving}>
-                Cancel
+                {t("Cancel")}
               </button>
               <button type="submit" className="purchase-primary-button" disabled={saving || loading}>
-                {saving ? "Creating product..." : "Create and Select Product"}
+                {saving ? t("Creating product...") : t("Create and Select Product")}
               </button>
             </div>
           </form>

@@ -23,6 +23,12 @@ public class SalesOrderPaymentController {
         return service.recordPayment(orderId, request);
     }
 
+    @PostMapping("/{paymentId}/method")
+    public SalesOrderPaymentResponse changeMethod(@PathVariable Long orderId, @PathVariable Long paymentId,
+            @RequestBody com.indravaibhavmarble.common.payment.ChangePaymentMethodRequest request) {
+        return service.changeMethod(orderId, paymentId, request);
+    }
+
     @GetMapping
     public List<SalesOrderPaymentResponse> list(@PathVariable Long orderId) {
         return service.getPayments(orderId);

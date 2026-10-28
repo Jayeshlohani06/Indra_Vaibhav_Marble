@@ -10,6 +10,8 @@ public interface SalesOrderPaymentRepository
         extends JpaRepository<SalesOrderPayment, Long> {
     List<SalesOrderPayment> findBySalesOrderIdOrderByPaymentDateDescIdDesc(Long id);
 
+    java.util.Optional<SalesOrderPayment> findByRequestId(java.util.UUID requestId);
+
     @Query("SELECT COALESCE(SUM(p.amount), 0) FROM SalesOrderPayment p WHERE p.salesOrderId = :id")
     BigDecimal getTotalPaid(@Param("id") Long id);
 

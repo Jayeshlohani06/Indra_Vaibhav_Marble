@@ -12,6 +12,9 @@ import java.util.List;
 public interface PurchasePaymentRepository
         extends JpaRepository<PurchasePayment, Long> {
 
+    java.util.Optional<PurchasePayment> findByRequestId(java.util.UUID requestId);
+
+
     List<PurchasePayment>
     findByPurchaseIdOrderByPaymentDateDescIdDesc(Long purchaseId);
 

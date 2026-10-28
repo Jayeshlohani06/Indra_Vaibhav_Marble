@@ -18,6 +18,8 @@ import {
 
 import "./InventoryPage.css";
 import { usePermission } from "../../auth/PermissionsContext";
+import { t } from "../../i18n";
+import Skeleton from "../../components/Skeleton";
 
 const initialForm = {
   productCode: "",
@@ -111,7 +113,7 @@ function InventoryPage() {
       setCategories(Array.isArray(categoryData) ? categoryData : []);
       setUnits(Array.isArray(unitData) ? unitData : []);
     } catch (err) {
-      setError(err.message || "Unable to load inventory data.");
+      setError(err.message || t("Unable to load inventory data."));
     } finally {
       setLoading(false);
     }
@@ -177,7 +179,7 @@ function InventoryPage() {
   async function handleAddCategory() {
     const name = newCategoryName.trim();
     if (!name) {
-      setError("Enter a category name first.");
+      setError(t("Enter a category name first."));
       return;
     }
 
@@ -192,9 +194,9 @@ function InventoryPage() {
       );
       setForm((current) => ({ ...current, categoryId: String(category.id) }));
       setNewCategoryName("");
-      setSuccess("Category added and selected.");
+      setSuccess(t("Category added and selected."));
     } catch (err) {
-      setError(err.message || "Unable to add category.");
+      setError(err.message || t("Unable to add category."));
     } finally {
       setAddingReference("");
     }
@@ -204,7 +206,7 @@ function InventoryPage() {
     const name = newUnitName.trim();
     const code = newUnitCode.trim().toUpperCase();
     if (!name || !code) {
-      setError("Enter both a unit name and unit code first.");
+      setError(t("Enter both a unit name and unit code first."));
       return;
     }
 
@@ -213,7 +215,7 @@ function InventoryPage() {
       setError("");
       const unit = await createMeasurementUnit({ name, code });
       if (!unit?.id) {
-        throw new Error("The unit was created but the server returned no unit ID.");
+        throw new Error(t("The unit was created but the server returned no unit ID."));
       }
       setUnits((current) =>
         [...current.filter((entry) => entry.id !== unit.id), unit].sort((a, b) =>
@@ -223,11 +225,11 @@ function InventoryPage() {
       setForm((current) => ({ ...current, unitId: String(unit.id) }));
       setNewUnitName("");
       setNewUnitCode("");
-      setSuccess("Measurement unit added and selected.");
+      setSuccess(t("Measurement unit added and selected."));
     } catch (err) {
       setError(
         err.message ||
-          "Unable to add measurement unit. Check that the unit code is unique."
+          t("Unable to add measurement unit. Check that the unit code is unique.")
       );
     } finally {
       setAddingReference("");
@@ -243,7 +245,7 @@ function InventoryPage() {
       const product = await getProductById(productId);
 
       if (!(product.active ?? product.isActive ?? true)) {
-        setError("Inactive products cannot be edited.");
+        setError(t("Inactive products cannot be edited."));
         return;
       }
 
@@ -265,7 +267,7 @@ function InventoryPage() {
 
       setShowForm(true);
     } catch (err) {
-      setError(err.message || "Unable to load product for editing.");
+      setError(err.message || t("Unable to load product for editing."));
     }
   }
 
@@ -278,7 +280,7 @@ function InventoryPage() {
       const product = await getProductById(productId);
       setSelectedProduct(product);
     } catch (err) {
-      setError(err.message || "Unable to load product details.");
+      setError(err.message || t("Unable to load product details."));
     } finally {
       setDetailsLoading(false);
     }
@@ -310,11 +312,11 @@ function InventoryPage() {
     };
 
     if (!product.name) {
-      setError("Product name is required.");
+      setError(t("Product name is required."));
       return;
     }
     if (product.hsnCode && !/^\d{4}(\d{2}){0,2}$/.test(product.hsnCode)) {
-      setError("HSN code must be 4, 6 or 8 digits, or left empty.");
+      setError(t("HSN code must be 4, 6 or 8 digits, or left empty."));
       return;
     }
 
@@ -323,7 +325,7 @@ function InventoryPage() {
       [form.purchasePrice, form.sellingPrice, form.gstRate]
         .some((value) => String(value ?? "").trim() === "")
     ) {
-      setError("Enter the purchase price, selling price, and GST rate.");
+      setError(t("Enter the purchase price, selling price, and GST rate."));
       return;
     }
 
@@ -333,7 +335,7 @@ function InventoryPage() {
       !Number.isFinite(product.categoryId) ||
       !Number.isFinite(product.unitId)
     ) {
-      setError("Please select a category and measurement unit.");
+      setError(t("Please select a category and measurement unit."));
       return;
     }
 
@@ -351,7 +353,7 @@ function InventoryPage() {
       product.gstRate > 100
     ) {
       setError(
-        "Enter valid non-negative numbers. GST must be between 0 and 100."
+        t("Enter valid non-negative numbers. GST must be between 0 and 100.")
       );
       return;
     }
@@ -362,10 +364,10 @@ function InventoryPage() {
       if (isEditing) {
         // Stock is intentionally excluded from product updates.
         await updateProduct(editingProductId, product);
-        setSuccess("Product updated successfully.");
+        setSuccess(t("Product updated successfully."));
       } else {
         await createProduct(product);
-        setSuccess("Product created successfully.");
+        setSuccess(t("Product created successfully."));
       }
 
       setShowForm(false);
@@ -377,8 +379,8 @@ function InventoryPage() {
       setError(
         err.message ||
           (isEditing
-            ? "Unable to update product."
-            : "Unable to create product.")
+            ? t("Unable to update product.")
+            : t("Unable to create product."))
       );
     } finally {
       setSaving(false);
@@ -387,7 +389,7 @@ function InventoryPage() {
 
   async function handleDeactivate(product) {
     const confirmed = window.confirm(
-      `Deactivate "${product.name}" (${product.productCode})?`
+      t('Deactivate "{name}" ({code})?', { name: product.name, code: product.productCode })
     );
 
     if (!confirmed) return;
@@ -403,10 +405,10 @@ function InventoryPage() {
         setSelectedProduct(null);
       }
 
-      setSuccess(`Product "${product.name}" deactivated successfully.`);
+      setSuccess(t('Product "{name}" deactivated successfully.', { name: product.name }));
       await loadInventory();
     } catch (err) {
-      setError(err.message || "Unable to deactivate product.");
+      setError(err.message || t("Unable to deactivate product."));
     } finally {
       setDeactivatingProductId(null);
     }
@@ -417,7 +419,7 @@ function InventoryPage() {
       (item) => String(item.id) === String(categoryId)
     );
 
-    return category?.name || "Unknown";
+    return category?.name || t("Unknown");
   }
 
   function getUnitCode(unitId) {
@@ -443,10 +445,10 @@ function InventoryPage() {
   }
 
   function stockStatus(product) {
-    if (!isActive(product)) return { label: "Inactive", alert: true };
-    if (Number(product.stockQuantity ?? 0) <= 0) return { label: "Out of stock", alert: true };
-    if (isLowStock(product)) return { label: "Running low", alert: true };
-    return { label: "In stock", alert: false };
+    if (!isActive(product)) return { label: t("Inactive"), alert: true };
+    if (Number(product.stockQuantity ?? 0) <= 0) return { label: t("Out of stock"), alert: true };
+    if (isLowStock(product)) return { label: t("Running low"), alert: true };
+    return { label: t("In stock"), alert: false };
   }
 
   function isLowStock(product) {
@@ -545,7 +547,7 @@ function InventoryPage() {
     <main className="inventory-page">
       <header className="inventory-header">
         <p className="inventory-intro">
-          Your products, how much is in stock, and what needs reordering.
+          {t("Your products, how much is in stock, and what needs reordering.")}
         </p>
 
         <div className="inventory-header-actions">
@@ -554,14 +556,14 @@ function InventoryPage() {
             type="button"
             onClick={() => setShowStockOperations(true)}
           >
-            Adjust stock
+            {t("Adjust stock")}
           </button>}
           {canManageInventory && <button
             className="inventory-secondary-button"
             type="button"
             onClick={() => setShowInventorySettings(true)}
           >
-            Stock settings
+            {t("Stock settings")}
           </button>}
           {canManageProducts && <button
             className="inventory-primary-button"
@@ -569,31 +571,31 @@ function InventoryPage() {
             onClick={openCreateForm}
             disabled={loading}
           >
-            + Add product
+            {t("+ Add product")}
           </button>}
         </div>
       </header>
 
       <section
         className="inventory-stats"
-        aria-label="Inventory summaries"
+        aria-label={t("Inventory summaries")}
       >
         <article className="inventory-stat-card">
-          <span>Products</span>
+          <span>{t("Products")}</span>
           <strong>{activeProductCount}</strong>
-          <small>Items you currently sell</small>
+          <small>{t("Items you currently sell")}</small>
         </article>
 
         <article className="inventory-stat-card inventory-stat-warning">
-          <span>Running low or out</span>
+          <span>{t("Running low or out")}</span>
           <strong>{lowStockProducts.length + outOfStockProducts.length}</strong>
-          <small>{outOfStockProducts.length} out of stock · {lowStockProducts.length} running low</small>
+          <small>{t("{out} out of stock · {low} running low", { out: outOfStockProducts.length, low: lowStockProducts.length })}</small>
         </article>
 
         <article className="inventory-stat-card">
-          <span>Value of stock</span>
+          <span>{t("Value of stock")}</span>
           <strong>{formatCurrency(inventoryCostValue)}</strong>
-          <small>At the price you bought it</small>
+          <small>{t("At the price you bought it")}</small>
         </article>
       </section>
 
@@ -603,9 +605,9 @@ function InventoryPage() {
           <button
             type="button"
             onClick={() => setSuccess("")}
-            aria-label="Dismiss success message"
+            aria-label={t("Dismiss success message")}
           >
-            Dismiss
+            {t("Dismiss")}
           </button>
         </div>
       )}
@@ -616,9 +618,9 @@ function InventoryPage() {
           <button
             type="button"
             onClick={() => setError("")}
-            aria-label="Dismiss error"
+            aria-label={t("Dismiss error")}
           >
-            Dismiss
+            {t("Dismiss")}
           </button>
         </div>
       )}
@@ -636,10 +638,10 @@ function InventoryPage() {
           <div className="inventory-modal inventory-wide-modal" role="dialog" aria-modal="true" aria-labelledby="stock-operations-modal-heading">
             <div className="inventory-modal-heading">
               <div>
-                <h2 id="stock-operations-modal-heading">Stock Operations</h2>
-                <p>Record purchases, sales and stock adjustments.</p>
+                <h2 id="stock-operations-modal-heading">{t("Stock Operations")}</h2>
+                <p>{t("Record purchases, sales and stock adjustments.")}</p>
               </div>
-              <button className="inventory-modal-close" type="button" onClick={() => setShowStockOperations(false)} aria-label="Close stock operations">
+              <button className="inventory-modal-close" type="button" onClick={() => setShowStockOperations(false)} aria-label={t("Close stock operations")}>
                 ×
               </button>
             </div>
@@ -661,10 +663,10 @@ function InventoryPage() {
           <div className="inventory-modal inventory-wide-modal" role="dialog" aria-modal="true" aria-labelledby="inventory-settings-modal-heading">
             <div className="inventory-modal-heading">
               <div>
-                <h2 id="inventory-settings-modal-heading">Inventory Settings</h2>
-                <p>Configure tracking and tile packaging for a product.</p>
+                <h2 id="inventory-settings-modal-heading">{t("Inventory Settings")}</h2>
+                <p>{t("Configure tracking and tile packaging for a product.")}</p>
               </div>
-              <button className="inventory-modal-close" type="button" onClick={() => setShowInventorySettings(false)} aria-label="Close inventory settings">
+              <button className="inventory-modal-close" type="button" onClick={() => setShowInventorySettings(false)} aria-label={t("Close inventory settings")}>
                 ×
               </button>
             </div>
@@ -686,16 +688,16 @@ function InventoryPage() {
             <div>
               <h2 id="inventory-product-form-heading">
                 {editingProductId !== null
-                  ? "Edit product"
-                  : "Add product"}
+                  ? t("Edit product")
+                  : t("Add product")}
               </h2>
               <p>
                 {editingProductId !== null
-                  ? "Update product details. Stock is managed separately."
-                  : "Create the product master record. Stock is added through purchases."}
+                  ? t("Update product details. Stock is managed separately.")
+                  : t("Create the product master record. Stock is added through purchases.")}
               </p>
             </div>
-            <button className="inventory-modal-close" type="button" onClick={cancelForm} aria-label="Close product form">
+            <button className="inventory-modal-close" type="button" onClick={cancelForm} aria-label={t("Close product form")}>
               ×
             </button>
           </div>
@@ -703,31 +705,31 @@ function InventoryPage() {
           <form onSubmit={handleSubmit} className="inventory-form">
             <div className="inventory-form-grid">
               <label>
-                Product code
+                {t("Product code")}
                 <input
                   name="productCode"
                   value={form.productCode}
                   onChange={handleChange}
                   maxLength={50}
-                  placeholder="Optional — generated from product name"
+                  placeholder={t("Optional — generated from product name")}
                 />
-                <small>Leave blank to generate a unique code automatically.</small>
+                <small>{t("Leave blank to generate a unique code automatically.")}</small>
               </label>
 
               <label>
-                Product name *
+                {t("Product name *")}
                 <input
                   name="name"
                   value={form.name}
                   onChange={handleChange}
                   maxLength={150}
-                  placeholder="e.g. Italian White Marble"
+                  placeholder={t("e.g. Italian White Marble")}
                   required
                 />
               </label>
 
               <label>
-                Category *
+                {t("Category *")}
                 <div className="inventory-inline-field">
                   <select
                     name="categoryId"
@@ -735,7 +737,7 @@ function InventoryPage() {
                     onChange={handleChange}
                     required
                   >
-                    <option value="">Select category</option>
+                    <option value="">{t("Select category")}</option>
                     {categories.map((category) => (
                       <option key={category.id} value={category.id}>
                         {category.name}
@@ -750,7 +752,7 @@ function InventoryPage() {
                     )}
                     disabled={saving}
                   >
-                    + Add
+                    {t("+ Add")}
                   </button>}
                 </div>
                 {addingReference === "category-form" && (
@@ -758,7 +760,7 @@ function InventoryPage() {
                     <input
                       value={newCategoryName}
                       onChange={(event) => setNewCategoryName(event.target.value)}
-                      placeholder="New category name"
+                      placeholder={t("New category name")}
                       maxLength={100}
                     />
                     <button
@@ -767,14 +769,14 @@ function InventoryPage() {
                       onClick={handleAddCategory}
                       disabled={addingReference === "category"}
                     >
-                      {addingReference === "category" ? "Adding..." : "Add category"}
+                      {addingReference === "category" ? t("Adding...") : t("Add category")}
                     </button>
                   </div>
                 )}
               </label>
 
               <label>
-                Unit you sell in *
+                {t("Unit you sell in *")}
                 <div className="inventory-inline-field">
                   <select
                     name="unitId"
@@ -782,7 +784,7 @@ function InventoryPage() {
                     onChange={handleChange}
                     required
                   >
-                    <option value="">Select unit</option>
+                    <option value="">{t("Select unit")}</option>
                     {units.map((unit) => (
                       <option key={unit.id} value={unit.id}>
                         {unit.name} ({unit.code})
@@ -797,7 +799,7 @@ function InventoryPage() {
                     )}
                     disabled={saving}
                   >
-                    + Add
+                    {t("+ Add")}
                   </button>}
                 </div>
                 {addingReference === "unit-form" && (
@@ -805,18 +807,18 @@ function InventoryPage() {
                     <input
                       value={newUnitName}
                       onChange={(event) => setNewUnitName(event.target.value)}
-                      placeholder="Unit name * (e.g. Box)"
+                      placeholder={t("Unit name * (e.g. Box)")}
                       maxLength={50}
                       required
-                      aria-label="New measurement unit name"
+                      aria-label={t("New measurement unit name")}
                     />
                     <input
                       value={newUnitCode}
                       onChange={(event) => setNewUnitCode(event.target.value)}
-                      placeholder="Code * (e.g. BDL)"
+                      placeholder={t("Code * (e.g. BDL)")}
                       maxLength={20}
                       required
-                      aria-label="New measurement unit code"
+                      aria-label={t("New measurement unit code")}
                     />
                     <button
                       className="inventory-secondary-button"
@@ -828,20 +830,20 @@ function InventoryPage() {
                         !newUnitCode.trim()
                       }
                     >
-                      {addingReference === "unit" ? "Adding..." : "Add unit"}
+                      {addingReference === "unit" ? t("Adding...") : t("Add unit")}
                     </button>
                   </div>
                 )}
               </label>
 
               <label>
-                Second unit (optional)
+                {t("Second unit (optional)")}
                 <select
                   name="secondaryUnitId"
                   value={form.secondaryUnitId}
                   onChange={handleChange}
                 >
-                  <option value="">No second unit</option>
+                  <option value="">{t("No second unit")}</option>
                   {units.filter((unit) => String(unit.id) !== String(form.unitId)).map((unit) => (
                     <option key={unit.id} value={unit.id}>{unit.name} ({unit.code})</option>
                   ))}
@@ -849,7 +851,7 @@ function InventoryPage() {
               </label>
 
               {form.secondaryUnitId && <label>
-                Second units in one main unit (optional)
+                {t("Second units in one main unit (optional)")}
                 <input
                   name="secondaryPerPrimary"
                   type="number"
@@ -857,12 +859,12 @@ function InventoryPage() {
                   step="0.000001"
                   value={form.secondaryPerPrimary}
                   onChange={handleChange}
-                  placeholder="Example: 4"
+                  placeholder={t("Example: 4")}
                 />
               </label>}
 
               <label>
-                Purchase price (₹) *
+                {t("Purchase price (₹) *")}
                 <input
                   name="purchasePrice"
                   type="number"
@@ -870,13 +872,13 @@ function InventoryPage() {
                   step="0.01"
                   value={form.purchasePrice}
                   onChange={handleChange}
-                  placeholder="What you pay, e.g. 450"
+                  placeholder={t("What you pay, e.g. 450")}
                   required
                 />
               </label>
 
               <label>
-                Selling price (₹) *
+                {t("Selling price (₹) *")}
                 <input
                   name="sellingPrice"
                   type="number"
@@ -884,13 +886,13 @@ function InventoryPage() {
                   step="0.01"
                   value={form.sellingPrice}
                   onChange={handleChange}
-                  placeholder="What you charge, e.g. 600"
+                  placeholder={t("What you charge, e.g. 600")}
                   required
                 />
               </label>
 
               <label>
-                GST rate (%) *
+                {t("GST rate (%) *")}
                 <input
                   name="gstRate"
                   type="number"
@@ -904,12 +906,12 @@ function InventoryPage() {
               </label>
 
               <label>
-                HSN code
-                <input name="hsnCode" value={form.hsnCode} onChange={handleChange} inputMode="numeric" maxLength={10} placeholder="e.g. 6802 (optional)" />
+                {t("HSN code")}
+                <input name="hsnCode" value={form.hsnCode} onChange={handleChange} inputMode="numeric" maxLength={10} placeholder={t("e.g. 6802 (optional)")} />
               </label>
 
               <label>
-                Warn me when stock falls below
+                {t("Warn me when stock falls below")}
                 <input
                   name="lowStockThreshold"
                   type="number"
@@ -917,18 +919,18 @@ function InventoryPage() {
                   step="0.001"
                   value={form.lowStockThreshold}
                   onChange={handleChange}
-                  placeholder="e.g. 20 (optional)"
+                  placeholder={t("e.g. 20 (optional)")}
                 />
               </label>
 
               <label className="inventory-description-field">
-                Description
+                {t("Description")}
                 <textarea
                   name="description"
                   value={form.description}
                   onChange={handleChange}
                   rows={3}
-                  placeholder="Optional product details"
+                  placeholder={t("Optional product details")}
                 />
               </label>
             </div>
@@ -940,7 +942,7 @@ function InventoryPage() {
                 onClick={cancelForm}
                 disabled={saving}
               >
-                Cancel
+                {t("Cancel")}
               </button>
 
               <button
@@ -949,10 +951,10 @@ function InventoryPage() {
                 disabled={saving}
               >
                 {saving
-                  ? "Saving..."
+                  ? t("Saving...")
                   : editingProductId !== null
-                    ? "Update Product"
-                    : "Save product"}
+                    ? t("Update Product")
+                    : t("Save product")}
               </button>
             </div>
           </form>
@@ -960,11 +962,7 @@ function InventoryPage() {
         </div>
       )}
 
-      {detailsLoading && (
-        <p className="inventory-message" role="status">
-          Loading product details...
-        </p>
-      )}
+      {detailsLoading && <Skeleton label={t("Loading product details...")} rows={2} />}
 
       {selectedProduct && (
         <div
@@ -985,7 +983,7 @@ function InventoryPage() {
           <div className="inventory-panel-heading">
             <div>
               <h2 id="inventory-product-details-heading">
-                Product Details
+                {t("Product Details")}
               </h2>
               <p>
                 {selectedProduct.productCode} — {selectedProduct.name}
@@ -996,48 +994,48 @@ function InventoryPage() {
               className="inventory-modal-close"
               type="button"
               onClick={() => setSelectedProduct(null)}
-              aria-label="Close product details"
+              aria-label={t("Close product details")}
             >
               ×
             </button>
           </div>
 
           <div className="inventory-form-grid">
-            <p><strong>Product ID:</strong> {selectedProduct.id}</p>
-            <p><strong>Code:</strong> {selectedProduct.productCode}</p>
-            <p><strong>Name:</strong> {selectedProduct.name}</p>
+            <p><strong>{t("Product ID:")}</strong> {selectedProduct.id}</p>
+            <p><strong>{t("Code:")}</strong> {selectedProduct.productCode}</p>
+            <p><strong>{t("Name:")}</strong> {selectedProduct.name}</p>
             <p>
-              <strong>Category:</strong>{" "}
+              <strong>{t("Category:")}</strong>{" "}
               {getCategoryName(selectedProduct.categoryId)}
             </p>
             <p>
-              <strong>Unit:</strong> {getUnitCode(selectedProduct.unitId)}
+              <strong>{t("Unit:")}</strong> {getUnitCode(selectedProduct.unitId)}
             </p>
             <p>
-              <strong>Purchase price:</strong>{" "}
+              <strong>{t("Purchase price:")}</strong>{" "}
               ₹{Number(selectedProduct.purchasePrice ?? 0).toFixed(2)}
             </p>
             <p>
-              <strong>Selling price:</strong>{" "}
+              <strong>{t("Selling price:")}</strong>{" "}
               ₹{Number(selectedProduct.sellingPrice ?? 0).toFixed(2)}
             </p>
-            <p><strong>GST:</strong> {selectedProduct.gstRate}%</p>
-            <p><strong>HSN code:</strong> {selectedProduct.hsnCode || "Not set"}</p>
+            <p><strong>{t("GST:")}</strong> {selectedProduct.gstRate}%</p>
+            <p><strong>{t("HSN code:")}</strong> {selectedProduct.hsnCode || t("Not set")}</p>
             <p>
-              <strong>Available Stock:</strong>{" "}
+              <strong>{t("Available Stock:")}</strong>{" "}
               {selectedProduct.stockQuantity ?? 0}
             </p>
             <p>
-              <strong>Reorder when below:</strong>{" "}
+              <strong>{t("Reorder when below:")}</strong>{" "}
               {selectedProduct.lowStockThreshold ?? 0}
             </p>
             <p>
-              <strong>Status:</strong>{" "}
-              {isActive(selectedProduct) ? "Active" : "Inactive"}
+              <strong>{t("Status:")}</strong>{" "}
+              {isActive(selectedProduct) ? t("Active") : t("Inactive")}
             </p>
             <p>
-              <strong>Description:</strong>{" "}
-              {selectedProduct.description || "No description"}
+              <strong>{t("Description:")}</strong>{" "}
+              {selectedProduct.description || t("No description")}
             </p>
           </div>
 
@@ -1048,7 +1046,7 @@ function InventoryPage() {
                 type="button"
                 onClick={() => openEditForm(selectedProduct.id)}
               >
-                Edit product
+                {t("Edit product")}
               </button>
             </div>
           )}
@@ -1057,34 +1055,36 @@ function InventoryPage() {
       )}
 
       {loading ? (
-        <p className="inventory-message" role="status">
-          Loading inventory data...
-        </p>
+        <Skeleton label={t("Loading inventory data...")} rows={6} />
       ) : (
         <>
           <section className="inventory-panel">
             <div className="inventory-panel-heading">
               <div>
-                <h2>Products</h2>
-                <p>Tap a product to see its full details.</p>
+                <h2>{t("Products")}</h2>
+                <p>{t("Tap a product to see its full details.")}</p>
               </div>
             </div>
 
             {unpricedProducts.length > 0 && (
-              <section className="inventory-reorder-panel inventory-price-warning" aria-label="Products without a selling price">
+              <section className="inventory-reorder-panel inventory-price-warning" aria-label={t("Products without a selling price")}>
                 <div>
                   <h3>
-                    {unpricedProducts.length}{" "}
-                    {unpricedProducts.length === 1 ? "product has" : "products have"} no selling price
+                    {t(
+                      unpricedProducts.length === 1
+                        ? "{count} product has no selling price"
+                        : "{count} products have no selling price",
+                      { count: unpricedProducts.length }
+                    )}
                   </h3>
-                  <p>Set a selling price so it fills in automatically when you make a bill.</p>
+                  <p>{t("Set a selling price so it fills in automatically when you make a bill.")}</p>
                 </div>
                 <button
                   className="inventory-secondary-button"
                   type="button"
                   onClick={() => setStockFilter("NO_PRICE")}
                 >
-                  Show them
+                  {t("Show them")}
                 </button>
               </section>
             )}
@@ -1093,20 +1093,21 @@ function InventoryPage() {
               <section className="inventory-reorder-panel" aria-labelledby="inventory-reorder-heading">
                 <div>
                   <h3 id="inventory-reorder-heading">
-                    {outOfStockProducts.length + lowStockProducts.length}{" "}
-                    {outOfStockProducts.length + lowStockProducts.length === 1
-                      ? "product needs"
-                      : "products need"}{" "}
-                    reordering
+                    {t(
+                      outOfStockProducts.length + lowStockProducts.length === 1
+                        ? "{count} product needs reordering"
+                        : "{count} products need reordering",
+                      { count: outOfStockProducts.length + lowStockProducts.length }
+                    )}
                   </h3>
-                  <p>They are out of stock or below the level you set.</p>
+                  <p>{t("They are out of stock or below the level you set.")}</p>
                 </div>
                 <button
                   className="inventory-secondary-button"
                   type="button"
                   onClick={() => setStockFilter("LOW")}
                 >
-                  Show them
+                  {t("Show them")}
                 </button>
               </section>
             )}
@@ -1116,8 +1117,8 @@ function InventoryPage() {
                 type="search"
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Search product name"
-                aria-label="Search products"
+                placeholder={t("Search product name")}
+                aria-label={t("Search products")}
               />
 
               <select
@@ -1125,9 +1126,9 @@ function InventoryPage() {
                 onChange={(event) =>
                   setSelectedCategory(event.target.value)
                 }
-                aria-label="Filter by category"
+                aria-label={t("Filter by category")}
               >
-                <option value="ALL">All categories</option>
+                <option value="ALL">{t("All categories")}</option>
                 {categories.map((category) => (
                   <option key={category.id} value={String(category.id)}>
                     {category.name}
@@ -1138,22 +1139,22 @@ function InventoryPage() {
               <select
                 value={stockFilter}
                 onChange={(event) => setStockFilter(event.target.value)}
-                aria-label="Filter by stock status"
+                aria-label={t("Filter by stock status")}
               >
-                <option value="ALL">All stock levels</option>
-                <option value="LOW">Running low or out</option>
-                <option value="IN_STOCK">Enough stock</option>
-                <option value="NO_PRICE">No selling price</option>
+                <option value="ALL">{t("All stock levels")}</option>
+                <option value="LOW">{t("Running low or out")}</option>
+                <option value="IN_STOCK">{t("Enough stock")}</option>
+                <option value="NO_PRICE">{t("No selling price")}</option>
               </select>
 
               <select
                 value={statusFilter}
                 onChange={(event) => setStatusFilter(event.target.value)}
-                aria-label="Filter by product status"
+                aria-label={t("Filter by product status")}
               >
-                <option value="ACTIVE">Active products</option>
-                <option value="INACTIVE">Inactive products</option>
-                <option value="ALL">Active and inactive</option>
+                <option value="ACTIVE">{t("Active products")}</option>
+                <option value="INACTIVE">{t("Inactive products")}</option>
+                <option value="ALL">{t("Active and inactive")}</option>
               </select>
 
               <button
@@ -1166,7 +1167,7 @@ function InventoryPage() {
                   setStatusFilter("ACTIVE");
                 }}
               >
-                Clear filters
+                {t("Clear filters")}
               </button>
               <select
                 value={`${sortBy}:${sortDirection}`}
@@ -1175,31 +1176,31 @@ function InventoryPage() {
                   setSortBy(nextSort);
                   setSortDirection(nextDirection);
                 }}
-                aria-label="Sort products"
+                aria-label={t("Sort products")}
               >
-                <option value="name:asc">Sort: Name A–Z</option>
-                <option value="name:desc">Sort: Name Z–A</option>
-                <option value="stock:asc">Sort: Stock low to high</option>
-                <option value="stock:desc">Sort: Stock high to low</option>
-                <option value="value:desc">Sort: Value high to low</option>
+                <option value="name:asc">{t("Sort: Name A–Z")}</option>
+                <option value="name:desc">{t("Sort: Name Z–A")}</option>
+                <option value="stock:asc">{t("Sort: Stock low to high")}</option>
+                <option value="stock:desc">{t("Sort: Stock high to low")}</option>
+                <option value="value:desc">{t("Sort: Value high to low")}</option>
               </select>
             </div>
 
             <p className="inventory-result-count">
-              Showing {filteredProducts.length} of {products.length} products
+              {t("Showing {shown} of {total} products", { shown: filteredProducts.length, total: products.length })}
             </p>
 
             {filteredProducts.length === 0 ? (
               <div className="inventory-empty">
                 <h3>
                   {products.length === 0
-                    ? "No products yet"
-                    : "No matching products"}
+                    ? t("No products yet")
+                    : t("No matching products")}
                 </h3>
                 <p>
                   {products.length === 0
-                    ? "Create your first product to start tracking inventory."
-                    : "Try another search term or change your filters."}
+                    ? t("Create your first product to start tracking inventory.")
+                    : t("Try another search term or change your filters.")}
                 </p>
               </div>
             ) : (
@@ -1209,19 +1210,19 @@ function InventoryPage() {
                     <tr>
                       <th>
                         <button type="button" className="inventory-sort-button" onClick={() => changeSort("name")}>
-                          Product {sortBy === "name" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
+                          {t("Product")} {sortBy === "name" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
                         </button>
                       </th>
-                      <th>Category</th>
+                      <th>{t("Category")}</th>
                       <th>
                         <button type="button" className="inventory-sort-button" onClick={() => changeSort("stock")}>
-                          In stock {sortBy === "stock" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
+                          {t("In stock")} {sortBy === "stock" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
                         </button>
                       </th>
-                      <th>Selling price</th>
-                      <th>Stock value</th>
-                      <th>Status</th>
-                      <th><span className="visually-hidden">Actions</span></th>
+                      <th className="num">{t("Selling price")}</th>
+                      <th className="num">{t("Stock value")}</th>
+                      <th>{t("Status")}</th>
+                      <th><span className="visually-hidden">{t("Actions")}</span></th>
                     </tr>
                   </thead>
 
@@ -1233,9 +1234,9 @@ function InventoryPage() {
                         deactivatingProductId === product.id;
                       const menuItems = active && canManageProducts
                         ? [
-                          { label: "Edit product", onClick: () => openEditForm(product.id) },
+                          { label: t("Edit product"), onClick: () => openEditForm(product.id) },
                           {
-                            label: deactivating ? "Deactivating..." : "Deactivate product",
+                            label: deactivating ? t("Deactivating...") : t("Deactivate product"),
                             onClick: () => handleDeactivate(product),
                             danger: true,
                           },
@@ -1257,12 +1258,12 @@ function InventoryPage() {
                           <td>
                             <strong>{formatStock(product)}</strong>
                           </td>
-                          <td>
+                          <td className="num">
                             {Number(product.sellingPrice ?? 0) > 0
                               ? formatCurrency(product.sellingPrice)
-                              : <span className="inventory-missing-price">Not set</span>}
+                              : <span className="inventory-missing-price">{t("Not set")}</span>}
                           </td>
-                          <td>
+                          <td className="num">
                             {formatCurrency(
                               Number(product.stockQuantity ?? 0) *
                                 Number(product.purchasePrice ?? 0)
@@ -1280,9 +1281,9 @@ function InventoryPage() {
                                 type="button"
                                 onClick={() => openProductDetails(product.id)}
                               >
-                                View
+                                {t("View")}
                               </button>
-                              <RowMenu label={`More actions for ${product.name}`} items={menuItems} />
+                              <RowMenu label={t("More actions for {name}", { name: product.name })} items={menuItems} />
                             </div>
                           </td>
                         </tr>
@@ -1308,11 +1309,11 @@ function InventoryPage() {
                           </span>
                         </span>
                         <span className="mobile-card__row">
-                          <span className="mobile-card__meta">In stock: {formatStock(product)}</span>
+                          <span className="mobile-card__meta">{t("In stock:")} {formatStock(product)}</span>
                           <span className="mobile-card__meta">
                             {Number(product.sellingPrice ?? 0) > 0
                               ? formatCurrency(product.sellingPrice)
-                              : <span className="inventory-missing-price">No price</span>}
+                              : <span className="inventory-missing-price">{t("No price")}</span>}
                           </span>
                         </span>
                       </button>

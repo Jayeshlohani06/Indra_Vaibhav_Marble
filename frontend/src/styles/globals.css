@@ -26,8 +26,10 @@ body::before {
   inset: 0;
   z-index: -1;
   background:
-    radial-gradient(1200px 700px at 12% -10%, rgb(255 253 249 / 95%), transparent 60%),
-    radial-gradient(900px 600px at 95% 105%, rgb(214 203 186 / 45%), transparent 60%),
+    /* Dark mode dims the marble so cards stay readable. */
+    linear-gradient(light-dark(transparent, rgb(20 17 14 / 86%)), light-dark(transparent, rgb(20 17 14 / 86%))),
+    radial-gradient(1200px 700px at 12% -10%, light-dark(rgb(255 253 249 / 95%), rgb(29 26 22 / 95%)), transparent 60%),
+    radial-gradient(900px 600px at 95% 105%, light-dark(rgb(214 203 186 / 45%), rgb(53 47 37 / 45%)), transparent 60%),
     url("../assets/marble-background.jpg") center / cover no-repeat,
     var(--color-background);
   content: "";
@@ -49,7 +51,7 @@ textarea {
 }
 
 ::selection {
-  background: rgb(128 100 67 / 22%);
+  background: light-dark(rgb(128 100 67 / 22%), rgb(115 96 74 / 22%));
   color: inherit;
 }
 
@@ -59,7 +61,7 @@ input:-webkit-autofill:focus,
 textarea:-webkit-autofill,
 select:-webkit-autofill {
   -webkit-text-fill-color: var(--color-text);
-  box-shadow: 0 0 0 1000px #f9f6f1 inset !important;
+  box-shadow: 0 0 0 1000px light-dark(#f9f6f1, rgb(255 255 255 / 5%)) inset !important;
   caret-color: var(--color-text);
   transition: background-color 9999s ease 0s;
 }
@@ -94,25 +96,25 @@ a {
 }
 
 .pay-badge--paid {
-  background: #dcfce7;
-  color: #166534;
+  background: light-dark(#dcfce7, #122319);
+  color: light-dark(#166534, #7bc58e);
 }
 
 .pay-badge--partial {
-  background: #fef3c7;
-  color: #92400e;
+  background: light-dark(#fef3c7, #251e06);
+  color: light-dark(#92400e, #ec9165);
 }
 
 .pay-badge--unpaid {
-  background: #fee2e2;
-  color: #991b1b;
+  background: light-dark(#fee2e2, #2c1e1f);
+  color: light-dark(#991b1b, #ff8579);
 }
 
 /* Amount still owed, shown under totals in lists. */
 .amount-due {
   display: block;
   margin-top: 3px;
-  color: #b45309;
+  color: light-dark(#b45309, #e17c40);
   font-size: 11px;
   font-weight: 650;
 }
@@ -140,9 +142,9 @@ a {
     gap: 8px;
     width: 100%;
     padding: 14px;
-    border: 1px solid #e7e1d8;
+    border: 1px solid light-dark(#e7e1d8, #2f2b24);
     border-radius: 12px;
-    background: #fff;
+    background: light-dark(#fff, #1c1916);
     color: inherit;
     font: inherit;
     text-align: left;
@@ -150,7 +152,7 @@ a {
   }
 
   .mobile-card:active {
-    background: #faf8f5;
+    background: light-dark(#faf8f5, #1f1c18);
   }
 
   .mobile-card__row {
@@ -162,7 +164,7 @@ a {
 
   .mobile-card__title {
     overflow: hidden;
-    color: #1f1b16;
+    color: light-dark(#1f1b16, #e4ded7);
     font-size: 14px;
     font-weight: 700;
     text-overflow: ellipsis;
@@ -170,14 +172,14 @@ a {
   }
 
   .mobile-card__amount {
-    color: #1f1b16;
+    color: light-dark(#1f1b16, #e4ded7);
     font-size: 15px;
     font-weight: 750;
     white-space: nowrap;
   }
 
   .mobile-card__meta {
-    color: #6b6359;
+    color: light-dark(#6b6359, #ada499);
     font-size: 12px;
   }
 }

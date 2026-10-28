@@ -1,0 +1,18 @@
+.language-toggle {
+  height: var(--control-height-sm);
+  padding: 0 12px;
+  border: 1px solid light-dark(#e3dbcf, #342e25);
+  border-radius: var(--radius-sm);
+  background: var(--neu-surface);
+  box-shadow: var(--neu-raised);
+  color: light-dark(#4a4238, #c6bcb0);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.language-toggle:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}

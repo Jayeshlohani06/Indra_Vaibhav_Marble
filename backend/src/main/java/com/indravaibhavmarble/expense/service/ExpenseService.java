@@ -1,5 +1,7 @@
 package com.indravaibhavmarble.expense.service;
 
+import com.indravaibhavmarble.cash.entity.CashSettings;
+import com.indravaibhavmarble.cash.repository.CashSettingsRepository;
 import com.indravaibhavmarble.cash.service.CashPeriodGuard;
 import com.indravaibhavmarble.cash.service.FinancialAuditService;
 import com.indravaibhavmarble.common.exception.ResourceNotFoundException;
@@ -48,6 +50,7 @@ public class ExpenseService {
     private final StaffMemberRepository staffRepository;
     private final CashPeriodGuard periodGuard;
     private final FinancialAuditService auditService;
+    private final CashSettingsRepository cashSettingsRepository;
 
     public ExpenseService(
             ExpenseRepository expenseRepository,
@@ -55,7 +58,8 @@ public class ExpenseService {
             ExpenseCategoryRepository categoryRepository,
             StaffMemberRepository staffRepository,
             CashPeriodGuard periodGuard,
-            FinancialAuditService auditService
+            FinancialAuditService auditService,
+            CashSettingsRepository cashSettingsRepository
     ) {
         this.expenseRepository = expenseRepository;
         this.supplierRepository = supplierRepository;
@@ -63,6 +67,7 @@ public class ExpenseService {
         this.staffRepository = staffRepository;
         this.periodGuard = periodGuard;
         this.auditService = auditService;
+        this.cashSettingsRepository = cashSettingsRepository;
     }
 
     public ExpenseResponse createExpense(ExpenseRequest request) {
@@ -85,6 +90,7 @@ public class ExpenseService {
         validateExpense(expense);
         normalize(expense);
         applyCategoryRules(expense, null, null);
+        requireReceiptForLargeExpense(expense);
         validateSupplier(expense);
         periodGuard.assertOpen(expense.getExpenseDate());
 
@@ -115,6 +121,7 @@ public class ExpenseService {
         validateExpense(expense);
         normalize(expense);
         applyCategoryRules(expense, previousCategory, previousStaff);
+        requireReceiptForLargeExpense(expense);
         validateSupplier(expense);
         periodGuard.assertOpen(expense.getExpenseDate());
         expense.setUpdatedBy(CurrentUser.name());
@@ -275,6 +282,17 @@ public class ExpenseService {
         }
         expense.setSalaryPeriod(expense.getStaffMemberId() == null || expense.getSalaryPeriod() == null
                 ? null : expense.getSalaryPeriod().withDayOfMonth(1));
+    }
+
+    /** Big expenses need a bill or receipt number, unless the owner records them. */
+    private void requireReceiptForLargeExpense(Expense expense) {
+        BigDecimal limit = cashSettingsRepository.findById(CashSettings.ID)
+                .map(CashSettings::getLargeExpenseThreshold).orElse(BigDecimal.ZERO);
+        if (limit.signum() > 0 && expense.getAmount().compareTo(limit) > 0
+                && expense.getReferenceNumber() == null && !CurrentUser.has("CASH_APPROVE")) {
+            throw new IllegalArgumentException("Expenses above ₹" + limit.toPlainString()
+                    + " need a bill or receipt number. Ask the owner if there is no bill.");
+        }
     }
 
     private ExpenseResponse toResponse(Expense expense) {

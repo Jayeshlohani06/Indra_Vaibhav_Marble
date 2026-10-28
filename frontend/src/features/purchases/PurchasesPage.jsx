@@ -14,6 +14,7 @@ import {
 } from "../../services/api/purchaseApi";
 import {
   getPurchasePayments,
+  changePurchasePaymentMethod,
   recordPurchasePayment,
   getPurchaseBalance,
 } from "../../services/api/paymentApi";
@@ -23,6 +24,11 @@ import "./PurchasesPage.css";
 import { usePermission } from "../../auth/PermissionsContext";
 import SearchSelect from "../../components/SearchSelect";
 import { formatDate, label, paymentBadgeClass } from "../../utils/format";
+import { newRequestId } from "../../utils/requestId";
+import { backdateWarning } from "../../utils/backdate";
+import ChangeMethodDialog from "../../components/ChangeMethodDialog";
+import { t } from "../../i18n";
+import Skeleton from "../../components/Skeleton";
 
 const today = () => {
   const date = new Date();
@@ -50,6 +56,9 @@ const round2 = (value) =>
 
 function PurchasesPage() {
   const canManagePurchases = usePermission("PURCHASE_MANAGE");
+  const canFixPayments = usePermission("CASH_APPROVE");
+  const [paymentRequestId, setPaymentRequestId] = useState(null);
+  const [fixingPayment, setFixingPayment] = useState(null);
   const [suppliers, setSuppliers] = useState([]);
   const [products, setProducts] = useState([]);
   const [purchases, setPurchases] = useState([]);
@@ -127,7 +136,7 @@ function PurchasesPage() {
       setUnits(Array.isArray(unitData) ? unitData : []);
       setExpenseCategories(Array.isArray(expenseCategoryData) ? expenseCategoryData : []);
     } catch (err) {
-      setError(err.message || "Unable to load purchase data.");
+      setError(err.message || t("Unable to load purchase data."));
     } finally {
       setLoading(false);
     }
@@ -300,12 +309,12 @@ function PurchasesPage() {
     );
 
     if (!product) {
-      setError("Product not found. Refresh the page and try again.");
+      setError(t("Product not found. Refresh the page and try again."));
       return;
     }
 
     if (product.active === false || product.isActive === false) {
-      setError("This product is inactive and cannot be added to a purchase.");
+      setError(t("This product is inactive and cannot be added to a purchase."));
       return;
     }
 
@@ -427,7 +436,7 @@ function PurchasesPage() {
   async function addPurchaseExpenseCategory() {
     const name = newExpenseCategory.trim();
     if (!name) {
-      setError("Enter an expense category name first.");
+      setError(t("Enter an expense category name first."));
       return;
     }
     try {
@@ -446,7 +455,7 @@ function PurchasesPage() {
       setNewExpenseCategory("");
       setShowExpenseCategoryForm(false);
     } catch (err) {
-      setError(err.message || "Unable to create expense category.");
+      setError(err.message || t("Unable to create expense category."));
     }
   }
 
@@ -484,13 +493,13 @@ function PurchasesPage() {
 
       setSuccess(
         settingsSaved
-          ? `"${createdProduct.name}" was created with zero stock and selected for this purchase.`
-          : `"${createdProduct.name}" was created and selected with zero stock. Inventory tracking settings need attention. Do not create the product again.`
+          ? t("\"{name}\" was created with zero stock and selected for this purchase.", { name: createdProduct.name })
+          : t("\"{name}\" was created and selected with zero stock. Inventory tracking settings need attention. Do not create the product again.", { name: createdProduct.name })
       );
     } catch (err) {
       // The creation request may already have succeeded. Avoid creating it twice.
       setError(
-        `The product may already have been created. Refresh the page before retrying. ${err.message || ""}`
+        t("The product may already have been created. Refresh the page before retrying. {error}", { error: err.message || "" })
       );
     }
   }
@@ -501,17 +510,17 @@ function PurchasesPage() {
     setSuccess("");
 
     if (!supplierId) {
-      setError("Please select a supplier.");
+      setError(t("Please select a supplier."));
       return;
     }
 
     if (!purchaseDate || purchaseDate > today()) {
-      setError("Select a valid purchase date that is not in the future.");
+      setError(t("Select a valid purchase date that is not in the future."));
       return;
     }
 
     if (items.some((item) => !item.productId)) {
-      setError("Please select a product for every purchase line.");
+      setError(t("Please select a product for every purchase line."));
       return;
     }
 
@@ -529,7 +538,7 @@ function PurchasesPage() {
           Number(gstRate) > 100
       )
     ) {
-      setError("Check quantity, purchase rate, discount, and GST values.");
+      setError(t("Check quantity, purchase rate, discount, and GST values."));
       return;
     }
 
@@ -541,7 +550,7 @@ function PurchasesPage() {
             Number(item.secondaryQuantity) <= 0)
       )
     ) {
-      setError("Enter the secondary quantity for lines priced per secondary unit.");
+      setError(t("Enter the secondary quantity for lines priced per secondary unit."));
       return;
     }
 
@@ -551,7 +560,7 @@ function PurchasesPage() {
         !Number.isFinite(Number(expense.amount)) ||
         Number(expense.amount) <= 0
     )) {
-      setError("Select an expense category and enter a positive amount for every charge.");
+      setError(t("Select an expense category and enter a positive amount for every charge."));
       return;
     }
 
@@ -560,7 +569,7 @@ function PurchasesPage() {
         (item) => Number(item.discountAmount) > item.gross
       )
     ) {
-      setError("A line discount cannot exceed that line's gross amount.");
+      setError(t("A line discount cannot exceed that line's gross amount."));
       return;
     }
 
@@ -571,7 +580,7 @@ function PurchasesPage() {
         calculations.subtotal - calculations.lineDiscounts
     ) {
       setError(
-        "Invoice discount is invalid or exceeds the remaining subtotal."
+        t("Invoice discount is invalid or exceeds the remaining subtotal.")
       );
       return;
     }
@@ -607,9 +616,9 @@ function PurchasesPage() {
         : await createPurchase(payload);
 
       setSuccess(
-        `Purchase ${saved.purchaseNumber || `#${saved.id}`} ${
-          editingPurchaseId ? "updated" : "saved"
-        } as ${saved.status || "DRAFT"}. Stock has not been changed.`
+        editingPurchaseId
+          ? t("Purchase {number} updated as {status}. Stock has not been changed.", { number: saved.purchaseNumber || `#${saved.id}`, status: saved.status || "DRAFT" })
+          : t("Purchase {number} saved as {status}. Stock has not been changed.", { number: saved.purchaseNumber || `#${saved.id}`, status: saved.status || "DRAFT" })
       );
 
       resetForm();
@@ -617,7 +626,7 @@ function PurchasesPage() {
       await loadData();
       setShowPurchaseForm(false);
     } catch (err) {
-      setError(err.message || "Unable to save purchase.");
+      setError(err.message || t("Unable to save purchase."));
     } finally {
       setSaving(false);
     }
@@ -632,12 +641,12 @@ function PurchasesPage() {
       const received = await receivePurchase(purchase.id);
 
       setSuccess(
-        `Purchase ${received.purchaseNumber} received successfully. Inventory stock has been updated.`
+        t("Purchase {number} received successfully. Inventory stock has been updated.", { number: received.purchaseNumber })
       );
 
       await loadData();
     } catch (err) {
-      setError(err.message || "Unable to receive purchase.");
+      setError(err.message || t("Unable to receive purchase."));
     } finally {
       setReceivingId(null);
     }
@@ -650,6 +659,7 @@ function PurchasesPage() {
     setPaymentError("");
     setPaymentAmount("");
     setPaymentDate(today());
+    setPaymentRequestId(newRequestId());
     setPaymentMethod("UPI");
     setPaymentReference("");
     setPaymentNotes("");
@@ -664,10 +674,18 @@ function PurchasesPage() {
       setPaymentBalance(balance);
       setPaymentHistory(Array.isArray(history) ? history : []);
     } catch (err) {
-      setPaymentError(err.message || "Unable to load payment details.");
+      setPaymentError(err.message || t("Unable to load payment details."));
     } finally {
       setPaymentLoading(false);
     }
+  }
+
+  async function fixPaymentMethod(method, reason) {
+    await changePurchasePaymentMethod(paymentPurchase.id, fixingPayment.id, method, reason);
+    setFixingPayment(null);
+    const history = await getPurchasePayments(paymentPurchase.id);
+    setPaymentHistory(Array.isArray(history) ? history : []);
+    setSuccess(t("Payment method changed."));
   }
 
   async function handleRecordPayment(event) {
@@ -679,17 +697,17 @@ function PurchasesPage() {
     const amount = Number(paymentAmount);
 
     if (!paymentDate || paymentDate > today()) {
-      setPaymentError("Select a valid payment date.");
+      setPaymentError(t("Select a valid payment date."));
       return;
     }
 
     if (!Number.isFinite(amount) || amount <= 0) {
-      setPaymentError("Enter a payment amount greater than zero.");
+      setPaymentError(t("Enter a payment amount greater than zero."));
       return;
     }
 
     if (!paymentMethod) {
-      setPaymentError("Select a payment method.");
+      setPaymentError(t("Select a payment method."));
       return;
     }
 
@@ -702,7 +720,9 @@ function PurchasesPage() {
         paymentMethod,
         referenceNumber: paymentReference.trim() || null,
         notes: paymentNotes.trim() || null,
+        requestId: paymentRequestId,
       });
+      setPaymentRequestId(newRequestId());
 
       const [balance, history] = await Promise.all([
         getPurchaseBalance(paymentPurchase.id),
@@ -727,9 +747,9 @@ function PurchasesPage() {
       setPaymentAmount("");
       setPaymentReference("");
       setPaymentNotes("");
-      setSuccess("Supplier payment recorded successfully.");
+      setSuccess(t("Supplier payment recorded successfully."));
     } catch (err) {
-      setPaymentError(err.message || "Unable to record supplier payment.");
+      setPaymentError(err.message || t("Unable to record supplier payment."));
     } finally {
       setPaymentSaving(false);
     }
@@ -737,9 +757,10 @@ function PurchasesPage() {
 
   return (
     <section className="purchases-page">
+      {fixingPayment && <ChangeMethodDialog payment={fixingPayment} onSave={fixPaymentMethod} onClose={() => setFixingPayment(null)} />}
       <div className="purchases-heading">
         <p className="purchases-subtitle">
-          Enter supplier bills, add the stock when it arrives, and pay suppliers.
+          {t("Enter supplier bills, add the stock when it arrives, and pay suppliers.")}
         </p>
 
         {canManagePurchases && <button
@@ -747,7 +768,7 @@ function PurchasesPage() {
           className="purchase-primary-button"
           onClick={openCreatePurchaseForm}
         >
-          + New purchase
+          {t("+ New purchase")}
         </button>}
       </div>
 
@@ -764,14 +785,14 @@ function PurchasesPage() {
       )}
 
       <div className="purchase-kpi-grid">
-        <div className="purchase-kpi-card is-blue"><span>Bought this month</span><strong>{money(monthPurchaseValue)}</strong><small>{monthPurchases.length} received {monthPurchases.length === 1 ? "bill" : "bills"}</small></div>
-        <div className="purchase-kpi-card is-amber"><span>You owe suppliers</span><strong>{money(toPaySuppliers)}</strong><small>{unpaidPurchases.length} {unpaidPurchases.length === 1 ? "bill" : "bills"} not fully paid</small></div>
-        <div className="purchase-kpi-card is-green"><span>Waiting to arrive</span><strong>{draftPurchases.length}</strong><small>Drafts not yet added to stock</small></div>
+        <div className="purchase-kpi-card is-blue"><span>{t("Bought this month")}</span><strong>{money(monthPurchaseValue)}</strong><small>{monthPurchases.length === 1 ? t("{count} received bill", { count: monthPurchases.length }) : t("{count} received bills", { count: monthPurchases.length })}</small></div>
+        <div className="purchase-kpi-card is-amber"><span>{t("You owe suppliers")}</span><strong>{money(toPaySuppliers)}</strong><small>{unpaidPurchases.length === 1 ? t("{count} bill not fully paid", { count: unpaidPurchases.length }) : t("{count} bills not fully paid", { count: unpaidPurchases.length })}</small></div>
+        <div className="purchase-kpi-card is-green"><span>{t("Waiting to arrive")}</span><strong>{draftPurchases.length}</strong><small>{t("Drafts not yet added to stock")}</small></div>
       </div>
 
       {loading ? (
         <div className="purchase-card">
-          Loading suppliers, products, categories, units, and purchases...
+          <Skeleton label={t("Loading suppliers, products, categories, units, and purchases...")} rows={6} />
         </div>
       ) : (
         <>
@@ -779,16 +800,16 @@ function PurchasesPage() {
           <form className="purchase-card purchase-modal purchase-create-modal" onSubmit={handleSubmit}>
             <div className="purchase-section-heading">
               <div>
-                <h3>{editingPurchaseId ? "Edit purchase" : "New purchase"}</h3>
+                <h3>{editingPurchaseId ? t("Edit purchase") : t("New purchase")}</h3>
                 <p>
-                  Copy the details from the supplier&apos;s bill.
+                  {t("Copy the details from the supplier's bill.")}
                 </p>
               </div>
             </div>
 
             <div className="purchase-form-grid">
               <label>
-                Supplier <b>*</b>
+                {t("Supplier")} <b>*</b>
                 <SearchSelect
                   options={suppliers.map((supplier) => ({
                     value: supplier.id,
@@ -797,25 +818,25 @@ function PurchasesPage() {
                   }))}
                   value={supplierId}
                   onChange={setSupplierId}
-                  placeholder="Search supplier by name"
+                  placeholder={t("Search supplier by name")}
                   required
                 />
               </label>
 
               <label>
-                Supplier invoice number
+                {t("Supplier invoice number")}
                 <input
                   value={supplierInvoiceNumber}
                   onChange={(event) =>
                     setSupplierInvoiceNumber(event.target.value)
                   }
                   maxLength={100}
-                  placeholder="Number from supplier bill"
+                  placeholder={t("Number from supplier bill")}
                 />
               </label>
 
               <label>
-                Purchase date <b>*</b>
+                {t("Purchase date")} <b>*</b>
                 <input
                   type="date"
                   value={purchaseDate}
@@ -826,33 +847,33 @@ function PurchasesPage() {
               </label>
 
               <label>
-                Supplier location <b>*</b>
+                {t("Supplier location")} <b>*</b>
                 <select
                   value={taxType}
                   onChange={(event) => setTaxType(event.target.value)}
                   required
                 >
-                  <option value="INTRA">Same state as us (CGST + SGST)</option>
-                  <option value="IGST">Other state (IGST)</option>
+                  <option value="INTRA">{t("Same state as us (CGST + SGST)")}</option>
+                  <option value="IGST">{t("Other state (IGST)")}</option>
                 </select>
               </label>
 
               <label className="purchase-wide-field">
-                Notes
+                {t("Notes")}
                 <textarea
                   rows={2}
                   value={notes}
                   onChange={(event) => setNotes(event.target.value)}
-                  placeholder="Optional purchase notes"
+                  placeholder={t("Optional purchase notes")}
                 />
               </label>
             </div>
 
             <div className="purchase-section-heading purchase-items-heading">
               <div>
-                <h3>Items on the bill</h3>
+                <h3>{t("Items on the bill")}</h3>
                 <p>
-                  Select a product or create a new one without leaving this page.
+                  {t("Select a product or create a new one without leaving this page.")}
                 </p>
               </div>
 
@@ -861,14 +882,13 @@ function PurchasesPage() {
                 className="purchase-secondary-button"
                 onClick={addLine}
               >
-                + Add item
+                {t("+ Add item")}
               </button>}
             </div>
 
             {products.length === 0 && (
               <div className="purchase-alert purchase-error">
-                No products are available yet. Use “Create New Product” below
-                to add one to your catalogue.
+                {t("No products are available yet. Use “Create New Product” below to add one to your catalogue.")}
               </div>
             )}
 
@@ -882,19 +902,19 @@ function PurchasesPage() {
                 return (
                   <div className="purchase-item-row" key={index}>
                     <div className="purchase-item-title">
-                      <strong>Item {index + 1}</strong>
+                      <strong>{t("Item {number}", { number: index + 1 })}</strong>
                       {canManagePurchases && <button
                         type="button"
                         className="purchase-remove-button"
                         onClick={() => removeLine(index)}
                         disabled={items.length === 1}
                       >
-                        Remove
+                        {t("Remove")}
                       </button>}
                     </div>
 
                     <label className="purchase-product-field">
-                      <span>Product <b>*</b></span>
+                      <span>{t("Product")} <b>*</b></span>
                       <input
                         type="text"
                         value={
@@ -915,13 +935,13 @@ function PurchasesPage() {
                             );
                           }, 120)
                         }
-                        placeholder="Search product name or code..."
-                        aria-label={`Search product for item ${index + 1}`}
+                        placeholder={t("Search product name or code...")}
+                        aria-label={t("Search product for item {number}", { number: index + 1 })}
                       />
                       {activeProductSearchIndex === index && <div
                         className="purchase-product-results"
                         role="listbox"
-                        aria-label={`Matching products for item ${index + 1}`}
+                        aria-label={t("Matching products for item {number}", { number: index + 1 })}
                       >
                         {products
                           .filter((entry) => {
@@ -960,8 +980,8 @@ function PurchasesPage() {
                                 <strong>{productLabel(entry)}</strong>
                                 <small>
                                   {inactive
-                                    ? "Inactive"
-                                    : `Purchase price: ${money(entry.purchasePrice)}`}
+                                    ? t("Inactive")
+                                    : t("Purchase price: {amount}", { amount: money(entry.purchasePrice) })}
                                 </small>
                               </button>
                             );
@@ -976,14 +996,14 @@ function PurchasesPage() {
                             );
                         }).length === 0 && (
                           <p className="purchase-product-no-results">
-                            No matching products found.
+                            {t("No matching products found.")}
                           </p>
                         )}
                       </div>}
 
                       {product && (
                         <small>
-                          Current purchase price:{" "}
+                          {t("Current purchase price:")}{" "}
                           {money(product.purchasePrice)}
                         </small>
                       )}
@@ -997,13 +1017,13 @@ function PurchasesPage() {
                           setCreateProductForIndex(index);
                         }}
                       >
-                        + Create New Product
+                        {t("+ Create New Product")}
                       </button>
                     </label>
 
                     <div className="purchase-line-fields">
                       <label>
-                        Quantity
+                        {t("Quantity")}
                         <input
                           type="number"
                           min="0.001"
@@ -1016,7 +1036,7 @@ function PurchasesPage() {
                         />
                       </label>
                       {product?.secondaryUnitId && <label>
-                        {units.find((unit) => Number(unit.id) === Number(product.secondaryUnitId))?.code || "Secondary quantity"}
+                        {units.find((unit) => Number(unit.id) === Number(product.secondaryUnitId))?.code || t("Secondary quantity")}
                         <input
                           type="number"
                           min="0.001"
@@ -1027,15 +1047,15 @@ function PurchasesPage() {
                         />
                       </label>}
                       <label>
-                        Price basis
+                        {t("Price basis")}
                         <select value={item.pricingUnit} onChange={(event) => updateItem(index, "pricingUnit", event.target.value)}>
-                          <option value="PRIMARY">Per main unit</option>
-                          {product?.secondaryUnitId && <option value="SECONDARY">Per second unit</option>}
+                          <option value="PRIMARY">{t("Per main unit")}</option>
+                          {product?.secondaryUnitId && <option value="SECONDARY">{t("Per second unit")}</option>}
                         </select>
                       </label>
 
                       <label>
-                        Rate (₹)
+                        {t("Rate (₹)")}
                         <input
                           type="number"
                           min="0"
@@ -1049,7 +1069,7 @@ function PurchasesPage() {
                       </label>
 
                       <label>
-                        Line discount (₹)
+                        {t("Line discount (₹)")}
                         <input
                           type="number"
                           min="0"
@@ -1069,8 +1089,8 @@ function PurchasesPage() {
                     </div>
 
                     <div className="purchase-line-total">
-                      <span>Taxable: {money(calc.taxable)}</span>
-                      <strong>Line total: {money(calc.total)}</strong>
+                      <span>{t("Taxable: {amount}", { amount: money(calc.taxable) })}</span>
+                      <strong>{t("Line total: {amount}", { amount: money(calc.total) })}</strong>
                     </div>
                   </div>
                 );
@@ -1084,17 +1104,17 @@ function PurchasesPage() {
                   className="purchase-secondary-button"
                   onClick={addLine}
                 >
-                  + Add another item
+                  {t("+ Add another item")}
                 </button>
               </div>
             )}
 
             <div className="purchase-section-heading purchase-items-heading">
               <div>
-                <h3>Additional purchase charges</h3>
-                <p>Record labour, transport, loading, or other supplier-side costs.</p>
+                <h3>{t("Additional purchase charges")}</h3>
+                <p>{t("Record labour, transport, loading, or other supplier-side costs.")}</p>
               </div>
-              {canManagePurchases && <button type="button" className="purchase-secondary-button" onClick={addPurchaseExpense}>+ Add charge</button>}
+              {canManagePurchases && <button type="button" className="purchase-secondary-button" onClick={addPurchaseExpense}>{t("+ Add charge")}</button>}
             </div>
             {expenses.length > 0 && <div className="purchase-expenses-list">
               {expenses.map((expense, index) => (
@@ -1104,25 +1124,25 @@ function PurchasesPage() {
                     updatePurchaseExpense(index, "categoryId", event.target.value);
                     if (selected && !expense.description) updatePurchaseExpense(index, "description", selected.name);
                   }} required>
-                    <option value="">Select charge category</option>
+                    <option value="">{t("Select charge category")}</option>
                     {expenseCategories.filter((category) => category.active !== false && category.isActive !== false).map((category) => (
                       <option key={category.id} value={category.id}>{category.name}</option>
                     ))}
                   </select>
-                  <input value={expense.description} onChange={(event) => updatePurchaseExpense(index, "description", event.target.value)} placeholder="Description (optional)" maxLength={100} />
-                  <input type="number" min="0.01" step="0.01" value={expense.amount} onChange={(event) => updatePurchaseExpense(index, "amount", event.target.value)} placeholder="Amount" required />
-                  <button type="button" className="purchase-icon-button" onClick={() => removePurchaseExpense(index)} aria-label="Remove charge">×</button>
+                  <input value={expense.description} onChange={(event) => updatePurchaseExpense(index, "description", event.target.value)} placeholder={t("Description (optional)")} maxLength={100} />
+                  <input type="number" min="0.01" step="0.01" value={expense.amount} onChange={(event) => updatePurchaseExpense(index, "amount", event.target.value)} placeholder={t("Amount")} required />
+                  <button type="button" className="purchase-icon-button" onClick={() => removePurchaseExpense(index)} aria-label={t("Remove charge")}>×</button>
                 </div>
               ))}
               <div className="purchase-inline-category">
-                <button type="button" className="purchase-secondary-button" onClick={() => setShowExpenseCategoryForm((current) => !current)}>+ Add charge category</button>
-                {showExpenseCategoryForm && <div className="purchase-reference-creator"><input value={newExpenseCategory} onChange={(event) => setNewExpenseCategory(event.target.value)} placeholder="New expense category" maxLength={100} /><button type="button" className="purchase-secondary-button" onClick={addPurchaseExpenseCategory}>Create</button></div>}
+                <button type="button" className="purchase-secondary-button" onClick={() => setShowExpenseCategoryForm((current) => !current)}>{t("+ Add charge category")}</button>
+                {showExpenseCategoryForm && <div className="purchase-reference-creator"><input value={newExpenseCategory} onChange={(event) => setNewExpenseCategory(event.target.value)} placeholder={t("New expense category")} maxLength={100} /><button type="button" className="purchase-secondary-button" onClick={addPurchaseExpenseCategory}>{t("Create")}</button></div>}
               </div>
             </div>}
 
             <div className="purchase-form-grid purchase-tax-grid">
               <label>
-                Discount on whole bill (₹)
+                {t("Discount on whole bill (₹)")}
                 <input
                   type="number"
                   min="0"
@@ -1134,7 +1154,7 @@ function PurchasesPage() {
               </label>
 
               <label>
-                GST rate on this bill (%) <b>*</b>
+                {t("GST rate on this bill (%)")} <b>*</b>
                 <input
                   type="number"
                   min="0"
@@ -1149,24 +1169,23 @@ function PurchasesPage() {
 
             <div className="purchase-bottom-grid">
               <div className="purchase-note">
-                <strong>Saved as a draft</strong>
+                <strong>{t("Saved as a draft")}</strong>
                 <p>
-                  Stock is added only when you press “Add to stock” after the
-                  goods arrive. Payments are recorded separately.
+                  {t("Stock is added only when you press “Add to stock” after the goods arrive. Payments are recorded separately.")}
                 </p>
               </div>
 
               <div className="purchase-totals">
                 <div>
-                  <span>Subtotal</span>
+                  <span>{t("Subtotal")}</span>
                   <strong>{money(calculations.subtotal)}</strong>
                 </div>
                 <div>
-                  <span>Line discounts</span>
+                  <span>{t("Line discounts")}</span>
                   <strong>- {money(calculations.lineDiscounts)}</strong>
                 </div>
                 <div>
-                  <span>Invoice discount</span>
+                  <span>{t("Invoice discount")}</span>
                   <strong>- {money(calculations.invoiceDiscount)}</strong>
                 </div>
                 <div>
@@ -1182,15 +1201,15 @@ function PurchasesPage() {
                   <strong>{money(calculations.igstAmount)}</strong>
                 </div>
                 <div>
-                  <span>Total GST</span>
+                  <span>{t("Total GST")}</span>
                   <strong>{money(calculations.gstAmount)}</strong>
                 </div>
                 <div>
-                  <span>Additional charges (including GST)</span>
+                  <span>{t("Additional charges (including GST)")}</span>
                   <strong>{money(calculations.expensesTotal + calculations.expensesGst)}</strong>
                 </div>
                 <div className="purchase-grand-total">
-                  <span>Invoice total</span>
+                  <span>{t("Invoice total")}</span>
                   <strong>{money(calculations.totalAmount)}</strong>
                 </div>
               </div>
@@ -1203,7 +1222,7 @@ function PurchasesPage() {
                 disabled={saving}
                 onClick={resetForm}
               >
-                Clear
+                {t("Clear")}
               </button>
 
               <button
@@ -1213,7 +1232,7 @@ function PurchasesPage() {
                   saving || products.length === 0 || suppliers.length === 0
                 }
               >
-                {saving ? "Saving..." : "Save purchase"}
+                {saving ? t("Saving...") : t("Save purchase")}
               </button>
             </div>
           </form>
@@ -1222,52 +1241,52 @@ function PurchasesPage() {
           <div className="purchase-card">
             <div className="purchase-section-heading">
               <div>
-                <h3>Supplier bills</h3>
-                <p>Open a bill to add its stock, pay the supplier or see the items.</p>
+                <h3>{t("Supplier bills")}</h3>
+                <p>{t("Open a bill to add its stock, pay the supplier or see the items.")}</p>
               </div>
             </div>
 
             <div className="purchase-filters">
               <input
                 type="search"
-                placeholder="Search supplier or bill number"
-                aria-label="Search purchases"
+                placeholder={t("Search supplier or bill number")}
+                aria-label={t("Search purchases")}
                 value={purchaseSearch}
                 onChange={(event) => {
                   setPurchaseSearch(event.target.value);
                   setPurchasePage(1);
                 }}
               />
-              <select value={purchaseStatus} aria-label="Filter purchase status" onChange={(event) => { setPurchaseStatus(event.target.value); setPurchasePage(1); }}>
-                <option value="ALL">All bills</option>
-                <option value="DRAFT">Waiting to arrive</option>
-                <option value="RECEIVED">Added to stock</option>
+              <select value={purchaseStatus} aria-label={t("Filter purchase status")} onChange={(event) => { setPurchaseStatus(event.target.value); setPurchasePage(1); }}>
+                <option value="ALL">{t("All bills")}</option>
+                <option value="DRAFT">{t("Waiting to arrive")}</option>
+                <option value="RECEIVED">{t("Added to stock")}</option>
               </select>
-              <select value={purchaseDateFilter} aria-label="Filter purchase date" onChange={(event) => { setPurchaseDateFilter(event.target.value); setPurchasePage(1); }}>
-                <option value="ALL">All dates</option>
-                <option value="TODAY">Today</option>
-                <option value="WEEK">Last 7 days</option>
-                <option value="MONTH">Last 30 days</option>
+              <select value={purchaseDateFilter} aria-label={t("Filter purchase date")} onChange={(event) => { setPurchaseDateFilter(event.target.value); setPurchasePage(1); }}>
+                <option value="ALL">{t("All dates")}</option>
+                <option value="TODAY">{t("Today")}</option>
+                <option value="WEEK">{t("Last 7 days")}</option>
+                <option value="MONTH">{t("Last 30 days")}</option>
               </select>
-              <button type="button" className="purchase-secondary-button" onClick={() => { setPurchaseSearch(""); setPurchaseStatus("ALL"); setPurchaseDateFilter("ALL"); setPurchasePage(1); }}>Clear</button>
+              <button type="button" className="purchase-secondary-button" onClick={() => { setPurchaseSearch(""); setPurchaseStatus("ALL"); setPurchaseDateFilter("ALL"); setPurchasePage(1); }}>{t("Clear")}</button>
             </div>
 
             {visiblePurchases.length === 0 ? (
               <div className="purchase-empty-state">
-                No supplier bills found. Use “+ New purchase” to add one.
+                {t("No supplier bills found. Use “+ New purchase” to add one.")}
               </div>
             ) : (
               <div className="purchase-table-scroll has-mobile-cards">
                 <table className="purchase-table desktop-table">
                   <thead>
                     <tr>
-                      <th>Our no.</th>
-                      <th>Bill date</th>
-                      <th>Supplier</th>
-                      <th>Supplier bill no.</th>
-                      <th>Status</th>
-                      <th>Total</th>
-                      <th><span className="visually-hidden">Actions</span></th>
+                      <th>{t("Our no.")}</th>
+                      <th>{t("Bill date")}</th>
+                      <th>{t("Supplier")}</th>
+                      <th>{t("Supplier bill no.")}</th>
+                      <th>{t("Status")}</th>
+                      <th className="num">{t("Total")}</th>
+                      <th><span className="visually-hidden">{t("Actions")}</span></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1279,7 +1298,7 @@ function PurchasesPage() {
                         <td>{formatDate(purchase.purchaseDate)}</td>
                         <td>
                           {purchase.supplierName ||
-                            `Supplier #${purchase.supplierId}`}
+                            t("Supplier #{id}", { id: purchase.supplierId })}
                         </td>
                         <td>{purchase.supplierInvoiceNumber || "—"}</td>
                         <td>
@@ -1288,31 +1307,31 @@ function PurchasesPage() {
                               {label(purchase.paymentStatus)}
                             </span>
                           ) : (
-                            <span className="purchase-status">Waiting to arrive</span>
+                            <span className="purchase-status">{t("Waiting to arrive")}</span>
                           )}
                         </td>
-                        <td>
+                        <td className="num">
                           {money(purchase.totalAmount)}
                           {purchase.status === "RECEIVED"
                             && Number(purchase.balanceDue) > 0
                             && Number(purchase.balanceDue) < Number(purchase.totalAmount) && (
-                            <span className="amount-due">{money(purchase.balanceDue)} to pay</span>
+                            <span className="amount-due">{t("{amount} to pay", { amount: money(purchase.balanceDue) })}</span>
                           )}
                         </td>
                         <td>
                           <div className="purchase-action-group">
-                            <button type="button" className="purchase-secondary-button" onClick={() => setDetailsPurchase(purchase)}>View</button>
+                            <button type="button" className="purchase-secondary-button" onClick={() => setDetailsPurchase(purchase)}>{t("View")}</button>
                             {canManagePurchases && purchase.status === "DRAFT" ? (
                               <>
                                 <button type="button" className="purchase-secondary-button" onClick={() => openEditPurchaseForm(purchase)}>
-                                  Edit
+                                  {t("Edit")}
                                 </button>
                                 <button type="button" className="purchase-primary-button" disabled={receivingId !== null} onClick={() => setPurchaseToReceive(purchase)}>
-                                  {receivingId === purchase.id ? "Adding..." : "Add to stock"}
+                                  {receivingId === purchase.id ? t("Adding...") : t("Add to stock")}
                                 </button>
                               </>
                             ) : canManagePurchases ? (
-                              <button type="button" className="purchase-secondary-button" onClick={() => openPaymentPanel(purchase)}>Pay</button>
+                              <button type="button" className="purchase-secondary-button" onClick={() => openPaymentPanel(purchase)}>{t("Pay")}</button>
                             ) : null}
                           </div>
                         </td>
@@ -1331,7 +1350,7 @@ function PurchasesPage() {
                     >
                       <span className="mobile-card__row">
                         <span className="mobile-card__title">
-                          {purchase.supplierName || `Supplier #${purchase.supplierId}`}
+                          {purchase.supplierName || t("Supplier #{id}", { id: purchase.supplierId })}
                         </span>
                         <span className="mobile-card__amount">{money(purchase.totalAmount)}</span>
                       </span>
@@ -1344,7 +1363,7 @@ function PurchasesPage() {
                             {label(purchase.paymentStatus)}
                           </span>
                         ) : (
-                          <span className="purchase-status">Waiting to arrive</span>
+                          <span className="purchase-status">{t("Waiting to arrive")}</span>
                         )}
                       </span>
                     </button>
@@ -1353,8 +1372,8 @@ function PurchasesPage() {
               </div>
             )}
             <div className="purchase-pagination">
-              <span>Showing {filteredPurchases.length ? (purchasePage - 1) * PAGE_SIZE + 1 : 0}–{Math.min(purchasePage * PAGE_SIZE, filteredPurchases.length)} of {filteredPurchases.length}</span>
-              <div><button type="button" disabled={purchasePage <= 1} onClick={() => setPurchasePage((current) => current - 1)}>Previous</button><strong>Page {purchasePage} of {purchasePageCount}</strong><button type="button" disabled={purchasePage >= purchasePageCount} onClick={() => setPurchasePage((current) => current + 1)}>Next</button></div>
+              <span>{t("Showing {from}–{to} of {total}", { from: filteredPurchases.length ? (purchasePage - 1) * PAGE_SIZE + 1 : 0, to: Math.min(purchasePage * PAGE_SIZE, filteredPurchases.length), total: filteredPurchases.length })}</span>
+              <div><button type="button" disabled={purchasePage <= 1} onClick={() => setPurchasePage((current) => current - 1)}>{t("Previous")}</button><strong>{t("Page {page} of {count}", { page: purchasePage, count: purchasePageCount })}</strong><button type="button" disabled={purchasePage >= purchasePageCount} onClick={() => setPurchasePage((current) => current + 1)}>{t("Next")}</button></div>
             </div>
           </div>
 
@@ -1363,11 +1382,11 @@ function PurchasesPage() {
             <div className="purchase-card payment-panel purchase-modal">
               <div className="purchase-section-heading">
                 <div>
-                  <h3>Supplier Payments</h3>
+                  <h3>{t("Supplier Payments")}</h3>
                   <p>
                     {paymentPurchase.purchaseNumber} ·{" "}
                     {paymentPurchase.supplierName ||
-                      `Supplier #${paymentPurchase.supplierId}`}
+                      t("Supplier #{id}", { id: paymentPurchase.supplierId })}
                   </p>
                 </div>
 
@@ -1381,12 +1400,12 @@ function PurchasesPage() {
                     setPaymentError("");
                   }}
                 >
-                  Close
+                  {t("Close")}
                 </button>
               </div>
 
               {paymentLoading ? (
-                <p>Loading payment details...</p>
+                <Skeleton label={t("Loading payment details...")} rows={3} />
               ) : (
                 <>
                   {paymentError && (
@@ -1401,15 +1420,15 @@ function PurchasesPage() {
                   {paymentBalance && (
                     <div className="payment-balance-grid">
                       <div>
-                        <span>Purchase total</span>
+                        <span>{t("Purchase total")}</span>
                         <strong>{money(paymentBalance.purchaseTotal)}</strong>
                       </div>
                       <div>
-                        <span>Total paid</span>
+                        <span>{t("Total paid")}</span>
                         <strong>{money(paymentBalance.totalPaid)}</strong>
                       </div>
                       <div>
-                        <span>Still to pay</span>
+                        <span>{t("Still to pay")}</span>
                         <strong>
                           {money(paymentBalance.outstandingBalance)}
                         </strong>
@@ -1421,11 +1440,11 @@ function PurchasesPage() {
                     className="payment-form"
                     onSubmit={handleRecordPayment}
                   >
-                    <h4>Record Supplier Payment</h4>
+                    <h4>{t("Record Supplier Payment")}</h4>
 
                     <div className="purchase-form-grid">
                       <label>
-                        Payment date *
+                        {t("Payment date")} *
                         <input
                           type="date"
                           value={paymentDate}
@@ -1435,10 +1454,13 @@ function PurchasesPage() {
                           }
                           required
                         />
+                        {backdateWarning(paymentDate) && (
+                          <small className="purchase-backdate-warning">{backdateWarning(paymentDate)}</small>
+                        )}
                       </label>
 
                       <label>
-                        Amount (₹) *
+                        {t("Amount (₹)")} *
                         <input
                           type="number"
                           min="0.01"
@@ -1453,7 +1475,7 @@ function PurchasesPage() {
                       </label>
 
                       <label>
-                        Payment method *
+                        {t("Payment method")} *
                         <select
                           value={paymentMethod}
                           onChange={(event) =>
@@ -1461,36 +1483,36 @@ function PurchasesPage() {
                           }
                           required
                         >
-                          <option value="CASH">Cash</option>
+                          <option value="CASH">{t("Cash")}</option>
                           <option value="UPI">UPI</option>
-                          <option value="BANK_TRANSFER">Bank transfer</option>
-                          <option value="CHEQUE">Cheque</option>
-                          <option value="CARD">Card</option>
-                          <option value="OTHER">Other</option>
+                          <option value="BANK_TRANSFER">{t("Bank transfer")}</option>
+                          <option value="CHEQUE">{t("Cheque")}</option>
+                          <option value="CARD">{t("Card")}</option>
+                          <option value="OTHER">{t("Other")}</option>
                         </select>
                       </label>
 
                       <label>
-                        Reference number
+                        {t("Reference number")}
                         <input
                           value={paymentReference}
                           onChange={(event) =>
                             setPaymentReference(event.target.value)
                           }
                           maxLength={100}
-                          placeholder="Transaction or cheque number"
+                          placeholder={t("Transaction or cheque number")}
                         />
                       </label>
 
                       <label className="purchase-wide-field">
-                        Notes
+                        {t("Notes")}
                         <textarea
                           rows={2}
                           value={paymentNotes}
                           onChange={(event) =>
                             setPaymentNotes(event.target.value)
                           }
-                          placeholder="Optional payment notes"
+                          placeholder={t("Optional payment notes")}
                         />
                       </label>
                     </div>
@@ -1504,33 +1526,41 @@ function PurchasesPage() {
                         Number(paymentBalance.outstandingBalance) <= 0
                       }
                     >
-                      {paymentSaving ? "Saving..." : "Save payment"}
+                      {paymentSaving ? t("Saving...") : t("Save payment")}
                     </button>
                   </form>
 
                   <div className="payment-history">
-                    <h4>Payment History</h4>
+                    <h4>{t("Payment History")}</h4>
 
                     {paymentHistory.length === 0 ? (
-                      <p>No payments recorded for this purchase yet.</p>
+                      <p>{t("No payments recorded for this purchase yet.")}</p>
                     ) : (
                       <div className="purchase-table-scroll">
                         <table className="purchase-table">
                           <thead>
                             <tr>
-                              <th>Date</th>
-                              <th>Amount</th>
-                              <th>Method</th>
-                              <th>Reference</th>
+                              <th>{t("Date")}</th>
+                              <th className="num">{t("Amount")}</th>
+                              <th>{t("Method")}</th>
+                              <th>{t("Reference")}</th>
+                              {canFixPayments && <th><span className="visually-hidden">{t("Actions")}</span></th>}
                             </tr>
                           </thead>
                           <tbody>
                             {paymentHistory.map((payment) => (
                               <tr key={payment.id}>
                                 <td>{formatDate(payment.paymentDate)}</td>
-                                <td>{money(payment.amount)}</td>
+                                <td className="num">{money(payment.amount)}</td>
                                 <td>{label(payment.paymentMethod)}</td>
                                 <td>{payment.referenceNumber || "—"}</td>
+                                {canFixPayments && (
+                                  <td>
+                                    <button type="button" className="purchase-payment-fix" onClick={() => setFixingPayment(payment)}>
+                                      {t("Change method")}
+                                    </button>
+                                  </td>
+                                )}
                               </tr>
                             ))}
                           </tbody>
@@ -1550,34 +1580,34 @@ function PurchasesPage() {
         <div className="purchase-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setDetailsPurchase(null)}>
           <section className="purchase-modal purchase-details-modal" role="dialog" aria-modal="true" aria-labelledby="purchase-details-title">
             <div className="purchase-section-heading">
-              <div><h2 id="purchase-details-title">Purchase {detailsPurchase.purchaseNumber}</h2><p>{detailsPurchase.supplierName || `Supplier #${detailsPurchase.supplierId}`} · {formatDate(detailsPurchase.purchaseDate)}</p></div>
-              <button type="button" className="purchase-secondary-button" onClick={() => setDetailsPurchase(null)}>Close</button>
+              <div><h2 id="purchase-details-title">{t("Purchase {number}", { number: detailsPurchase.purchaseNumber })}</h2><p>{detailsPurchase.supplierName || t("Supplier #{id}", { id: detailsPurchase.supplierId })} · {formatDate(detailsPurchase.purchaseDate)}</p></div>
+              <button type="button" className="purchase-secondary-button" onClick={() => setDetailsPurchase(null)}>{t("Close")}</button>
             </div>
             <div className="purchase-detail-grid">
-              <div><span>Status</span><strong>{detailsPurchase.status === "RECEIVED" ? "Added to stock" : "Waiting to arrive"}</strong></div>
-              <div><span>Supplier invoice</span><strong>{detailsPurchase.supplierInvoiceNumber || "—"}</strong></div>
-              <div><span>Subtotal</span><strong>{money(detailsPurchase.subtotal)}</strong></div>
-              <div><span>Discount</span><strong>{money(detailsPurchase.discountAmount)}</strong></div>
-              <div><span>Supplier location</span><strong>{detailsPurchase.taxType === "IGST" ? "Other state (IGST)" : "Same state (CGST + SGST)"}</strong></div>
+              <div><span>{t("Status")}</span><strong>{detailsPurchase.status === "RECEIVED" ? t("Added to stock") : t("Waiting to arrive")}</strong></div>
+              <div><span>{t("Supplier invoice")}</span><strong>{detailsPurchase.supplierInvoiceNumber || "—"}</strong></div>
+              <div><span>{t("Subtotal")}</span><strong>{money(detailsPurchase.subtotal)}</strong></div>
+              <div><span>{t("Discount")}</span><strong>{money(detailsPurchase.discountAmount)}</strong></div>
+              <div><span>{t("Supplier location")}</span><strong>{detailsPurchase.taxType === "IGST" ? t("Other state (IGST)") : t("Same state (CGST + SGST)")}</strong></div>
               <div><span>CGST</span><strong>{money(detailsPurchase.cgstAmount)}</strong></div>
               <div><span>SGST</span><strong>{money(detailsPurchase.sgstAmount)}</strong></div>
               <div><span>IGST</span><strong>{money(detailsPurchase.igstAmount)}</strong></div>
-               <div><span>Total GST</span><strong>{money(detailsPurchase.gstAmount)}</strong></div>
-               <div><span>Additional charges (including GST)</span><strong>{money(
+               <div><span>{t("Total GST")}</span><strong>{money(detailsPurchase.gstAmount)}</strong></div>
+               <div><span>{t("Additional charges (including GST)")}</span><strong>{money(
                  (detailsPurchase.expensesTotal
                    || detailsPurchase.expenses?.reduce((sum, expense) => sum + Number(expense.amount || 0), 0)
                    || 0) + Number(detailsPurchase.expenseGstAmount || 0)
                )}</strong></div>
-              <div><span>Total</span><strong>{money(detailsPurchase.totalAmount)}</strong></div>
+              <div><span>{t("Total")}</span><strong>{money(detailsPurchase.totalAmount)}</strong></div>
             </div>
             <div className="purchase-detail-items">
-              <h3>Items</h3>
+              <h3>{t("Items")}</h3>
               {detailsPurchase.items?.map((item) => <div className="purchase-detail-item" key={item.id}><span>{item.productName}<small>{item.productCode}</small></span><span>{item.quantity} × {money(item.purchaseRate)}</span><strong>{money(item.lineTotal)}</strong></div>)}
               {detailsPurchase.expenses?.map((expense) => <div className="purchase-detail-item" key={`expense-${expense.id}`}><span>{expense.description}</span><strong>{money(expense.amount)}</strong></div>)}
             </div>
             <div className="purchase-form-actions">
-              {canManagePurchases && detailsPurchase.status === "DRAFT" && <><button type="button" className="purchase-secondary-button" onClick={() => openEditPurchaseForm(detailsPurchase)}>Edit purchase</button><button type="button" className="purchase-primary-button" onClick={() => { setDetailsPurchase(null); setPurchaseToReceive(detailsPurchase); }}>Add to stock</button></>}
-              {canManagePurchases && detailsPurchase.status === "RECEIVED" && <button type="button" className="purchase-secondary-button" onClick={() => { setDetailsPurchase(null); openPaymentPanel(detailsPurchase); }}>Open payments</button>}
+              {canManagePurchases && detailsPurchase.status === "DRAFT" && <><button type="button" className="purchase-secondary-button" onClick={() => openEditPurchaseForm(detailsPurchase)}>{t("Edit purchase")}</button><button type="button" className="purchase-primary-button" onClick={() => { setDetailsPurchase(null); setPurchaseToReceive(detailsPurchase); }}>{t("Add to stock")}</button></>}
+              {canManagePurchases && detailsPurchase.status === "RECEIVED" && <button type="button" className="purchase-secondary-button" onClick={() => { setDetailsPurchase(null); openPaymentPanel(detailsPurchase); }}>{t("Open payments")}</button>}
             </div>
           </section>
         </div>
@@ -1609,13 +1639,13 @@ function PurchasesPage() {
           >
             <div className="purchase-confirm-icon" aria-hidden="true">!</div>
             <div>
-              <h2 id="receive-purchase-title">Add these goods to stock?</h2>
+              <h2 id="receive-purchase-title">{t("Add these goods to stock?")}</h2>
               <p className="purchase-confirm-message">
-                The items on purchase <strong>{purchaseToReceive.purchaseNumber}</strong> will
-                be added to your stock.
+                {t("The items on purchase")} <strong>{purchaseToReceive.purchaseNumber}</strong>{" "}
+                {t("will be added to your stock.")}
               </p>
               <p className="purchase-confirm-note">
-                Do this once the goods have arrived. It can&apos;t be undone.
+                {t("Do this once the goods have arrived. It can't be undone.")}
               </p>
             </div>
             <div className="purchase-form-actions purchase-confirm-actions">
@@ -1625,7 +1655,7 @@ function PurchasesPage() {
                 disabled={receivingId !== null}
                 onClick={() => setPurchaseToReceive(null)}
               >
-                Cancel
+                {t("Cancel")}
               </button>
               <button
                 type="button"
@@ -1637,7 +1667,7 @@ function PurchasesPage() {
                   handleReceivePurchase(purchase);
                 }}
               >
-                {receivingId !== null ? "Adding..." : "Add to stock"}
+                {receivingId !== null ? t("Adding...") : t("Add to stock")}
               </button>
             </div>
           </section>

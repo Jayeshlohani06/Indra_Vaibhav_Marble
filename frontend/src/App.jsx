@@ -17,6 +17,11 @@ const UserManagementPage = lazy(() => import("./features/users/UserManagementPag
 import { getCurrentUser, logout } from "./services/api/authApi";
 import { PermissionsProvider } from "./auth/PermissionsContext";
 import { label } from "./utils/format";
+import { getLanguage, setLanguage, t } from "./i18n";
+import LanguageToggle from "./i18n/LanguageToggle";
+import ThemeToggle from "./components/ThemeToggle";
+import Skeleton from "./components/Skeleton";
+import { getTheme, setTheme } from "./utils/theme";
 
 import "./App.css";
 
@@ -120,6 +125,17 @@ function App() {
   });
   const [currentPage, setCurrentPage] = useState(getCurrentPage);
   const [moreOpen, setMoreOpen] = useState(false);
+  // Changing the language redraws the whole app in that language.
+  const [language, setLanguageState] = useState(getLanguage);
+  const changeLanguage = useCallback((next) => {
+    setLanguage(next);
+    setLanguageState(next);
+  }, []);
+  const [theme, setThemeState] = useState(getTheme);
+  const changeTheme = useCallback((next) => {
+    setTheme(next);
+    setThemeState(next);
+  }, []);
 
   useEffect(() => {
     function handleHashChange() {
@@ -220,10 +236,10 @@ function App() {
   }, [session, currentPage, canAccessPage]);
 
   if (!session) {
-    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+    return <LoginPage key={language} onLoginSuccess={handleLoginSuccess} onLanguageChange={changeLanguage} theme={theme} onThemeChange={changeTheme} />;
   }
 
-  const currentTitle = PAGE_TITLES[currentPage] || PAGE_TITLES.dashboard;
+  const currentTitle = t(PAGE_TITLES[currentPage] || PAGE_TITLES.dashboard);
   const navItems = NAV_ITEMS.filter((item) => canAccessPage(item.page));
   const mobileTabs = navItems.filter((item) => MOBILE_TABS.includes(item.page));
   const moreItems = navItems.filter((item) => !MOBILE_TABS.includes(item.page));
@@ -242,7 +258,7 @@ function App() {
           </div>
         </a>
 
-        <nav className="erp-nav" aria-label="Main menu">
+        <nav className="erp-nav" aria-label={t("Main menu")}>
           {navItems.map((item) => (
             <a
               key={item.page}
@@ -251,14 +267,14 @@ function App() {
               aria-current={currentPage === item.page ? "page" : undefined}
             >
               <NavIcon name={item.page} />
-              <span>{item.label}</span>
+              <span>{t(item.label)}</span>
             </a>
           ))}
         </nav>
       </aside>
 
       {/* Bottom tabs (phones) */}
-      <nav className="erp-bottom-nav" aria-label="Main menu">
+      <nav className="erp-bottom-nav" aria-label={t("Main menu")}>
         {mobileTabs.map((item) => (
           <a
             key={item.page}
@@ -268,7 +284,7 @@ function App() {
             onClick={() => setMoreOpen(false)}
           >
             <NavIcon name={item.page} />
-            <span>{item.shortLabel || item.label}</span>
+            <span>{t(item.shortLabel || item.label)}</span>
           </a>
         ))}
         {moreItems.length > 0 && (
@@ -279,7 +295,7 @@ function App() {
             onClick={() => setMoreOpen((open) => !open)}
           >
             <NavIcon name="more" />
-            <span>More</span>
+            <span>{t("More")}</span>
           </button>
         )}
       </nav>
@@ -289,7 +305,7 @@ function App() {
           <div
             className="erp-more-sheet"
             role="dialog"
-            aria-label="More pages"
+            aria-label={t("More pages")}
             onClick={(event) => event.stopPropagation()}
           >
             {moreItems.map((item) => (
@@ -300,11 +316,11 @@ function App() {
                 onClick={() => setMoreOpen(false)}
               >
                 <NavIcon name={item.page} />
-                <span>{item.label}</span>
+                <span>{t(item.label)}</span>
               </a>
             ))}
             <button type="button" className="erp-more-logout" onClick={handleLogout}>
-              Log out
+              {t("Log out")}
             </button>
           </div>
         </div>
@@ -325,11 +341,13 @@ function App() {
             </div>
 
             <div>
-              <strong>{session.fullName || session.name || "User"}</strong>
-              <span>{(session.roles || []).map(label).join(", ") || "User"}</span>
+              <strong>{session.fullName || session.name || t("User")}</strong>
+              <span>{(session.roles || []).map(label).join(", ") || t("User")}</span>
             </div>
+            <ThemeToggle theme={theme} onChange={changeTheme} className="erp-theme-toggle" />
+            <LanguageToggle onChange={changeLanguage} className="erp-language-toggle" />
             <button type="button" className="erp-logout-button" onClick={handleLogout}>
-              Log out
+              {t("Log out")}
             </button>
           </div>
         </header>
@@ -337,7 +355,7 @@ function App() {
         {/* Page Content */}
         <main className="erp-content">
           <PermissionsProvider permissions={session.permissions}>
-          <Suspense fallback={<p className="erp-page-loading">Loading…</p>}>
+          <Suspense fallback={<Skeleton label={t("Loading…")} rows={6} />}>
           {currentPage === "inventory" ? (
             <InventoryPage />
           ) : currentPage === "customers" ? (

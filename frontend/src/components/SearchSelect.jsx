@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import "./SearchSelect.css";
+import { t } from "../i18n";
 
 /**
  * A select box you can type into to filter long lists.
@@ -10,10 +11,10 @@ export default function SearchSelect({
   options,
   value,
   onChange,
-  placeholder = "Type to search",
+  placeholder = t("Type to search"),
   required = false,
   disabled = false,
-  emptyText = "No matches",
+  emptyText = t("No matches"),
 }) {
   const generatedId = useId();
   const inputId = id || generatedId;
@@ -37,7 +38,7 @@ export default function SearchSelect({
   // Tell the browser's form validation when a required choice is missing.
   useEffect(() => {
     inputRef.current?.setCustomValidity(
-      required && !selected ? "Please choose an option from the list." : ""
+      required && !selected ? t("Please choose an option from the list.") : ""
     );
   }, [required, selected]);
 
